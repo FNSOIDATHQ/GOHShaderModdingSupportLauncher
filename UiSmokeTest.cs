@@ -248,6 +248,40 @@ internal static class UiSmokeTest
             window.ClearCacheWork();
             if (Directory.Exists(window.universalVars.cacheLoc))
                 throw new InvalidOperationException("Shader cache tool failed.");
+            var manualGameRoot = Directory.CreateDirectory(Path.Combine(fixture, "manual-game"));
+            var manualGame = Directory.CreateDirectory(Path.Combine(manualGameRoot.FullName, "binaries", "x64"));
+            Directory.CreateDirectory(Path.Combine(manualGameRoot.FullName, "resource"));
+            File.WriteAllText(Path.Combine(manualGame.FullName, "call_to_arms.exe"), "fixture");
+            var manualProfile = Directory.CreateDirectory(Path.Combine(fixture, "manual-profile"));
+            var manualAccount = Directory.CreateDirectory(Path.Combine(manualProfile.FullName, "profiles", "account"));
+            File.WriteAllText(Path.Combine(manualAccount.FullName, "options.set"), "{mods\n}\n");
+            var originalDirectory = Environment.CurrentDirectory;
+            try
+            {
+                if (!window.TrySetManualGameDirectory(manualGame.FullName) ||
+                    !window.TrySetManualProfileDirectory(manualProfile.FullName) ||
+                    window.TrySetManualGameDirectory(fixture) ||
+                    window.TrySetManualProfileDirectory(fixture))
+                    throw new InvalidOperationException("Manual path validation rejected a valid folder or accepted an invalid one.");
+                var savedPaths = FileManager.ReadSettings(settingsPath);
+                if (savedPaths.Length != 16 || savedPaths[^2] != manualGame.FullName ||
+                    savedPaths[^1] != manualProfile.FullName ||
+                    window.universalVars.gameDir?.FullName != manualGame.FullName ||
+                    window.universalVars.profileLoc != manualProfile.FullName)
+                    throw new InvalidOperationException("A rejected manual path replaced the saved game or profile folder.");
+                savedPaths[8] = bool.TrueString;
+                FileManager.WriteSettings(settingsPath, savedPaths);
+                var reopened = new MainWindow(settingsPath);
+                reopened.LoadConfigFromFile();
+                if (!reopened.universalVars.AlwaysConfirm ||
+                    reopened.universalVars.gameDir?.FullName != manualGame.FullName ||
+                    reopened.universalVars.profileLoc != manualProfile.FullName)
+                    throw new InvalidOperationException("Restart ignored a valid manual path when confirmation was enabled.");
+            }
+            finally
+            {
+                Environment.CurrentDirectory = originalDirectory;
+            }
             AppDiagnostics.Log("Desktop UI self-test passed: six pages, two languages, mod load/unload/reorder and column sorting, left converter tabs, matching translucent title bar and sidebar, fitted background, resource restore, and cache cleanup.");
             return 0;
         }

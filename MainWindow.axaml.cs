@@ -24,6 +24,7 @@ namespace GOHShaderModdingSupportLauncher
     public partial class MainWindow : Window
     {
         private bool HasGetGameRoot, HasGetProfileLoc;
+        private bool openSettingsOnStartup;
         private readonly UserControl?[] pages = new UserControl?[6];
         private bool initialized;
         private readonly string settingsPath;
@@ -200,7 +201,8 @@ namespace GOHShaderModdingSupportLauncher
             {
                 if (!await InitBasicDataAsync()) { Close(); return; }
                 languageSelector.IsEnabled = true;
-                primaryNavigation.SelectedIndex = 0;
+                if (openSettingsOnStartup) footerNavigation.SelectedIndex = 0;
+                else primaryNavigation.SelectedIndex = 0;
                 AppDiagnostics.Log("Main window rendered.");
             }
             catch (Exception ex)
@@ -221,6 +223,7 @@ namespace GOHShaderModdingSupportLauncher
 
             AppDiagnostics.Log("Loading settings.");
             LoadConfigFromFile();
+            bool usingCachedGamePath = HasGetGameRoot;
 
             if (HasGetProfileLoc == false)
             {
@@ -234,6 +237,14 @@ namespace GOHShaderModdingSupportLauncher
                 if (!await GetGameRootAsync()) return false;
             }
 
+            if (usingCachedGamePath && universalVars.AlwaysConfirm &&
+                await MessageBox.ConfirmAsync(this,
+                    $"{i18n.S_ConfirmSavedGamePath}\n\n{universalVars.gameDir}",
+                    i18n.Main_MaunalCheck) != MessageBoxResult.Yes)
+            {
+                openSettingsOnStartup = true;
+            }
+
             AppDiagnostics.Log("Scanning mods.");
             RefreshMods();
 
@@ -242,7 +253,7 @@ namespace GOHShaderModdingSupportLauncher
             return true;
         }
 
-        private void LoadConfigFromFile()
+        internal void LoadConfigFromFile()
         {
             SetDefaultSettings();
             universalVars.configLoc = settingsPath;
@@ -275,7 +286,7 @@ namespace GOHShaderModdingSupportLauncher
             universalVars.lastCacheHash = lines[11];
             universalVars.lastShaderHash = lines[12];
 
-            if (lines.Length is not (15 or 16) || universalVars.AlwaysConfirm) return;
+            if (lines.Length is not (15 or 16)) return;
             int pathIndex = lines.Length - 2;
 
             try { HasGetGameRoot = TrySetGameDirectory(lines[pathIndex]); }
@@ -329,6 +340,22 @@ namespace GOHShaderModdingSupportLauncher
             universalVars.cacheLoc = Path.Combine(path, "shader_cache");
             universalVars.optionLoc = options;
 
+            return true;
+        }
+
+        internal bool TrySetManualGameDirectory(string path)
+        {
+            if (!TrySetGameDirectory(path)) return false;
+            HasGetGameRoot = true;
+            SaveSettings();
+            return true;
+        }
+
+        internal bool TrySetManualProfileDirectory(string path)
+        {
+            if (!TrySetProfileDirectory(path)) return false;
+            HasGetProfileLoc = true;
+            SaveSettings();
             return true;
         }
 

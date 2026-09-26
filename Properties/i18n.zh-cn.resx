@@ -252,6 +252,18 @@
   <data name="S_GamePath" xml:space="preserve">
     <value>游戏路径：</value>
   </data>
+  <data name="S_Browse" xml:space="preserve">
+    <value>浏览...</value>
+  </data>
+  <data name="S_ConfirmSavedGamePath" xml:space="preserve">
+    <value>保存的游戏路径是否正确？选择“否”将打开设置页面以修改路径。</value>
+  </data>
+  <data name="S_InvalidGamePath" xml:space="preserve">
+    <value>所选文件夹不是有效的游戏路径。请选择包含 call_to_arms.exe 的 binaries\x64 文件夹，且游戏目录中须有 resource 文件夹。之前的路径仍在使用。</value>
+  </data>
+  <data name="S_InvalidProfilePath" xml:space="preserve">
+    <value>所选文件夹不是有效的游戏配置路径。请选择包含 profiles\账号文件夹\options.set 的游戏配置文件夹。之前的路径仍在使用。</value>
+  </data>
   <data name="S_GamePathTemplate" xml:space="preserve">
     <value>未成功获取，请手动输入</value>
   </data>

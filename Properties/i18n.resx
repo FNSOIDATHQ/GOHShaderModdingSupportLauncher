@@ -252,6 +252,18 @@
   <data name="S_GamePath" xml:space="preserve">
     <value>Game Path: </value>
   </data>
+  <data name="S_Browse" xml:space="preserve">
+    <value>Browse...</value>
+  </data>
+  <data name="S_ConfirmSavedGamePath" xml:space="preserve">
+    <value>Is this saved game path correct? Select No to open Settings and change it.</value>
+  </data>
+  <data name="S_InvalidGamePath" xml:space="preserve">
+    <value>This is not a valid game path. Select the game's binaries\x64 folder containing call_to_arms.exe; the game folder must also contain resource. The previous path remains in use.</value>
+  </data>
+  <data name="S_InvalidProfilePath" xml:space="preserve">
+    <value>This is not a valid game configuration path. Select the folder containing profiles\account folder\options.set. The previous path remains in use.</value>
+  </data>
   <data name="S_GamePathTemplate" xml:space="preserve">
     <value>Unable to retrieve, please enter manually</value>
   </data>

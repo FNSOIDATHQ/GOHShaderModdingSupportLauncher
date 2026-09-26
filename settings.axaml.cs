@@ -1,8 +1,11 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
+using GOHShaderModdingSupportLauncher.Properties;
 
 
 namespace GOHShaderModdingSupportLauncher
@@ -43,30 +46,87 @@ namespace GOHShaderModdingSupportLauncher
 
         private void gamePath_LostFocus(object sender, RoutedEventArgs e)
         {
-            main.universalVars.gameDir = new DirectoryInfo(gamePath.Text);
-            DirectoryInfo[] searchResult = main.universalVars.gameDir.GetDirectories("../../resource");
-            if (searchResult.Length > 0)
+            SetGamePath(gamePath.Text);
+        }
+
+        private void SetGamePath(string? path)
+        {
+            if (string.Equals(path, main.universalVars.gameDir?.FullName, StringComparison.OrdinalIgnoreCase)) return;
+
+            try
             {
-                main.universalVars.resourceDir = searchResult[0];
-                //MessageBox.Show(resourceDir.FullName);
+                if (!string.IsNullOrWhiteSpace(path) && main.TrySetManualGameDirectory(path))
+                {
+                    gamePath.Text = main.universalVars.gameDir!.FullName;
+                    return;
+                }
             }
+            catch (Exception ex) when (FileManager.IsFileError(ex))
+            {
+                AppDiagnostics.Log("Unable to use selected game directory.", ex);
+            }
+
+            gamePath.Text = main.universalVars.gameDir?.FullName ?? "";
+            MessageBox.Show(i18n.S_InvalidGamePath, i18n.Universal_Warning,
+                MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
         private void gameConfigPath_LostFocus(object sender, RoutedEventArgs e)
         {
-            main.universalVars.profileLoc = gameConfigPath.Text;
-            main.universalVars.cacheLoc = main.universalVars.profileLoc + "\\shader_cache";
-            main.universalVars.optionLoc = main.universalVars.profileLoc + "\\profiles";
+            SetGameConfigPath(gameConfigPath.Text);
+        }
 
-            if (Directory.Exists(main.universalVars.optionLoc) == true)
+        private void SetGameConfigPath(string? path)
+        {
+            if (string.Equals(path, main.universalVars.profileLoc, StringComparison.OrdinalIgnoreCase)) return;
+
+            try
             {
-                string[] searchResult = Directory.GetDirectories(main.universalVars.optionLoc);
-                if (searchResult.Length > 0)
+                if (!string.IsNullOrWhiteSpace(path) && main.TrySetManualProfileDirectory(path))
                 {
-                    main.universalVars.optionLoc = searchResult[0] + @"\options.set";
-                    //MessageBox.Show(optionLoc);
+                    gameConfigPath.Text = main.universalVars.profileLoc;
+                    return;
                 }
             }
+            catch (Exception ex) when (FileManager.IsFileError(ex))
+            {
+                AppDiagnostics.Log("Unable to use selected game profile directory.", ex);
+            }
+
+            gameConfigPath.Text = main.universalVars.profileLoc;
+            MessageBox.Show(i18n.S_InvalidProfilePath, i18n.Universal_Warning,
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+
+        private async void browseGamePath_Click(object sender, RoutedEventArgs e)
+        {
+            string? path = await SelectFolderAsync(i18n.S_GamePath);
+            if (path == null) return;
+
+            gamePath.Text = path;
+            SetGamePath(path);
+        }
+
+        private async void browseGameConfigPath_Click(object sender, RoutedEventArgs e)
+        {
+            string? path = await SelectFolderAsync(i18n.S_GameConfigPath);
+            if (path == null) return;
+
+            gameConfigPath.Text = path;
+            SetGameConfigPath(path);
+        }
+
+        private async Task<string?> SelectFolderAsync(string title)
+        {
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel == null) return null;
+
+            var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                AllowMultiple = false,
+                Title = title
+            });
+            return folders.Count > 0 ? folders[0].Path.LocalPath : null;
         }
 
         private void pathConfirm_Click(object sender, RoutedEventArgs e)

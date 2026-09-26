@@ -734,6 +734,15 @@ namespace GOHShaderModdingSupportLauncher.Properties {
         }
         
         /// <summary>
+        ///   查找类似 Browse... 的本地化字符串。
+        /// </summary>
+        public static string S_Browse {
+            get {
+                return ResourceManager.GetString("S_Browse", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   查找类似 Clear Shader Cache 的本地化字符串。
         /// </summary>
         public static string S_Clear {
@@ -751,6 +760,15 @@ namespace GOHShaderModdingSupportLauncher.Properties {
             }
         }
         
+        /// <summary>
+        ///   查找类似 Is this saved game path correct? 的本地化字符串。
+        /// </summary>
+        public static string S_ConfirmSavedGamePath {
+            get {
+                return ResourceManager.GetString("S_ConfirmSavedGamePath", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   查找类似 Game Configuration File Path:  的本地化字符串。
         /// </summary>
@@ -805,6 +823,24 @@ namespace GOHShaderModdingSupportLauncher.Properties {
             }
         }
         
+        /// <summary>
+        ///   查找类似 This is not a valid game path. 的本地化字符串。
+        /// </summary>
+        public static string S_InvalidGamePath {
+            get {
+                return ResourceManager.GetString("S_InvalidGamePath", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 This is not a valid game configuration path. 的本地化字符串。
+        /// </summary>
+        public static string S_InvalidProfilePath {
+            get {
+                return ResourceManager.GetString("S_InvalidProfilePath", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   查找类似 Lock activated mod list 的本地化字符串。
         /// </summary>

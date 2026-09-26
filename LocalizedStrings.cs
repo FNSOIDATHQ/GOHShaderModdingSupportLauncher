@@ -44,6 +44,7 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
         nameof(S_AfterGame),
         nameof(S_AutoLoadCache),
         nameof(S_BeforeLaunch),
+        nameof(S_Browse),
         nameof(S_Clear),
         nameof(S_CompileWarning),
         nameof(S_GameConfigPath),
@@ -109,6 +110,7 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
     public string S_AfterGame => this[nameof(S_AfterGame)];
     public string S_AutoLoadCache => this[nameof(S_AutoLoadCache)];
     public string S_BeforeLaunch => this[nameof(S_BeforeLaunch)];
+    public string S_Browse => this[nameof(S_Browse)];
     public string S_Clear => this[nameof(S_Clear)];
     public string S_CompileWarning => this[nameof(S_CompileWarning)];
     public string S_GameConfigPath => this[nameof(S_GameConfigPath)];
