@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Reflection;
@@ -25,6 +26,7 @@ namespace GOHShaderModdingSupportLauncher
         private bool HasGetGameRoot, HasGetProfileLoc;
         private readonly UserControl?[] pages = new UserControl?[6];
         private bool initialized;
+        private readonly string settingsPath;
 
         //universal vars
         public class UniversalVars
@@ -92,8 +94,12 @@ namespace GOHShaderModdingSupportLauncher
         }
         public ModManagerVars modManagerVars;
 
-        public MainWindow()
+        public MainWindow() : this(FileManager.SettingsPath) { }
+
+        internal MainWindow(string settingsPath)
         {
+            this.settingsPath = settingsPath;
+            LocalizedStrings.Instance.SetCulture(LoadSavedLanguage(settingsPath));
             AppDiagnostics.Log("Loading main window XAML.");
             InitializeComponent();
             universalVars = new UniversalVars();
@@ -101,12 +107,37 @@ namespace GOHShaderModdingSupportLauncher
             settingsVars = new SettingsVars();
             toolsVars = new ToolsVars();
             modManagerVars = new ModManagerVars();
+            languageSelector.SelectedIndex = LocalizedStrings.Instance.Culture.Name == "zh-CN" ? 1 : 0;
+            languageSelector.IsEnabled = false;
             PropertyChanged += (_, change) =>
             {
                 if (change.Property == WindowStateProperty) UpdateWindowChrome();
             };
             UpdateWindowChrome();
             Opened += OnOpened;
+        }
+
+        private static string SettingsSource(string path) =>
+            File.Exists(path) ? path : Path.Combine(AppContext.BaseDirectory, "settings.conf");
+
+        private static CultureInfo LoadSavedLanguage(string path)
+        {
+            var fallback = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "zh"
+                ? CultureInfo.GetCultureInfo("zh-CN")
+                : CultureInfo.GetCultureInfo("en-US");
+            var source = SettingsSource(path);
+            if (!File.Exists(source)) return fallback;
+
+            try
+            {
+                var lines = FileManager.ReadSettings(source);
+                return lines.Length is 14 or 16 ? CultureInfo.GetCultureInfo(lines[FileManager.LanguageSettingIndex]) : fallback;
+            }
+            catch (Exception ex) when (FileManager.IsFileError(ex) || ex is FormatException)
+            {
+                AppDiagnostics.Log($"Ignoring invalid/unreadable language in settings: {source}", ex);
+                return fallback;
+            }
         }
 
         private void UpdateWindowChrome()
@@ -168,6 +199,7 @@ namespace GOHShaderModdingSupportLauncher
             try
             {
                 if (!await InitBasicDataAsync()) { Close(); return; }
+                languageSelector.IsEnabled = true;
                 primaryNavigation.SelectedIndex = 0;
                 AppDiagnostics.Log("Main window rendered.");
             }
@@ -213,11 +245,8 @@ namespace GOHShaderModdingSupportLauncher
         private void LoadConfigFromFile()
         {
             SetDefaultSettings();
-            universalVars.configLoc = FileManager.SettingsPath;
-
-            //temp fallback
-            string legacyPath = Path.Combine(AppContext.BaseDirectory, "settings.conf");
-            string source = File.Exists(universalVars.configLoc) ? universalVars.configLoc : legacyPath;
+            universalVars.configLoc = settingsPath;
+            string source = SettingsSource(settingsPath);
             if (!File.Exists(source)) return;
 
             string[] lines;
@@ -246,12 +275,13 @@ namespace GOHShaderModdingSupportLauncher
             universalVars.lastCacheHash = lines[11];
             universalVars.lastShaderHash = lines[12];
 
-            if (lines.Length != 15 || universalVars.AlwaysConfirm) return;
+            if (lines.Length is not (15 or 16) || universalVars.AlwaysConfirm) return;
+            int pathIndex = lines.Length - 2;
 
-            try { HasGetGameRoot = TrySetGameDirectory(lines[13]); }
+            try { HasGetGameRoot = TrySetGameDirectory(lines[pathIndex]); }
             catch (Exception ex) when (FileManager.IsFileError(ex)) { AppDiagnostics.Log("Cached game path is unavailable.", ex); }
 
-            try { HasGetProfileLoc = TrySetProfileDirectory(lines[14]); }
+            try { HasGetProfileLoc = TrySetProfileDirectory(lines[pathIndex + 1]); }
             catch (Exception ex) when (FileManager.IsFileError(ex)) { AppDiagnostics.Log("Cached profile path is unavailable.", ex); }
         }
 
@@ -806,6 +836,7 @@ namespace GOHShaderModdingSupportLauncher
                     , universalVars.NeedCheckShaderModify.ToString()
                     , FileManager.NormalizeCacheHash(universalVars.lastCacheHash)
                     , FileManager.NormalizeShaderHash(universalVars.lastShaderHash)
+                    , LocalizedStrings.Instance.Culture.Name
                 };
                 if (HasGetGameRoot && HasGetProfileLoc)
                 {
@@ -819,6 +850,26 @@ namespace GOHShaderModdingSupportLauncher
                 AppDiagnostics.Log("Unable to save launcher settings.", ex);
                 MessageBox.Show($"{universalVars.configLoc}\n\n{ex.Message}", i18n.Universal_Warning, MessageBoxButton.OK, MessageBoxImage.Warning);
             }
+        }
+
+        private void LanguageSelector_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+        {
+            if (languageSelector?.SelectedItem is not ComboBoxItem { Tag: string code }) return;
+
+            var culture = CultureInfo.GetCultureInfo(code);
+            if (LocalizedStrings.Instance.Culture.Name == culture.Name) return;
+
+            var oldLocalType = i18n.Main_ModLocal;
+            var oldWorkshopType = i18n.Main_ModWorkshop;
+            LocalizedStrings.Instance.SetCulture(culture);
+            foreach (var mod in universalVars.modDic.Values)
+            {
+                if (mod.type == oldLocalType) mod.type = i18n.Main_ModLocal;
+                else if (mod.type == oldWorkshopType) mod.type = i18n.Main_ModWorkshop;
+            }
+            if (pageHost.Content is ModManager manager) manager.RefreshView();
+
+            SaveSettings();
         }
 
         private void PrimaryNavigation_SelectionChanged(object? sender, SelectionChangedEventArgs e)

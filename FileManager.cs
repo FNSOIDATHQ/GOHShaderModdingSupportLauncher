@@ -9,7 +9,8 @@ namespace GOHShaderModdingSupportLauncher
     internal static class FileManager
     {
         private const long MaxSettingsBytes = 32 * 1024;
-        private const int SettingsLength = 15;
+        internal const int LanguageSettingIndex = 13;
+        private const int MaxSettingsLength = 16;
 
         public static bool IsFileError(Exception ex) => ex
                                                         is IOException
@@ -39,7 +40,7 @@ namespace GOHShaderModdingSupportLauncher
             string[] lines;
             try
             {
-                var parsed = new List<string>(SettingsLength);
+                var parsed = new List<string>(MaxSettingsLength);
                 string? line;
                 while ((line = reader.ReadLine()) != null)
                 {
@@ -50,7 +51,7 @@ namespace GOHShaderModdingSupportLauncher
 
                     parsed.Add(line);
 
-                    if (parsed.Count > 15)
+                    if (parsed.Count > MaxSettingsLength)
                     {
                         throw new FormatException("The launcher settings file contains too many lines.");
                     }
@@ -63,9 +64,9 @@ namespace GOHShaderModdingSupportLauncher
                 throw new FormatException("The launcher settings file has invalid text encoding.", ex);
             }
 
-            if (lines.Length != SettingsLength - 2 && lines.Length != SettingsLength)
+            if (lines.Length is not (13 or 14 or 15 or 16))
             {
-                throw new FormatException("The launcher settings file must contain 13 or 15 settings.");
+                throw new FormatException("The launcher settings file must contain 13, 14, 15, or 16 settings.");
             }
 
             if (
@@ -88,7 +89,10 @@ namespace GOHShaderModdingSupportLauncher
             if (IsValidCacheHash(lines[11]) == false || IsValidShaderHash(lines[12]) == false)
                 throw new FormatException("Invalid shader cache hash in settings.");
 
-            if (lines.Length == SettingsLength && (IsStandardAbsolutePath(lines[SettingsLength - 2]) == false || IsStandardAbsolutePath(lines[SettingsLength - 1]) == false))
+            if ((lines.Length is 14 or 16) && lines[LanguageSettingIndex] is not ("en-US" or "zh-CN"))
+                throw new FormatException("Invalid language in settings.");
+
+            if ((lines.Length is 15 or 16) && (IsStandardAbsolutePath(lines[^2]) == false || IsStandardAbsolutePath(lines[^1]) == false))
                 throw new FormatException("Invalid cached path in settings.");
 
             return lines;

@@ -1,32 +1,32 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:loc="using:GOHShaderModdingSupportLauncher.Properties"
+             xmlns:local="using:GOHShaderModdingSupportLauncher"
              x:Class="GOHShaderModdingSupportLauncher.Launcher">
   <ScrollViewer>
     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" Margin="20">
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="10">
-        <TextBlock Text="{x:Static loc:i18n.L_Method}" FontSize="24" VerticalAlignment="Center" />
+        <TextBlock Text="{Binding L_Method, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="24" VerticalAlignment="Center" />
         <ComboBox x:Name="launchMethod" Width="230" Height="54"
                   SelectionChanged="LaunchMethod_SelectionChanged">
-          <ComboBoxItem Content="{x:Static loc:i18n.L_FileReplace}" />
-          <ComboBoxItem Content="{x:Static loc:i18n.L_DX101}" />
+          <ComboBoxItem Content="{Binding L_FileReplace, Source={x:Static local:LocalizedStrings.Instance}}" />
+          <ComboBoxItem Content="{Binding L_DX101, Source={x:Static local:LocalizedStrings.Instance}}" />
         </ComboBox>
       </StackPanel>
       <CheckBox x:Name="addModInfo" Click="AddModInfo_Click"
-                Content="{x:Static loc:i18n.L_ModInfo}" FontSize="22" />
+                Content="{Binding L_ModInfo, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="22" />
       <CheckBox x:Name="runAsAdmin" Click="RunAsAdmin_Click"
-                Content="{x:Static loc:i18n.L_RunAsAdmin}" FontSize="22" />
+                Content="{Binding L_RunAsAdmin, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="22" />
       <Button x:Name="game" Width="360" Height="60" Click="Game_Click"
-              Content="{x:Static loc:i18n.L_Main}" FontSize="24"
+              Content="{Binding L_Main, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="24"
               HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
       <Button x:Name="editor" Width="360" Height="60" Click="Editor_Click"
-              Content="{x:Static loc:i18n.L_Editor}" FontSize="24"
+              Content="{Binding L_Editor, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="24"
               HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
       <Button x:Name="autoFix" Width="360" Height="60" Click="AutoFix_Click"
-              Content="{x:Static loc:i18n.L_AutoFix}" FontSize="24"
+              Content="{Binding L_AutoFix, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="24"
               HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
       <Button x:Name="safe" Width="360" Height="60" Click="Safe_Click"
-              Content="{x:Static loc:i18n.L_Safe}" FontSize="24"
+              Content="{Binding L_Safe, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="24"
               HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
     </StackPanel>
   </ScrollViewer>

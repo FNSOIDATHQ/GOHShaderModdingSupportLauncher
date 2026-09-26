@@ -1,8 +1,8 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:loc="using:GOHShaderModdingSupportLauncher.Properties"
+        xmlns:local="using:GOHShaderModdingSupportLauncher"
         x:Class="GOHShaderModdingSupportLauncher.MainWindow"
-        Title="{x:Static loc:i18n.Title}"
+        Title="{Binding Title, Source={x:Static local:LocalizedStrings.Instance}}"
         Icon="avares://GOHShaderModdingSupportLauncher/gemIconBg.ico"
         Width="1700" Height="800" MinWidth="900" MinHeight="600"
         Background="#20242C" WindowDecorations="None" CanResize="True"
@@ -38,7 +38,7 @@
             Background="{StaticResource NavigationChromeBrush}"
             PointerPressed="TitleBar_PointerPressed">
       <Grid ColumnDefinitions="*,Auto">
-        <TextBlock Text="{x:Static loc:i18n.Title}" FontSize="17"
+        <TextBlock Text="{Binding Title, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="17"
                    FontWeight="SemiBold" Foreground="White"
                    TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
                    Margin="18,0,12,0" />
@@ -59,19 +59,27 @@
                OpenPaneLength="240" Background="Transparent"
                PaneBackground="{StaticResource NavigationChromeBrush}">
       <SplitView.Pane>
-        <Grid RowDefinitions="*,Auto">
+        <Grid RowDefinitions="*,Auto,Auto">
           <ListBox x:Name="primaryNavigation" Background="Transparent" BorderThickness="0"
                    SelectionChanged="PrimaryNavigation_SelectionChanged">
-            <ListBoxItem Content="{x:Static loc:i18n.Tab_Launcher}" Tag="Launcher" />
-            <ListBoxItem Content="{x:Static loc:i18n.Tab_ModManager}" Tag="ModManager" />
-            <ListBoxItem Content="{x:Static loc:i18n.Tab_Converter}" Tag="Converter" />
-            <ListBoxItem Content="{x:Static loc:i18n.Tab_Tools}" Tag="Tools" />
+            <ListBoxItem Content="{Binding Tab_Launcher, Source={x:Static local:LocalizedStrings.Instance}}" Tag="Launcher" />
+            <ListBoxItem Content="{Binding Tab_ModManager, Source={x:Static local:LocalizedStrings.Instance}}" Tag="ModManager" />
+            <ListBoxItem Content="{Binding Tab_Converter, Source={x:Static local:LocalizedStrings.Instance}}" Tag="Converter" />
+            <ListBoxItem Content="{Binding Tab_Tools, Source={x:Static local:LocalizedStrings.Instance}}" Tag="Tools" />
           </ListBox>
-          <ListBox x:Name="footerNavigation" Grid.Row="1"
+          <StackPanel Grid.Row="1" Margin="12,8,12,6" Spacing="4">
+            <TextBlock Text="Language / 语言" Foreground="White" />
+            <ComboBox x:Name="languageSelector" HorizontalAlignment="Stretch"
+                      SelectionChanged="LanguageSelector_SelectionChanged">
+              <ComboBoxItem Content="English" Tag="en-US" />
+              <ComboBoxItem Content="中文" Tag="zh-CN" />
+            </ComboBox>
+          </StackPanel>
+          <ListBox x:Name="footerNavigation" Grid.Row="2"
                    Background="Transparent" BorderThickness="0"
                    SelectionChanged="FooterNavigation_SelectionChanged">
-            <ListBoxItem Content="{x:Static loc:i18n.Tab_Settings}" Tag="Settings" />
-            <ListBoxItem Content="{x:Static loc:i18n.Tab_About}" Tag="About" />
+            <ListBoxItem Content="{Binding Tab_Settings, Source={x:Static local:LocalizedStrings.Instance}}" Tag="Settings" />
+            <ListBoxItem Content="{Binding Tab_About, Source={x:Static local:LocalizedStrings.Instance}}" Tag="About" />
           </ListBox>
         </Grid>
       </SplitView.Pane>

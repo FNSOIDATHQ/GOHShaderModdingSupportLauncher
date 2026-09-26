@@ -1,40 +1,40 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:loc="using:GOHShaderModdingSupportLauncher.Properties"
+             xmlns:local="using:GOHShaderModdingSupportLauncher"
              x:Class="GOHShaderModdingSupportLauncher.Settings">
   <ScrollViewer>
     <StackPanel Margin="15" Spacing="8">
-      <TextBlock Text="{x:Static loc:i18n.S_General}" FontSize="24"
+      <TextBlock Text="{Binding S_General, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="24"
                  FontWeight="Bold" Background="#4CA8B2BB" />
       <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" RowSpacing="6">
-        <TextBlock Text="{x:Static loc:i18n.S_GamePath}" FontSize="20" VerticalAlignment="Center" />
+        <TextBlock Text="{Binding S_GamePath, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" VerticalAlignment="Center" />
         <TextBox x:Name="gamePath" Grid.Column="1" Margin="8,0,0,0"
                  LostFocus="gamePath_LostFocus" />
-        <TextBlock Grid.Row="1" Text="{x:Static loc:i18n.S_GameConfigPath}"
+        <TextBlock Grid.Row="1" Text="{Binding S_GameConfigPath, Source={x:Static local:LocalizedStrings.Instance}}"
                    FontSize="20" VerticalAlignment="Center" />
         <TextBox x:Name="gameConfigPath" Grid.Row="1" Grid.Column="1"
                  Margin="8,0,0,0" LostFocus="gameConfigPath_LostFocus" />
       </Grid>
       <CheckBox x:Name="pathConfirm" Click="pathConfirm_Click"
-                Content="{x:Static loc:i18n.S_PathConfirm}" FontSize="20" />
-      <TextBlock Text="{x:Static loc:i18n.S_BeforeLaunch}" FontSize="24"
+                Content="{Binding S_PathConfirm, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" />
+      <TextBlock Text="{Binding S_BeforeLaunch, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="24"
                  FontWeight="Bold" Background="#4CA8B2BB" />
       <CheckBox x:Name="autoLoadCache" Click="autoLoadCache_Click"
-                Content="{x:Static loc:i18n.S_AutoLoadCache}" FontSize="20" />
+                Content="{Binding S_AutoLoadCache, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" />
       <CheckBox x:Name="refreshCacheWhenModified" Click="refreshCacheWhenModified_Click"
-                Content="{x:Static loc:i18n.S_RefreshCache}" FontSize="20" />
-      <TextBlock Text="{x:Static loc:i18n.S_AfterGame}" FontSize="24"
+                Content="{Binding S_RefreshCache, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" />
+      <TextBlock Text="{Binding S_AfterGame, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="24"
                  FontWeight="Bold" Background="#4CA8B2BB" />
       <CheckBox x:Name="restore" Click="restore_Click"
-                Content="{x:Static loc:i18n.S_Restore}" FontSize="20" />
+                Content="{Binding S_Restore, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" />
       <CheckBox x:Name="clearCache" Click="clearCache_Click"
-                Content="{x:Static loc:i18n.S_Clear}" FontSize="20" />
+                Content="{Binding S_Clear, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" />
       <CheckBox x:Name="gameExit" Click="gameExit_Click"
-                Content="{x:Static loc:i18n.S_GameExit}" FontSize="20" />
+                Content="{Binding S_GameExit, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" />
       <CheckBox x:Name="compileWarning" Click="compileWarning_Click"
-                Content="{x:Static loc:i18n.S_CompileWarning}" FontSize="20" />
+                Content="{Binding S_CompileWarning, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" />
       <CheckBox x:Name="lockModList" Click="lockModList_Click"
-                Content="{x:Static loc:i18n.S_LockModList}" FontSize="20" />
+                Content="{Binding S_LockModList, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" />
     </StackPanel>
   </ScrollViewer>
 </UserControl>

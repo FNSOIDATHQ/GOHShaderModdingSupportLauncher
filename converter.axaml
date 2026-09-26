@@ -1,26 +1,26 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:loc="using:GOHShaderModdingSupportLauncher.Properties"
+             xmlns:local="using:GOHShaderModdingSupportLauncher"
              x:Class="GOHShaderModdingSupportLauncher.Converter">
   <ScrollViewer>
     <StackPanel Margin="30,12" Spacing="10">
       <StackPanel Orientation="Horizontal" Spacing="8">
-        <TextBlock Text="{x:Static loc:i18n.C_Path}" FontSize="24" VerticalAlignment="Center" />
+        <TextBlock Text="{Binding C_Path, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="24" VerticalAlignment="Center" />
         <TextBox x:Name="convertPath" Width="650" TextChanged="convertPath_TextChanged" />
         <Button x:Name="viewPath" Click="viewPath_Click"
-                Content="{x:Static loc:i18n.C_ViewPath}" FontSize="20" />
+                Content="{Binding C_ViewPath, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" />
       </StackPanel>
       <TabControl x:Name="Tabs" SelectedIndex="2" Height="200"
                   TabStripPlacement="Left">
-        <TabItem Header="{x:Static loc:i18n.C_Tab_TextureRemap}" />
-        <TabItem Header="{x:Static loc:i18n.C_Tab_TextureExtInj}" />
-        <TabItem Header="{x:Static loc:i18n.C_Tab_MtlConvert}">
+        <TabItem Header="{Binding C_Tab_TextureRemap, Source={x:Static local:LocalizedStrings.Instance}}" />
+        <TabItem Header="{Binding C_Tab_TextureExtInj, Source={x:Static local:LocalizedStrings.Instance}}" />
+        <TabItem Header="{Binding C_Tab_MtlConvert, Source={x:Static local:LocalizedStrings.Instance}}">
           <Button x:Name="enableEnvMaps" Height="50" Margin="5"
                   Click="enableEnvMaps_Click"
-                  Content="{x:Static loc:i18n.C_EnableEnvMaps}" FontSize="18" />
+                  Content="{Binding C_EnableEnvMaps, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="18" />
         </TabItem>
       </TabControl>
-      <TextBlock Text="{x:Static loc:i18n.C_Console}" FontSize="24"
+      <TextBlock Text="{Binding C_Console, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="24"
                  FontWeight="Bold" Background="#4CA8B2BB" />
       <TextBox x:Name="console" Height="300" IsReadOnly="True"
                TextWrapping="Wrap" AcceptsReturn="True" />

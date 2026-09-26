@@ -40,7 +40,26 @@ internal static class UiSmokeTest
             var options = Path.Combine(fixture, "options.set");
             File.WriteAllText(options, "{mods\r\n\"alpha:0\"\r\n\"beta:0\"\r\n}\r\n");
 
-            var window = new MainWindow();
+            var settingsPath = Path.Combine(fixture, "settings.conf");
+            string[] settings =
+            [
+                "FileReplace", "True", "True", "False", "False", "True", "True",
+                "False", "False", "False", "True", "-1", "0", "en-US"
+            ];
+            FileManager.WriteSettings(settingsPath, [.. settings, fixture, fixture]);
+            if (FileManager.ReadSettings(settingsPath).Length != 16)
+                throw new InvalidOperationException("Settings with language and cached paths were rejected.");
+            settings[13] = "fr-FR";
+            FileManager.WriteSettings(settingsPath, settings);
+            var invalidLanguageRejected = false;
+            try { FileManager.ReadSettings(settingsPath); }
+            catch (FormatException) { invalidLanguageRejected = true; }
+            if (!invalidLanguageRejected)
+                throw new InvalidOperationException("Unsupported settings language was accepted.");
+            settings[13] = "en-US";
+            FileManager.WriteSettings(settingsPath, settings);
+            var window = new MainWindow(settingsPath);
+            window.universalVars.configLoc = settingsPath;
             var layout = window.FindControl<Grid>("windowLayout")
                 ?? throw new InvalidOperationException("Main window layout is missing.");
             var titleBar = window.FindControl<Border>("titleBar")
@@ -174,6 +193,7 @@ internal static class UiSmokeTest
                     var tabs = ((Converter)host.Content).FindControl<TabControl>("Tabs");
                     if (tabs?.TabStripPlacement != Dock.Left)
                         throw new InvalidOperationException("Converter tabs are not stacked on the left.");
+                    ((Converter)host.Content).FindControl<TextBox>("convertPath")!.Text = "keep this path";
                 }
             }
             var previous = i18n.Culture;
@@ -186,6 +206,43 @@ internal static class UiSmokeTest
                     throw new InvalidOperationException("Embedded Chinese strings did not load.");
             }
             finally { i18n.Culture = previous; }
+            var languageSelector = window.FindControl<ComboBox>("languageSelector")
+                ?? throw new InvalidOperationException("Sidebar language selector is missing.");
+            if (languageSelector.SelectedIndex != 0)
+                throw new InvalidOperationException("Saved English language was not selected.");
+            languageSelector.SelectedIndex = 1;
+            Dispatcher.UIThread.RunJobs();
+            if (window.Title != i18n.Title || window.Title is null ||
+                ((ListBoxItem)primary.Items[0]!).Content as string != i18n.Tab_Launcher ||
+                ((ListBoxItem)footer.Items[0]!).Content as string != i18n.Tab_Settings ||
+                (FileManager.ReadSettings(settingsPath).Length != 14 || FileManager.ReadSettings(settingsPath)[13] != "zh-CN"))
+                throw new InvalidOperationException($"Chinese language did not update or persist: title={window.Title}, expectedTitle={i18n.Title}, nav={((ListBoxItem)primary.Items[0]!).Content}, expectedNav={i18n.Tab_Launcher}, footer={((ListBoxItem)footer.Items[0]!).Content}, expectedFooter={i18n.Tab_Settings}, saved={FileManager.ReadSettings(settingsPath)[13]}.");
+            primary.SelectedIndex = 0;
+            var gameButton = ((Launcher)host.Content!).FindControl<Button>("game")!;
+            if (gameButton.Content as string != i18n.L_Main)
+                throw new InvalidOperationException("Cached launcher page did not change language.");
+            primary.SelectedIndex = 1;
+            var modGrid = ((ModManager)host.Content!).FindControl<DataGrid>("unloadedMods")!;
+            if (modGrid.Columns[0].Header as string != i18n.M_GridName ||
+                window.universalVars.modDic["alpha"].type != i18n.Main_ModLocal ||
+                window.universalVars.modDic["mod_123"].type != i18n.Main_ModWorkshop)
+                throw new InvalidOperationException("Cached mod table headers or type labels did not change language.");
+            primary.SelectedIndex = 2;
+            var conversionPath = ((Converter)host.Content!).FindControl<TextBox>("convertPath")!;
+            if (conversionPath.Text != "keep this path")
+                throw new InvalidOperationException("Language switching discarded converter input.");
+            var restoredWindow = new MainWindow(settingsPath);
+            if (restoredWindow.FindControl<ComboBox>("languageSelector")?.SelectedIndex != 1 ||
+                restoredWindow.Title != i18n.Title)
+                throw new InvalidOperationException("A new window did not restore the selected language.");
+            primary.SelectedIndex = 1;
+            languageSelector.SelectedIndex = 0;
+            Dispatcher.UIThread.RunJobs();
+            if ((FileManager.ReadSettings(settingsPath).Length != 14 || FileManager.ReadSettings(settingsPath)[13] != "en-US") ||
+                gameButton.Content as string != i18n.L_Main ||
+                window.universalVars.modDic["alpha"].type != i18n.Main_ModLocal ||
+                window.universalVars.modDic["mod_123"].type != i18n.Main_ModWorkshop)
+                throw new InvalidOperationException("Switching the visible mod page back to English failed.");
             Directory.CreateDirectory(window.universalVars.cacheLoc);
             File.WriteAllText(Path.Combine(window.universalVars.cacheLoc, "fixture.txt"), "cache");
             window.ClearCacheWork();

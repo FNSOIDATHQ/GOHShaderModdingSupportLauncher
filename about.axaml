@@ -1,13 +1,13 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:loc="using:GOHShaderModdingSupportLauncher.Properties"
+             xmlns:local="using:GOHShaderModdingSupportLauncher"
              x:Class="GOHShaderModdingSupportLauncher.About">
   <StackPanel Margin="20" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
-    <TextBlock Text="{x:Static loc:i18n.A_BugReport}" FontSize="24" HorizontalAlignment="Center" />
-    <TextBlock Text="{x:Static loc:i18n.A_Tip}" FontSize="16" HorizontalAlignment="Center" />
-    <Button Click="Github_Click" Content="{x:Static loc:i18n.A_LinkGithub}"
+    <TextBlock Text="{Binding A_BugReport, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="24" HorizontalAlignment="Center" />
+    <TextBlock Text="{Binding A_Tip, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="16" HorizontalAlignment="Center" />
+    <Button Click="Github_Click" Content="{Binding A_LinkGithub, Source={x:Static local:LocalizedStrings.Instance}}"
             FontSize="22" HorizontalAlignment="Center" />
-    <Button Click="Workshop_Click" Content="{x:Static loc:i18n.A_LinkWorkshop}"
+    <Button Click="Workshop_Click" Content="{Binding A_LinkWorkshop, Source={x:Static local:LocalizedStrings.Instance}}"
             FontSize="22" HorizontalAlignment="Center" />
     <TextBlock Text="v2.3Beta    by Federation Studio 2026"
                FontSize="22" HorizontalAlignment="Center" Margin="0,90,0,0" />
