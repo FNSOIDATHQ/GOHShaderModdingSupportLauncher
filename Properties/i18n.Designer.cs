@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace GOHShaderModdingSupportLauncherWPF.Properties {
+namespace GOHShaderModdingSupportLauncher.Properties {
     using System;
     
     
@@ -25,6 +25,8 @@ namespace GOHShaderModdingSupportLauncherWPF.Properties {
     public class i18n {
         
         private static global::System.Resources.ResourceManager resourceMan;
+
+        private static global::System.Resources.ResourceManager chineseResourceMan;
         
         private static global::System.Globalization.CultureInfo resourceCulture;
         
@@ -38,8 +40,16 @@ namespace GOHShaderModdingSupportLauncherWPF.Properties {
         [global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]
         public static global::System.Resources.ResourceManager ResourceManager {
             get {
+                // Native AOT embeds zh-CN resources in this assembly, so select their neutral base name here.
+                var culture = resourceCulture ?? global::System.Globalization.CultureInfo.CurrentUICulture;
+                if (culture.TwoLetterISOLanguageName == "zh") {
+                    if (object.ReferenceEquals(chineseResourceMan, null)) {
+                        chineseResourceMan = new global::System.Resources.ResourceManager("GOHShaderModdingSupportLauncher.Properties.i18n.zh-cn", typeof(i18n).Assembly);
+                    }
+                    return chineseResourceMan;
+                }
                 if (object.ReferenceEquals(resourceMan, null)) {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("GOHShaderModdingSupportLauncherWPF.Properties.i18n", typeof(i18n).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("GOHShaderModdingSupportLauncher.Properties.i18n", typeof(i18n).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;

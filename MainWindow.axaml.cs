@@ -4,43 +4,27 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Reflection;
-using System.Windows;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Microsoft.Win32;
-using GOHShaderModdingSupportLauncherWPF.Properties;
+using GOHShaderModdingSupportLauncher.Properties;
 using System.Linq;
 
 
 
-namespace GOHShaderModdingSupportLauncherWPF
+namespace GOHShaderModdingSupportLauncher
 {
     /// <summary>
-    /// Interaction logic for MainWindow.xaml
+    /// Interaction logic for MainWindow.axaml
     /// </summary>
-    public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
+    public partial class MainWindow : Window
     {
-        Wpf.Ui.Controls.NavigationView mv;
-
         private bool HasGetGameRoot, HasGetProfileLoc;
-
-        public class Mod
-        {
-            public string name { get; set; }
-            public string type { get; set; }
-            public bool hasShader { get; set; }
-            public string path;
-            public string folderName;
-            public bool hasLoad;
-
-            public Mod(string n, string t, string p, string fn, bool hS)
-            {
-                name = n;
-                type = t;
-                path = p;
-                folderName = fn;
-                hasShader = hS;
-                hasLoad = false;
-            }
-        };
+        private readonly UserControl?[] pages = new UserControl?[6];
+        private bool initialized;
 
         //universal vars
         public class UniversalVars
@@ -112,24 +96,90 @@ namespace GOHShaderModdingSupportLauncherWPF
         {
             AppDiagnostics.Log("Loading main window XAML.");
             InitializeComponent();
-            //Wpf.Ui.Appearance.ApplicationThemeManager.Apply(Wpf.Ui.Appearance.ApplicationTheme.Dark);
-
-            mv = this.FindName("mainView") as Wpf.Ui.Controls.NavigationView;
-
-
-            mv.Loaded += navToDefaultPage;
-
             universalVars = new UniversalVars();
             launcherVars = new LauncherVars();
             settingsVars = new SettingsVars();
             toolsVars = new ToolsVars();
             modManagerVars = new ModManagerVars();
-
-            InitBasicData();
-            ContentRendered += (_, _) => AppDiagnostics.Log("Main window rendered.");
+            PropertyChanged += (_, change) =>
+            {
+                if (change.Property == WindowStateProperty) UpdateWindowChrome();
+            };
+            UpdateWindowChrome();
+            Opened += OnOpened;
         }
 
-        private void InitBasicData()
+        private void UpdateWindowChrome()
+        {
+            maximizeButton.Content = WindowState is WindowState.Maximized or WindowState.FullScreen
+                ? "\uE923" : "\uE922";
+            resizeGrips.IsVisible = WindowState == WindowState.Normal;
+        }
+
+        private void TitleBar_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (!e.Pointer.IsPrimary || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+
+            var point = e.GetPosition(captionButtons);
+            if (point.X >= 0 && point.X < captionButtons.Bounds.Width &&
+                point.Y >= 0 && point.Y < captionButtons.Bounds.Height) return;
+
+            if (e.ClickCount == 2) ToggleMaximize();
+            else BeginMoveDrag(e);
+            e.Handled = true;
+        }
+
+        private void ResizeGrip_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (WindowState != WindowState.Normal || !e.Pointer.IsPrimary ||
+                !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed ||
+                sender is not Control { Tag: string edgeName } ||
+                !Enum.TryParse<WindowEdge>(edgeName, out var edge)) return;
+
+            BeginResizeDrag(edge, e);
+            e.Handled = true;
+        }
+
+        private void MinimizeButton_Click(object? sender, RoutedEventArgs e)
+        {
+            WindowState = WindowState.Minimized;
+        }
+
+        private void MaximizeButton_Click(object? sender, RoutedEventArgs e)
+        {
+            ToggleMaximize();
+        }
+
+        private void ToggleMaximize()
+        {
+            WindowState = WindowState is WindowState.Maximized or WindowState.FullScreen
+                ? WindowState.Normal : WindowState.Maximized;
+        }
+
+        private void CloseButton_Click(object? sender, RoutedEventArgs e)
+        {
+            Close();
+        }
+
+        private async void OnOpened(object? sender, EventArgs e)
+        {
+            if (initialized) return;
+            initialized = true;
+            try
+            {
+                if (!await InitBasicDataAsync()) { Close(); return; }
+                primaryNavigation.SelectedIndex = 0;
+                AppDiagnostics.Log("Main window rendered.");
+            }
+            catch (Exception ex)
+            {
+                AppDiagnostics.ReportFatal("Main window initialization", ex);
+                if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+                    desktop.Shutdown(1);
+            }
+        }
+
+        private async Task<bool> InitBasicDataAsync()
         {
             universalVars.gameDir = new DirectoryInfo(Directory.GetCurrentDirectory());
             universalVars.resourceDir = new DirectoryInfo(Directory.GetCurrentDirectory());
@@ -149,7 +199,7 @@ namespace GOHShaderModdingSupportLauncherWPF
             if (HasGetGameRoot == false)
             {
                 AppDiagnostics.Log("Finding game installation.");
-                GetGameRoot();
+                if (!await GetGameRootAsync()) return false;
             }
 
             AppDiagnostics.Log("Scanning mods.");
@@ -157,6 +207,7 @@ namespace GOHShaderModdingSupportLauncherWPF
 
             SaveSettings();
             AppDiagnostics.Log("Startup data initialized.");
+            return true;
         }
 
         private void LoadConfigFromFile()
@@ -277,7 +328,7 @@ namespace GOHShaderModdingSupportLauncherWPF
             throw new InvalidOperationException($"{i18n.Main_NoProfile}\n{i18n.Main_RunGameOnce}\n\n{string.Join("\n", candidates)}");
         }
 
-        private void GetGameRoot()
+        private async Task<bool> GetGameRootAsync()
         {
             var libraries = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             // Shortcuts can start in an unrelated working directory
@@ -364,16 +415,17 @@ namespace GOHShaderModdingSupportLauncherWPF
             }
 
             string message = $"{i18n.Main_FoundGame0}\n{universalVars.gameDir}\n\n{i18n.Main_FoundGame1}";
-            if (MessageBox.Show(message, i18n.Main_MaunalCheck, MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.No)
+            if (await MessageBox.ConfirmAsync(this, message, i18n.Main_MaunalCheck) != MessageBoxResult.Yes)
             {
                 // Do not cache a path that the user rejected.
                 HasGetGameRoot = false;
                 SaveSettings();
                 AppDiagnostics.Log("User declined the detected game path.");
-                Environment.Exit(0);
+                return false;
             }
             
             ClearCacheWork();
+            return true;
         }
 
         public void ClearCacheWork()
@@ -579,7 +631,7 @@ namespace GOHShaderModdingSupportLauncherWPF
                 bool hasShader = checkShader(dir);
 
 
-                MainWindow.Mod single = new MainWindow.Mod(name, i18n.Main_ModWorkshop, dir.FullName, folderName, hasShader);
+                Mod single = new Mod(name, i18n.Main_ModWorkshop, dir.FullName, folderName, hasShader);
 
                 if (universalVars.modDic.TryAdd(folderName, single) == false)
                 {
@@ -613,7 +665,7 @@ namespace GOHShaderModdingSupportLauncherWPF
 
 
 
-                MainWindow.Mod single = new MainWindow.Mod(name, i18n.Main_ModLocal, dir.FullName, folderName, hasShader);
+                Mod single = new Mod(name, i18n.Main_ModLocal, dir.FullName, folderName, hasShader);
 
                 if (universalVars.modDic.TryAdd(folderName, single) == false)
                 {
@@ -687,25 +739,18 @@ namespace GOHShaderModdingSupportLauncherWPF
         public static void ExtractFile(String resource, String path, int batch)
         {
             Assembly assembly = Assembly.GetExecutingAssembly();
-            BufferedStream input = new BufferedStream(assembly.GetManifestResourceStream(resource));
-            FileStream output = new FileStream(path, FileMode.Create);
-
-            byte[] data = new byte[batch];
-            int lengthEachRead;
-            while ((lengthEachRead = input.Read(data, 0, data.Length)) > 0)
-            {
-                output.Write(data, 0, lengthEachRead);
-            }
-            output.Flush();
-            output.Close();
+            using var source = assembly.GetManifestResourceStream(resource)
+                ?? throw new FileNotFoundException($"Embedded resource is missing: {resource}");
+            using var output = new FileStream(path, FileMode.Create, FileAccess.Write);
+            source.CopyTo(output, batch);
         }
 
         //reference https://stackoverflow.com/questions/7646328/how-to-use-the-7z-sdk-to-compress-and-decompress-a-file
         public void CompressFileLZMA(string inFile, string outFile)
         {
             SevenZip.Compression.LZMA.Encoder coder = new SevenZip.Compression.LZMA.Encoder();
-            FileStream input = new FileStream(inFile, FileMode.Open);
-            FileStream output = new FileStream(outFile, FileMode.Create);
+            using FileStream input = new FileStream(inFile, FileMode.Open);
+            using FileStream output = new FileStream(outFile, FileMode.Create);
 
             // Write the encoder properties
             coder.WriteCoderProperties(output);
@@ -716,30 +761,26 @@ namespace GOHShaderModdingSupportLauncherWPF
             // Encode the file.
             coder.Code(input, output, input.Length, -1, null);
             output.Flush();
-            output.Close();
-            input.Close();
         }
 
         public void DecompressFileLZMA(string inFile, string outFile)
         {
             SevenZip.Compression.LZMA.Decoder coder = new SevenZip.Compression.LZMA.Decoder();
-            FileStream input = new FileStream(inFile, FileMode.Open);
-            FileStream output = new FileStream(outFile, FileMode.Create);
+            using FileStream input = new FileStream(inFile, FileMode.Open);
+            using FileStream output = new FileStream(outFile, FileMode.Create);
 
             // Read the decoder properties
             byte[] properties = new byte[5];
-            input.Read(properties, 0, 5);
+            input.ReadExactly(properties);
 
             // Read in the decompress file size.
             byte[] fileLengthBytes = new byte[8];
-            input.Read(fileLengthBytes, 0, 8);
+            input.ReadExactly(fileLengthBytes);
             long fileLength = BitConverter.ToInt64(fileLengthBytes, 0);
 
             coder.SetDecoderProperties(properties);
             coder.Code(input, output, input.Length, fileLength, null);
             output.Flush();
-            output.Close();
-            input.Close();
         }
 
         public void SaveSettings()
@@ -780,9 +821,40 @@ namespace GOHShaderModdingSupportLauncherWPF
             }
         }
 
-        private void navToDefaultPage(object? sender, EventArgs e)
+        private void PrimaryNavigation_SelectionChanged(object? sender, SelectionChangedEventArgs e)
         {
-            mv.Navigate(typeof(Launcher));
+            if (primaryNavigation.SelectedIndex < 0) return;
+            footerNavigation.SelectedIndex = -1;
+            Navigate(primaryNavigation.SelectedIndex);
+        }
+
+        private void FooterNavigation_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+        {
+            if (footerNavigation.SelectedIndex < 0) return;
+            primaryNavigation.SelectedIndex = -1;
+            Navigate(footerNavigation.SelectedIndex + 4);
+        }
+
+        private void Navigate(int index)
+        {
+            if (pages[index] == null)
+                pages[index] = index switch
+                {
+                    0 => new Launcher(this),
+                    1 => new ModManager(this),
+                    2 => new Converter(this),
+                    3 => new Tools(this),
+                    4 => new Settings(this),
+                    5 => new About(),
+                    _ => throw new ArgumentOutOfRangeException(nameof(index))
+                };
+            pageHost.Content = pages[index];
+            if (index == 1 && pages[index] is ModManager manager) manager.RefreshView();
+        }
+
+        public void RefreshModPage()
+        {
+            if (pages[1] is ModManager manager) manager.RefreshView();
         }
 
         //when manually close by user, only store the settings

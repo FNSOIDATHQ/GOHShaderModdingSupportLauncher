@@ -1,0 +1,53 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:GOHShaderModdingSupportLauncher"
+             xmlns:loc="using:GOHShaderModdingSupportLauncher.Properties"
+             x:Class="GOHShaderModdingSupportLauncher.ModManager"
+             Loaded="Page_Loaded">
+  <Grid RowDefinitions="*,Auto,Auto" Margin="10">
+    <Grid ColumnDefinitions="*,155,*" MinHeight="350">
+      <DataGrid x:Name="unloadedMods" Grid.Column="0" AutoGenerateColumns="False"
+                IsReadOnly="True" SelectionMode="Extended" CanUserSortColumns="True"
+                SelectionChanged="unloadedMods_SelectionChanged">
+        <DataGrid.Columns>
+          <DataGridTextColumn x:DataType="local:Mod" Header="{x:Static loc:i18n.M_GridName}" CanUserSort="True"
+                              Binding="{Binding name}" MinWidth="230" />
+          <DataGridTextColumn x:DataType="local:Mod" Header="{x:Static loc:i18n.M_GridType}" CanUserSort="True"
+                              Binding="{Binding type}" />
+          <DataGridCheckBoxColumn x:DataType="local:Mod" Header="{x:Static loc:i18n.M_GridShader}" CanUserSort="True"
+                                  Binding="{Binding hasShader}" />
+        </DataGrid.Columns>
+      </DataGrid>
+      <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="10" Margin="8">
+        <Button x:Name="refresh" Click="refresh_Click"
+                Content="{x:Static loc:i18n.M_Refresh}" FontSize="20" />
+        <Button x:Name="loadMod" Click="loadMod_Click"
+                Content="{x:Static loc:i18n.M_Load}" FontSize="20" />
+        <Button x:Name="unloadMod" Click="unloadMod_Click"
+                Content="{x:Static loc:i18n.M_Unload}" FontSize="20" />
+      </StackPanel>
+      <DataGrid x:Name="loadedMods" Grid.Column="2" AutoGenerateColumns="False" Background="Transparent"
+                IsReadOnly="True" SelectionMode="Extended" CanUserSortColumns="False"
+                SelectionChanged="loadedMods_SelectionChanged">
+        <DataGrid.Columns>
+          <DataGridTextColumn x:DataType="local:Mod" Header="{x:Static loc:i18n.M_GridName}"
+                              Binding="{Binding name}" MinWidth="230" />
+          <DataGridTextColumn x:DataType="local:Mod" Header="{x:Static loc:i18n.M_GridType}"
+                              Binding="{Binding type}" />
+          <DataGridCheckBoxColumn x:DataType="local:Mod" Header="{x:Static loc:i18n.M_GridShader}"
+                                  Binding="{Binding hasShader}" />
+        </DataGrid.Columns>
+      </DataGrid>
+    </Grid>
+    <TextBlock Grid.Row="1" Text="{x:Static loc:i18n.M_SelectedMod}" FontSize="24"
+               FontWeight="Bold" Background="#4CA8B2BB" Margin="0,6" />
+    <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8">
+      <Button x:Name="openModFolder" Click="openModFolder_Click"
+              Content="{x:Static loc:i18n.M_OpenFolder}" FontSize="20" />
+      <Button x:Name="loadShaderCache" Click="loadShaderCache_Click"
+              Content="{x:Static loc:i18n.M_LoadCache}" FontSize="20" />
+      <Button x:Name="collectShaderCache" Click="collectShaderCache_Click"
+              Content="{x:Static loc:i18n.M_CollectCache}" FontSize="20" />
+    </StackPanel>
+  </Grid>
+</UserControl>

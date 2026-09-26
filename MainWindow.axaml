@@ -1,0 +1,102 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="using:GOHShaderModdingSupportLauncher.Properties"
+        x:Class="GOHShaderModdingSupportLauncher.MainWindow"
+        Title="{x:Static loc:i18n.Title}"
+        Icon="avares://GOHShaderModdingSupportLauncher/gemIconBg.ico"
+        Width="1700" Height="800" MinWidth="900" MinHeight="600"
+        Background="#20242C" WindowDecorations="None" CanResize="True"
+        WindowStartupLocation="CenterScreen"
+        Closed="OnClosed">
+  <Window.Resources>
+    <SolidColorBrush x:Key="NavigationChromeBrush" Color="#B31C1C1C" />
+  </Window.Resources>
+  <Window.Styles>
+    <Style Selector="Button.captionButton">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.captionButton:pointerover">
+      <Setter Property="Background" Value="#33FFFFFF" />
+    </Style>
+    <Style Selector="Button.captionButton.closeButton:pointerover">
+      <Setter Property="Background" Value="#C42B1C" />
+    </Style>
+  </Window.Styles>
+  <Grid x:Name="windowLayout" RowDefinitions="56,*">
+    <Grid.Background>
+      <ImageBrush Source="avares://GOHShaderModdingSupportLauncher/bg.jpg"
+                  Stretch="UniformToFill" AlignmentX="Left" AlignmentY="Top"
+                  Opacity="0.4" />
+    </Grid.Background>
+    <Border x:Name="titleBar" Grid.Row="0"
+            Background="{StaticResource NavigationChromeBrush}"
+            PointerPressed="TitleBar_PointerPressed">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Text="{x:Static loc:i18n.Title}" FontSize="17"
+                   FontWeight="SemiBold" Foreground="White"
+                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                   Margin="18,0,12,0" />
+        <StackPanel x:Name="captionButtons" Grid.Column="1" Orientation="Horizontal">
+          <Button x:Name="minimizeButton" Classes="captionButton"
+                  Width="52" Height="56" FontFamily="Segoe MDL2 Assets" FontSize="12" Content="&#xE921;"
+                  Click="MinimizeButton_Click" />
+          <Button x:Name="maximizeButton" Classes="captionButton"
+                  Width="52" Height="56" FontFamily="Segoe MDL2 Assets" FontSize="12" Content="&#xE922;"
+                  Click="MaximizeButton_Click" />
+          <Button x:Name="closeButton" Classes="captionButton closeButton"
+                  Width="52" Height="56" FontFamily="Segoe MDL2 Assets" FontSize="12" Content="&#xE8BB;"
+                  Click="CloseButton_Click" />
+        </StackPanel>
+      </Grid>
+    </Border>
+    <SplitView x:Name="mainView" Grid.Row="1" DisplayMode="Inline" IsPaneOpen="True"
+               OpenPaneLength="240" Background="Transparent"
+               PaneBackground="{StaticResource NavigationChromeBrush}">
+      <SplitView.Pane>
+        <Grid RowDefinitions="*,Auto">
+          <ListBox x:Name="primaryNavigation" Background="Transparent" BorderThickness="0"
+                   SelectionChanged="PrimaryNavigation_SelectionChanged">
+            <ListBoxItem Content="{x:Static loc:i18n.Tab_Launcher}" Tag="Launcher" />
+            <ListBoxItem Content="{x:Static loc:i18n.Tab_ModManager}" Tag="ModManager" />
+            <ListBoxItem Content="{x:Static loc:i18n.Tab_Converter}" Tag="Converter" />
+            <ListBoxItem Content="{x:Static loc:i18n.Tab_Tools}" Tag="Tools" />
+          </ListBox>
+          <ListBox x:Name="footerNavigation" Grid.Row="1"
+                   Background="Transparent" BorderThickness="0"
+                   SelectionChanged="FooterNavigation_SelectionChanged">
+            <ListBoxItem Content="{x:Static loc:i18n.Tab_Settings}" Tag="Settings" />
+            <ListBoxItem Content="{x:Static loc:i18n.Tab_About}" Tag="About" />
+          </ListBox>
+        </Grid>
+      </SplitView.Pane>
+      <SplitView.Content>
+        <ContentControl x:Name="pageHost" HorizontalContentAlignment="Stretch"
+                        VerticalContentAlignment="Stretch" />
+      </SplitView.Content>
+    </SplitView>
+    <Grid x:Name="resizeGrips" Grid.RowSpan="2">
+      <Border Tag="North" Height="6" VerticalAlignment="Top" Background="Transparent"
+              Cursor="SizeNorthSouth" PointerPressed="ResizeGrip_PointerPressed" />
+      <Border Tag="South" Height="6" VerticalAlignment="Bottom" Background="Transparent"
+              Cursor="SizeNorthSouth" PointerPressed="ResizeGrip_PointerPressed" />
+      <Border Tag="West" Width="6" HorizontalAlignment="Left" Background="Transparent"
+              Cursor="SizeWestEast" PointerPressed="ResizeGrip_PointerPressed" />
+      <Border Tag="East" Width="6" HorizontalAlignment="Right" Background="Transparent"
+              Cursor="SizeWestEast" PointerPressed="ResizeGrip_PointerPressed" />
+      <Border Tag="NorthWest" Width="10" Height="10" HorizontalAlignment="Left" VerticalAlignment="Top"
+              Background="Transparent" Cursor="TopLeftCorner" PointerPressed="ResizeGrip_PointerPressed" />
+      <Border Tag="NorthEast" Width="10" Height="10" HorizontalAlignment="Right" VerticalAlignment="Top"
+              Background="Transparent" Cursor="TopRightCorner" PointerPressed="ResizeGrip_PointerPressed" />
+      <Border Tag="SouthWest" Width="10" Height="10" HorizontalAlignment="Left" VerticalAlignment="Bottom"
+              Background="Transparent" Cursor="BottomLeftCorner" PointerPressed="ResizeGrip_PointerPressed" />
+      <Border Tag="SouthEast" Width="10" Height="10" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+              Background="Transparent" Cursor="BottomRightCorner" PointerPressed="ResizeGrip_PointerPressed" />
+    </Grid>
+  </Grid>
+</Window>

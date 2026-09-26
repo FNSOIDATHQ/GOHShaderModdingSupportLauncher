@@ -1,0 +1,15 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:GOHShaderModdingSupportLauncher.Properties"
+             x:Class="GOHShaderModdingSupportLauncher.About">
+  <StackPanel Margin="20" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
+    <TextBlock Text="{x:Static loc:i18n.A_BugReport}" FontSize="24" HorizontalAlignment="Center" />
+    <TextBlock Text="{x:Static loc:i18n.A_Tip}" FontSize="16" HorizontalAlignment="Center" />
+    <Button Click="Github_Click" Content="{x:Static loc:i18n.A_LinkGithub}"
+            FontSize="22" HorizontalAlignment="Center" />
+    <Button Click="Workshop_Click" Content="{x:Static loc:i18n.A_LinkWorkshop}"
+            FontSize="22" HorizontalAlignment="Center" />
+    <TextBlock Text="v2.3Beta    by Federation Studio 2026"
+               FontSize="22" HorizontalAlignment="Center" Margin="0,90,0,0" />
+  </StackPanel>
+</UserControl>

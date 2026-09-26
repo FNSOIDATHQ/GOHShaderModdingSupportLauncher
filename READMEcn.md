@@ -59,11 +59,15 @@ https://steamcommunity.com/sharedfiles/filedetails/?id=3410344592
 ## 开发指南
 
 我使用 Visual Studio 2026 构建这个程序，环境配置如下:
-* .NET 10 SDK（Visual Studio 2026）
-* Windows Presentation Foundation(WPF)
-* WPF-UI 4.3.0，通过 MIT 协议获取 https://github.com/lepoco/wpfui
-* 执行 `dotnet publish -c Release -p:PublishProfile=FolderProfile` 后，分发 `bin/net10-single-file/` 中的 EXE。
-* 用户电脑需要安装 .NET 10 Windows Desktop Runtime（x64）；EXE 不包含运行时。
+* 仅支持 Windows x64；构建 AOT 需要 .NET 10 SDK 和 Visual Studio C++ 构建工具。
+* Avalonia Desktop 与 Fluent Theme 12.1.3、DataGrid 12.1.2
+* 执行 `powershell -NoProfile -ExecutionPolicy Bypass -File .\Publish-Aot.ps1`，只分发 `bin/net10-aot-single-file/` 中的 EXE。
+* EXE 已包含 .NET 运行时和原生 UI 库，目标电脑无需安装 .NET。
+* 首次启动会校验原生 DLL 并释放到 `%LOCALAPPDATA%\GOHSMSLauncher\Native\<压缩包 SHA-256>`；必要时使用 `%TEMP%`。缺失或损坏的文件会在下次启动时恢复。
+* 使用 `--software-rendering` 启用软件渲染；`--validate-native-bundle` 可以在不打开界面的情况下校验封装；`--self-test-ui` 检查六页、中英文与模组操作，不会启动游戏。
+* DataGrid 12.1.2 的反射功能会产生两条上游 AOT 分析摘要。本项目仅使用固定只读列和编译绑定；发布脚本会拒绝其他裁剪或 AOT 警告。
+* `Properties/i18n.Designer.cs` 保留了内嵌中文资源查找逻辑；新增资源键时需同步维护该文件。
+* 从提交a120cb0开始本项目使用Codex辅助开发
 
 ## 致谢
 特别感谢

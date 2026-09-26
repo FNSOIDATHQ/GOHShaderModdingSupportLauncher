@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 
-namespace GOHShaderModdingSupportLauncherWPF
+namespace GOHShaderModdingSupportLauncher
 {
     internal static class AppDiagnostics
     {

@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PlatformTarget>x64</PlatformTarget>
+    <ApplicationIcon>gemIconBg.ico</ApplicationIcon>
+    <FileVersion>2.3</FileVersion>
+    <IsAotCompatible>true</IsAotCompatible>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <PublishAot>true</PublishAot>
+    <SelfContained>true</SelfContained>
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="tests\**\*.cs" />
+    <Compile Remove="MainWindowBak.xaml.cs" />
+    <EmbeddedResource Include="pak\noCache\shader.pak" />
+    <EmbeddedResource Include="pak\Ori\shader.lzma" />
+    <AvaloniaResource Include="bg.jpg" />
+    <AvaloniaResource Include="gemIconBg.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.3" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.3" />
+    <PackageReference Include="Avalonia.Controls.DataGrid" Version="12.1.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Update="Properties\i18n.Designer.cs">
+      <DependentUpon>i18n.resx</DependentUpon>
+    </Compile>
+    <EmbeddedResource Update="Properties\i18n.zh-cn.resx">
+      <WithCulture>false</WithCulture>
+      <LogicalName>GOHShaderModdingSupportLauncher.Properties.i18n.zh-cn.resources</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+</Project>

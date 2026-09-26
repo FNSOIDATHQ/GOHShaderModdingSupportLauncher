@@ -7,7 +7,7 @@ using System.Windows.Controls;
 using Microsoft.Win32;
 
 
-namespace GOHShaderModdingSupportLauncherWPF
+namespace GOHShaderModdingSupportLauncher
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml
@@ -323,7 +323,7 @@ namespace GOHShaderModdingSupportLauncherWPF
                 {
                     //extract pak from exe
                     //file is 326kb, so we use 350kb as a batch to extract everything once
-                    ExtractFile("GOHShaderModdingSupportLauncherWPF.shader.pak", resourceDir + @"\shader.pak", 358400);
+                    ExtractFile("GOHShaderModdingSupportLauncher.shader.pak", resourceDir + @"\shader.pak", 358400);
 
 
                 }

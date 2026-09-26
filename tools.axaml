@@ -1,0 +1,23 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:GOHShaderModdingSupportLauncher.Properties"
+             x:Class="GOHShaderModdingSupportLauncher.Tools">
+  <ScrollViewer>
+    <StackPanel Margin="30" HorizontalAlignment="Center" Spacing="16">
+      <Button x:Name="clearShaderCache" Height="50" Click="clearShaderCache_Click"
+              Content="{x:Static loc:i18n.U_ClearAllCache}" FontSize="22" />
+      <Button x:Name="restore" Height="50" Click="restore_Click"
+              Content="{x:Static loc:i18n.U_Restore}" FontSize="22" />
+      <Button x:Name="openConfig" Height="50" Click="openConfig_Click"
+              Content="{x:Static loc:i18n.U_OpenLauncherConfig}" FontSize="22" />
+      <Button x:Name="openCacheFolder" Height="50" Click="openCacheFolder_Click"
+              Content="{x:Static loc:i18n.U_OpenCacheFolder}" FontSize="22" />
+      <Button x:Name="openProfileFolder" Height="50" Click="openProfileFolder_Click"
+              Content="{x:Static loc:i18n.U_OpenProfileFolder}" FontSize="22" />
+      <Button x:Name="openLogFolder" Height="50" Click="openLogFolder_Click"
+              Content="{x:Static loc:i18n.U_OpenLogFolder}" FontSize="22" />
+      <Button x:Name="openWorkshopModFolder" Height="50" Click="openWorkshopModFolder_Click"
+              Content="{x:Static loc:i18n.U_OpenWorkshopModFolder}" FontSize="22" />
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

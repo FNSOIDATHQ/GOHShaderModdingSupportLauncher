@@ -1,46 +1,51 @@
-using System;
 using System.Runtime.CompilerServices;
-using System.Windows.Interop;
-using System.Windows.Media;
+using Avalonia;
+using Avalonia.Win32;
 
-namespace GOHShaderModdingSupportLauncherWPF
+namespace GOHShaderModdingSupportLauncher;
+
+internal static class Program
 {
-    internal static class Program
+    [STAThread]
+    public static int Main(string[] args)
     {
-        [STAThread]
-        public static int Main(string[] args)
+        bool diagnosticMode = Array.Exists(args, arg =>
+            arg.Equals("--validate-native-bundle", StringComparison.OrdinalIgnoreCase) ||
+            arg.Equals("--self-test-ui", StringComparison.OrdinalIgnoreCase));
+        AppDiagnostics.Initialize();
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+            AppDiagnostics.ReportFatal("Unhandled exception", e.ExceptionObject);
+        try { return RunApplication(args); }
+        catch (Exception ex)
         {
-            AppDiagnostics.Initialize();
-            AppDomain.CurrentDomain.UnhandledException += (_, e) =>
-            {
-                AppDiagnostics.ReportFatal("Unhandled exception", e.ExceptionObject);
-            };
-
-            try
-            {
-                return RunApplication(args);
-            }
-            catch (Exception ex)
-            {
-                AppDiagnostics.ReportFatal("Application startup / run", ex);
-                return 1;
-            }
+            if (diagnosticMode)
+                AppDiagnostics.Log(args.Contains("--validate-native-bundle", StringComparer.OrdinalIgnoreCase)
+                    ? "Native bundle validation failed" : "UI self-test failed", ex);
+            else AppDiagnostics.ReportFatal("Application startup / run", ex);
+            return 1;
         }
+    }
 
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private static int RunApplication(string[] args)
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static int RunApplication(string[] args)
+    {
+        NativeBundle.Initialize();
+        if (Array.Exists(args, arg => arg.Equals("--validate-native-bundle", StringComparison.OrdinalIgnoreCase)))
+            return NativeBundle.IsEmbedded ? 0 : 2;
+        var builder = AppBuilder.Configure<App>().UsePlatformDetect();
+        if (Array.Exists(args, arg => arg.Equals("--software-rendering", StringComparison.OrdinalIgnoreCase)))
         {
-            if (Array.Exists(args, arg => arg.Equals("--software-rendering", StringComparison.OrdinalIgnoreCase)))
+            builder = builder.With(new Win32PlatformOptions
             {
-                RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
-                AppDiagnostics.Log("Software rendering enabled.");
-            }
-
-            AppDiagnostics.Log("Creating Application.");
-            var app = new App();
-            app.InitializeComponent();
-            AppDiagnostics.Log("Application resources loaded.");
-            return app.Run();
+                RenderingMode = [Win32RenderingMode.Software]
+            });
+            AppDiagnostics.Log("Software rendering enabled.");
         }
+        if (Array.Exists(args, arg => arg.Equals("--self-test-ui", StringComparison.OrdinalIgnoreCase)))
+        {
+            builder.SetupWithoutStarting();
+            return UiSmokeTest.Run();
+        }
+        return builder.StartWithClassicDesktopLifetime(args);
     }
 }

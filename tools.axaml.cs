@@ -1,22 +1,22 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
-using System.Windows;
-using System.Windows.Controls;
-using GOHShaderModdingSupportLauncherWPF.Properties;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
+using GOHShaderModdingSupportLauncher.Properties;
 
 
 
-namespace GOHShaderModdingSupportLauncherWPF
+namespace GOHShaderModdingSupportLauncher
 {
-    public partial class Tools : Page
+    public partial class Tools : UserControl
     {
         private MainWindow main;
 
         private MainWindow.ToolsVars vars;
-        public Tools()
+        public Tools(MainWindow owner)
         {
-            main = Application.Current.MainWindow as MainWindow;
+            main = owner;
 
             vars = main.toolsVars;
 
@@ -51,7 +51,7 @@ namespace GOHShaderModdingSupportLauncherWPF
 
         private void restore_Click(object sender, RoutedEventArgs e)
         {
-            MainWindow.ExtractFile("GOHShaderModdingSupportLauncherWPF.pak.Ori.shader.lzma", main.universalVars.resourceDir + @"\shader.lzma", 358400);
+            MainWindow.ExtractFile("GOHShaderModdingSupportLauncher.pak.Ori.shader.lzma", main.universalVars.resourceDir + @"\shader.lzma", 358400);
             main.DecompressFileLZMA(main.universalVars.resourceDir + @"\shader.lzma", main.universalVars.resourceDir + @"\shader.pak");
             File.Delete(main.universalVars.resourceDir + @"\shader.lzma");
 

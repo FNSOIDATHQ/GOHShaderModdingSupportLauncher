@@ -4,23 +4,23 @@ using System.IO;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
-using System.Threading;
-using System.Windows;
-using System.Windows.Controls;
-using GOHShaderModdingSupportLauncherWPF.Properties;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
+using GOHShaderModdingSupportLauncher.Properties;
 
 
-namespace GOHShaderModdingSupportLauncherWPF
+namespace GOHShaderModdingSupportLauncher
 {
-    public partial class Launcher : Page
+    public partial class Launcher : UserControl
     {
         private MainWindow main;
 
         private MainWindow.LauncherVars vars;
 
-        public Launcher()
+        private bool isLaunching;
+        public Launcher(MainWindow owner)
         {
-            main = Application.Current.MainWindow as MainWindow;
+            main = owner;
 
             vars = main.launcherVars;
 
@@ -42,7 +42,7 @@ namespace GOHShaderModdingSupportLauncherWPF
             {
                 //extract pak from exe
                 //file is 326kb, so we use 350kb as a batch to extract everything once
-                MainWindow.ExtractFile("GOHShaderModdingSupportLauncherWPF.pak.noCache.shader.pak", resourceDir + @"\shader.pak", 358400);
+                MainWindow.ExtractFile("GOHShaderModdingSupportLauncher.pak.noCache.shader.pak", resourceDir + @"\shader.pak", 358400);
 
             }
             //if shader.pak <7mb, means the patch has been added
@@ -93,7 +93,7 @@ namespace GOHShaderModdingSupportLauncherWPF
             if (main.universalVars.NeedRestore == true || force == true)
             {
                 //retore
-                MainWindow.ExtractFile("GOHShaderModdingSupportLauncherWPF.pak.Ori.shader.lzma", main.universalVars.resourceDir + @"\shader.lzma", 358400);
+                MainWindow.ExtractFile("GOHShaderModdingSupportLauncher.pak.Ori.shader.lzma", main.universalVars.resourceDir + @"\shader.lzma", 358400);
                 main.DecompressFileLZMA(main.universalVars.resourceDir + @"\shader.lzma", main.universalVars.resourceDir + @"\shader.pak");
                 File.Delete(main.universalVars.resourceDir + @"\shader.lzma");
             }
@@ -315,13 +315,6 @@ namespace GOHShaderModdingSupportLauncherWPF
             }
         }
 
-        public static bool waitForProcessClose(Process game)
-        {
-            game.WaitForExit();
-
-            return true;
-        }
-
         private void OnGameExit()
         {
             if (main.universalVars.NeedCompileWarning == true)
@@ -331,6 +324,7 @@ namespace GOHShaderModdingSupportLauncherWPF
             if (main.universalVars.NeedRedisplay == true)
             {
                 main.RefreshMods(true);
+                main.RefreshModPage();
                 main.Show();
                 main.Topmost = true;
                 main.Topmost = false;
@@ -338,104 +332,115 @@ namespace GOHShaderModdingSupportLauncherWPF
             else
             {
                 main.SaveSettings();
-                Environment.Exit(0);
+                main.Close();
             }
         }
 
-        private void RunGame(string processName)
+        private async Task RunGameAsync(string processName)
         {
-            bool hasModified = CheckShaderModify();
-            if (hasModified == false)
+            if (isLaunching) return;
+            isLaunching = true;
+            bool replaced = false;
+            bool completed = false;
+            try
             {
-                AutoLoadCache();
+                if (!CheckShaderModify()) AutoLoadCache();
+                if (vars.lm == MainWindow.LauncherVars.LaunchMethod.FileReplace)
+                {
+                    ReplaceFile(main.universalVars.resourceDir!);
+                    replaced = true;
+                }
+                ForceChangeSettings(main.universalVars.optionLoc);
+                string args = vars.lm == MainWindow.LauncherVars.LaunchMethod.DX101 ? "-dx 10.1" : "";
+                if (vars.showAddModInfo) args += " -showmodinfo";
+                if (vars.AdminUsed && !vars.runAsAdmin)
+                {
+                    MessageBox.Show(i18n.L_AdminDisabledNotice, i18n.Universal_Warning,
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    vars.AdminUsed = false;
+                }
+                var psi = new ProcessStartInfo
+                {
+                    FileName = main.universalVars.gameDir!.GetFiles(processName)[0].FullName,
+                    WorkingDirectory = main.universalVars.gameDir.FullName,
+                    UseShellExecute = true,
+                    Verb = vars.runAsAdmin ? "runas" : "open",
+                    Arguments = args
+                };
+                using var game = Process.Start(psi) ?? throw new InvalidOperationException("Game process did not start.");
+                main.Hide();
+                await game.WaitForExitAsync();
+                completed = true;
             }
-
-
-            if (vars.lm == MainWindow.LauncherVars.LaunchMethod.FileReplace)
+            catch (Exception ex)
             {
-                ReplaceFile(main.universalVars.resourceDir);
+                AppDiagnostics.Log("Unable to launch or wait for game.", ex);
+                MessageBox.Show(ex.Message, i18n.Universal_Error, MessageBoxButton.OK, MessageBoxImage.Error);
             }
-            ForceChangeSettings(main.universalVars.optionLoc);
-
-            string args = "";
-            if (vars.lm == MainWindow.LauncherVars.LaunchMethod.DX101)
+            finally
             {
-                args = "-dx 10.1";
+                try
+                {
+                    if (replaced) RestoreFile();
+                    if (completed) ClearCache();
+                }
+                catch (Exception ex)
+                {
+                    AppDiagnostics.Log("Post-game cleanup failed.", ex);
+                    MessageBox.Show(ex.Message, i18n.Universal_Error, MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+                if (completed) OnGameExit();
+                else main.Show();
+                isLaunching = false;
             }
-            if (vars.showAddModInfo == true)
-            {
-                args += " -showmodinfo";
-            }
-
-            string verb = vars.runAsAdmin ? "runas" : "open";
-
-            ProcessStartInfo psi = new ProcessStartInfo
-            {
-                FileName = main.universalVars.gameDir.GetFiles(processName)[0].ToString(),
-                UseShellExecute = true,
-                Verb = verb,
-                Arguments = args
-            };
-
-            if (vars.AdminUsed == true && vars.runAsAdmin == false)
-            {
-                MessageBox.Show(i18n.L_AdminDisabledNotice, i18n.Universal_Warning, MessageBoxButton.OK, MessageBoxImage.Warning);
-                vars.AdminUsed = false;
-            }
-
-            Process game = Process.Start(psi);
-
-            
-            Thread waitForGaming = new Thread(() => waitForProcessClose(game));
-            waitForGaming.Start();
-            main.Hide();
-            while (waitForGaming.IsAlive)
-            {
-                Thread.Sleep(500);
-            }
-
-            if (vars.lm == MainWindow.LauncherVars.LaunchMethod.FileReplace)
-            {
-                RestoreFile();
-            }
-            ClearCache();
-
-            OnGameExit();
         }
 
-        private void Game_Click(object sender, RoutedEventArgs e)
+        private async void Game_Click(object sender, RoutedEventArgs e)
         {
-            RunGame("call_to_arms.exe");
+            await RunGameAsync("call_to_arms.exe");
         }
 
-        private void Editor_Click(object sender, RoutedEventArgs e)
+        private async void Editor_Click(object sender, RoutedEventArgs e)
         {
-            RunGame("call_to_arms_ed.exe");
+            await RunGameAsync("call_to_arms_ed.exe");
         }
 
-        private void AutoFix_Click(object sender, RoutedEventArgs e)
+        private async void AutoFix_Click(object sender, RoutedEventArgs e)
         {
             //force fix
             ClearCache(true);
             RestoreFile(true);
 
-            RunGame("call_to_arms.exe");
+            await RunGameAsync("call_to_arms.exe");
         }
 
         //this will make a auto fix
-        private void Safe_Click(object sender, RoutedEventArgs e)
+        private async void Safe_Click(object sender, RoutedEventArgs e)
         {
-            //force fix
-            ClearCache(true);
-            RestoreFile(true);
-
-            //start game with no mods
-            Process game = Process.Start(main.universalVars.gameDir.GetFiles("call_to_arms.exe")[0].ToString(), "-no_mods");
-
-            main.Hide();
-            game.WaitForExit();
-
-            OnGameExit();
+            if (isLaunching) return;
+            isLaunching = true;
+            try
+            {
+                ClearCache(true);
+                RestoreFile(true);
+                using var game = Process.Start(new ProcessStartInfo
+                {
+                    FileName = main.universalVars.gameDir!.GetFiles("call_to_arms.exe")[0].FullName,
+                    WorkingDirectory = main.universalVars.gameDir.FullName,
+                    Arguments = "-no_mods",
+                    UseShellExecute = true
+                }) ?? throw new InvalidOperationException("Game process did not start.");
+                main.Hide();
+                await game.WaitForExitAsync();
+                OnGameExit();
+            }
+            catch (Exception ex)
+            {
+                AppDiagnostics.Log("Safe launch failed.", ex);
+                main.Show();
+                MessageBox.Show(ex.Message, i18n.Universal_Error, MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally { isLaunching = false; }
         }
 
         private void LaunchMethod_SelectionChanged(object sender, SelectionChangedEventArgs e)

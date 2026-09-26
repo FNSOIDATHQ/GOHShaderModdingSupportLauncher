@@ -59,11 +59,15 @@ https://steamcommunity.com/sharedfiles/filedetails/?id=3410344592
 ## Development Guide
 
 I'm building this program using Visual Studio 2026, with environment below:
-* .NET 10 SDK (Visual Studio 2026)
-* Windows Presentation Foundation(WPF)
-* WPF-UI 4.3.0 through the MIT license https://github.com/lepoco/wpfui
-* Publish with `dotnet publish -c Release -p:PublishProfile=FolderProfile`. Distribute the sole EXE from `bin/net10-single-file/`.
-* The target PC must have the .NET 10 Windows Desktop Runtime (x64) installed. The EXE does not include the runtime.
+* Windows x64 and a .NET 10 SDK with the Visual Studio C++ build tools for Native AOT
+* Avalonia Desktop and Fluent Theme 12.1.3, with DataGrid 12.1.2
+* Run `powershell -NoProfile -ExecutionPolicy Bypass -File .\Publish-Aot.ps1`. Distribute the sole EXE from `bin/net10-aot-single-file/`.
+* The EXE includes the .NET runtime and native UI libraries. No .NET runtime installation is required on the target PC.
+* On first launch, native DLLs are verified and extracted to `%LOCALAPPDATA%\GOHSMSLauncher\Native\<archive SHA-256>` (or `%TEMP%` if necessary). Missing or changed DLLs are restored on the next launch.
+* Use `--software-rendering` for software graphics. `--validate-native-bundle` verifies extraction and loading without opening the UI. `--self-test-ui` checks the six pages, two languages, and mod operations without launching the game.
+* Avalonia DataGrid 12.1.2 produces two upstream Native AOT analysis summaries for reflection based features. This launcher uses fixed read-only columns with compiled bindings; the publish script rejects all other trim/AOT warnings.
+* `Properties/i18n.Designer.cs` is maintained with the embedded Chinese resource lookup; keep that lookup when adding resource keys.
+* From commit a120cb0 onwards, this project has been using Codex to support development.
 
 ## Credits
 Special Thanks to  
