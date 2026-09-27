@@ -9,7 +9,7 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <PlatformTarget>x64</PlatformTarget>
     <ApplicationIcon>gemIconBg.ico</ApplicationIcon>
-    <FileVersion>2.3</FileVersion>
+    <FileVersion>3.6</FileVersion>
     <IsAotCompatible>true</IsAotCompatible>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
   </PropertyGroup>
@@ -24,6 +24,7 @@
     <EmbeddedResource Include="pak\noCache\shader.pak" />
     <EmbeddedResource Include="pak\Ori\shader.lzma" />
     <AvaloniaResource Include="bg.jpg" />
+    <AvaloniaResource Include="img\logo.png" />
     <AvaloniaResource Include="gemIconBg.ico" />
   </ItemGroup>
   <ItemGroup>

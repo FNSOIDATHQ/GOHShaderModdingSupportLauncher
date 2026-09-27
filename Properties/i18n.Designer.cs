@@ -107,7 +107,7 @@ namespace GOHShaderModdingSupportLauncher.Properties {
         }
         
         /// <summary>
-        ///   查找类似 v2.23Beta    by Federation Studio 2025 的本地化字符串。
+        ///   查找类似 v3.6    by Federation Studio 2025 的本地化字符串。
         /// </summary>
         public static string A_Version {
             get {

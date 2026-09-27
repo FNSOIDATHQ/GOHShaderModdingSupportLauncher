@@ -18,11 +18,11 @@
       <TextBlock Grid.Column="0" Text="{Binding M_Available, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" FontWeight="Bold" Margin="0,0,0,6" />
       <TextBlock Grid.Column="2" Text="{Binding M_Loaded, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" FontWeight="Bold" Margin="0,0,0,6" />
       <DataGrid x:Name="unloadedMods" Grid.Row="1" Grid.Column="0" AutoGenerateColumns="False"
-                IsReadOnly="True" SelectionMode="Extended" CanUserSortColumns="True"
+                IsReadOnly="True" SelectionMode="Extended" CanUserResizeColumns="True" CanUserSortColumns="True"
                 SelectionChanged="unloadedMods_SelectionChanged">
         <DataGrid.Columns>
           <DataGridTextColumn x:DataType="local:Mod" Header="{Binding M_GridName, Source={x:Static local:LocalizedStrings.Instance}}" CanUserSort="True"
-                              Binding="{Binding name}" MinWidth="230" />
+                              Binding="{Binding name}" Width="230" MinWidth="80" />
           <DataGridTextColumn x:DataType="local:Mod" Header="{Binding M_GridType, Source={x:Static local:LocalizedStrings.Instance}}" CanUserSort="True"
                               Binding="{Binding type}" />
           <DataGridCheckBoxColumn x:DataType="local:Mod" Header="{Binding M_GridShader, Source={x:Static local:LocalizedStrings.Instance}}" CanUserSort="True"
@@ -38,11 +38,11 @@
                 Content="{Binding M_Unload, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" />
       </StackPanel>
       <DataGrid x:Name="loadedMods" Grid.Row="1" Grid.Column="2" AutoGenerateColumns="False" Background="Transparent"
-                IsReadOnly="True" SelectionMode="Extended" CanUserSortColumns="False"
+                IsReadOnly="True" SelectionMode="Extended" CanUserResizeColumns="True" CanUserSortColumns="False"
                 SelectionChanged="loadedMods_SelectionChanged">
         <DataGrid.Columns>
           <DataGridTextColumn x:DataType="local:Mod" Header="{Binding M_GridName, Source={x:Static local:LocalizedStrings.Instance}}"
-                              Binding="{Binding name}" MinWidth="230" />
+                              Binding="{Binding name}" Width="230" MinWidth="80" />
           <DataGridTextColumn x:DataType="local:Mod" Header="{Binding M_GridType, Source={x:Static local:LocalizedStrings.Instance}}"
                               Binding="{Binding type}" />
           <DataGridCheckBoxColumn x:DataType="local:Mod" Header="{Binding M_GridShader, Source={x:Static local:LocalizedStrings.Instance}}"

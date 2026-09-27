@@ -175,7 +175,7 @@
     <value>Show additional mod infomation</value>
   </data>
   <data name="A_Version" xml:space="preserve">
-    <value>v2.23Beta    by Federation Studio 2025</value>
+    <value>v3.6    by Federation Studio 2025</value>
   </data>
   <data name="U_ClearAllCache" xml:space="preserve">
     <value>Clear All Shader Cache and Records</value>
