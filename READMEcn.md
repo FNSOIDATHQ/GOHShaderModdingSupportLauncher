@@ -54,7 +54,8 @@ https://steamcommunity.com/sharedfiles/filedetails/?id=3410344592
 * 强制改变凹凸贴图质量是一项特殊措施，用于支持我的着色器mod
 * 将 Environment.CurrentDirectory 移至游戏目录总是必要的，这样steam就不会截断我们的启动指令
 * 设置保存在用户 LocalAppData 目录，首次使用会兼容读取 EXE 旁的旧 settings.conf。
-* 启动游戏时总是附带-showmodinfo参数，这是我发现的增强指令，可以显示详细的mod信息
+* 启动游戏时可选附带-showmodinfo参数，这是我发现的增强指令，可以显示详细的mod信息
+* 自动更新不会检测新版本的可用性，请自行在更新后删除备份的exe文件
 
 ## 开发指南
 

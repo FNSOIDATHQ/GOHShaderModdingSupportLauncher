@@ -54,7 +54,8 @@ https://steamcommunity.com/sharedfiles/filedetails/?id=3410344592
 * Force change bump quality is a special measure used to support my shader mods
 * Move Environment.CurrentDirectory to game directory is always necessary to let steam not truncate our launch commands
 * Settings are saved under LocalAppData, with compatibility for existing settings.conf beside the EXE.
-* Game Launch process always comes with the -showmodinfo parameter, which is an enhancement I found that let game shows detailed mod information
+* Game Launch process optional comes with the -showmodinfo parameter, which is an enhancement I found that let game shows detailed mod information
+* Automatic update does not check for the availability of new version, so please delete the backup EXE file yourself after verified updated version.
 
 ## Development Guide
 

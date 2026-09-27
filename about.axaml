@@ -11,5 +11,8 @@
             FontSize="22" HorizontalAlignment="Center" />
     <TextBlock Text="v2.3Beta    by Federation Studio 2026"
                FontSize="22" HorizontalAlignment="Center" Margin="0,90,0,0" />
+    <Button x:Name="checkUpdateButton" Click="CheckUpdate_Click"
+            Content="{Binding A_CheckUpdate, Source={x:Static local:LocalizedStrings.Instance}}"
+            FontSize="22" HorizontalAlignment="Center" />
   </StackPanel>
 </UserControl>

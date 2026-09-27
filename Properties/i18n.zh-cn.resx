@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -462,5 +462,40 @@
   </data>
   <data name="S_ProfileAccount" xml:space="preserve">
     <value>配置文件账户</value>
+  </data>
+  <data name="Update_Title" xml:space="preserve">
+    <value>启动器更新</value>
+  </data>
+  <data name="Update_Available" xml:space="preserve">
+    <value>创意工坊中的启动器与当前程序不同。是否立即更新？
+启动器将自动关闭，备份旧版，更新并重启。
+请确认新版本可用后手动删除旧版备份。</value>
+  </data>
+  <data name="Update_Failed" xml:space="preserve">
+    <value>无法完成启动器更新，请查看下方错误详情。</value>
+  </data>
+  <data name="Update_BackupExists" xml:space="preserve">
+    <value>启动器目录中已存在 old.exe，更新已停止。请先移走或删除该文件，再重试更新。</value>
+  </data>
+  <data name="Update_UseBackup" xml:space="preserve">
+    <value>旧程序已重命名为 old.exe，你可以运行 old.exe 使用旧版本。本次未执行自动回滚。</value>
+  </data>
+  <data name="A_CheckUpdate" xml:space="preserve">
+    <value>检查更新</value>
+  </data>
+  <data name="Update_Checking" xml:space="preserve">
+    <value>正在检查更新，请稍候。</value>
+  </data>
+  <data name="Update_PathUnavailable" xml:space="preserve">
+    <value>创意工坊路径不可用。
+请在设置中选择有效的游戏目录，并确认已下载创意工坊内容。</value>
+  </data>
+  <data name="Update_PathChanged" xml:space="preserve">
+    <value>检查过程中游戏目录发生了变化，请重新检查更新。</value>
+  </data>
+  <data name="Update_NotAvailable" xml:space="preserve">
+    <value>未发现可用更新。
+工坊启动器可能与当前程序相同，或工坊项目 3410344592 中未找到唯一的 GOHSMSLauncher.exe。
+请确认 Steam 已完成该项目的下载。</value>
   </data>
 </root>

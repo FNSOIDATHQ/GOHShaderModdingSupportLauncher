@@ -12,6 +12,7 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
     private static readonly string[] ResourcePropertyNames =
     [
         nameof(A_BugReport),
+        nameof(A_CheckUpdate),
         nameof(A_LinkGithub),
         nameof(A_LinkWorkshop),
         nameof(A_Tip),
@@ -80,6 +81,7 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
     private string this[string key] => i18n.ResourceManager.GetString(key, i18n.Culture) ?? key;
 
     public string A_BugReport => this[nameof(A_BugReport)];
+    public string A_CheckUpdate => this[nameof(A_CheckUpdate)];
     public string A_LinkGithub => this[nameof(A_LinkGithub)];
     public string A_LinkWorkshop => this[nameof(A_LinkWorkshop)];
     public string A_Tip => this[nameof(A_Tip)];
