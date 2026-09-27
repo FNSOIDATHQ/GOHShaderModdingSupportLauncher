@@ -11,6 +11,12 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
 
     private static readonly string[] ResourcePropertyNames =
     [
+        nameof(P_Presets), 
+        nameof(P_Save), 
+        nameof(P_Overwrite), 
+        nameof(P_Load), 
+        nameof(P_Rename), 
+        nameof(P_Delete),
         nameof(A_BugReport),
         nameof(A_CheckUpdate),
         nameof(A_LinkGithub),
@@ -33,6 +39,8 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
         nameof(L_RunAsAdmin),
         nameof(L_Safe),
         nameof(M_CollectCache),
+        nameof(M_Available),
+        nameof(M_Loaded),
         nameof(M_GridName),
         nameof(M_GridShader),
         nameof(M_GridType),
@@ -80,6 +88,12 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
 
     private string this[string key] => i18n.ResourceManager.GetString(key, i18n.Culture) ?? key;
 
+    public string P_Presets => this[nameof(P_Presets)];
+    public string P_Save => this[nameof(P_Save)];
+    public string P_Overwrite => this[nameof(P_Overwrite)];
+    public string P_Load => this[nameof(P_Load)];
+    public string P_Rename => this[nameof(P_Rename)];
+    public string P_Delete => this[nameof(P_Delete)];
     public string A_BugReport => this[nameof(A_BugReport)];
     public string A_CheckUpdate => this[nameof(A_CheckUpdate)];
     public string A_LinkGithub => this[nameof(A_LinkGithub)];
@@ -102,6 +116,8 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
     public string L_RunAsAdmin => this[nameof(L_RunAsAdmin)];
     public string L_Safe => this[nameof(L_Safe)];
     public string M_CollectCache => this[nameof(M_CollectCache)];
+    public string M_Available => this[nameof(M_Available)];
+    public string M_Loaded => this[nameof(M_Loaded)];
     public string M_GridName => this[nameof(M_GridName)];
     public string M_GridShader => this[nameof(M_GridShader)];
     public string M_GridType => this[nameof(M_GridType)];

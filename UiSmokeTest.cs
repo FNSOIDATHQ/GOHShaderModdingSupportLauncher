@@ -187,6 +187,8 @@ internal static class UiSmokeTest
                     var names = FileManager.ReadLoadedModNames(optionReader).ToArray();
                     if (!names.SequenceEqual(window.universalVars.modLoaded.Select(mod => mod.folderName)))
                         throw new InvalidOperationException("Reordered mods were not saved to options.set.");
+                    optionReader.Dispose();
+                    PresetUiSmokeTest.Run(manager, window, fixture);
                 }
                 if (i == 2)
                 {
@@ -298,7 +300,7 @@ internal static class UiSmokeTest
             {
                 Environment.CurrentDirectory = originalDirectory;
             }
-            AppDiagnostics.Log("Desktop UI self-test passed: six pages, two languages, mod load/unload/reorder and column sorting, left converter tabs, matching translucent title bar and sidebar, fitted background, resource restore, cache cleanup, and profile account selection/persistence.");
+            AppDiagnostics.Log("Desktop UI self-test passed: six pages, two languages, mod presets, load/unload/reorder and column sorting, left converter tabs, matching translucent title bar and sidebar, fitted background, resource restore, cache cleanup, and profile account selection/persistence.");
             return 0;
         }
         finally

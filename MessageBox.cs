@@ -41,7 +41,7 @@ internal static class MessageBox
             WindowStartupLocation = WindowStartupLocation.CenterOwner
         };
         var content = new StackPanel { Margin = new Thickness(20), Spacing = 20 };
-        content.Children.Add(new TextBlock { Text = message, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
+        content.Children.Add(new ScrollViewer { MaxHeight = 430, Content = new TextBlock { Text = message, TextWrapping = Avalonia.Media.TextWrapping.Wrap } });
         var actions = new StackPanel
         {
             Orientation = Orientation.Horizontal,

@@ -191,6 +191,77 @@ namespace GOHShaderModdingSupportLauncher
             }
         }
 
+        internal static void WriteTextAtomically(string path, string text, bool overwrite)
+        {
+            var temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                File.WriteAllText(temporary, text, new UTF8Encoding(false));
+                if (overwrite && File.Exists(path)) File.Replace(temporary, path, null);
+                else File.Move(temporary, path);
+            }
+            finally
+            {
+                try { File.Delete(temporary); }
+                catch (Exception ex) when (IsFileError(ex)) { AppDiagnostics.Log("Temporary file cleanup failed.", ex); }
+            }
+        }
+
+        internal static void WriteLoadedMods(string path, IReadOnlyList<Mod> mods)
+        {
+            // Keep all unrelated settings, including sections following {mods}.
+            var text = File.ReadAllText(path);
+            int start = -1, end = -1, sectionDepth = -1, depth = 0, rootEnd = -1;
+            bool quoted = false, escaped = false, comment = false;
+            for (int i = 0; i < text.Length; i++)
+            {
+                char c = text[i];
+                if (comment) { if (c == '\n') comment = false; continue; }
+                if (quoted)
+                {
+                    if (escaped) escaped = false;
+                    else if (c == '\\') escaped = true;
+                    else if (c == '"') quoted = false;
+                    continue;
+                }
+                if (c == '"') { quoted = true; continue; }
+                if (c == '/' && i + 1 < text.Length && text[i + 1] == '/') { comment = true; continue; }
+                if (c == '{')
+                {
+                    depth++;
+                    int keyStart = i + 1;
+                    while (keyStart < text.Length && char.IsWhiteSpace(text[keyStart])) keyStart++;
+                    int keyEnd = keyStart;
+                    while (keyEnd < text.Length && !char.IsWhiteSpace(text[keyEnd]) && text[keyEnd] is not ('{' or '}')) keyEnd++;
+                    if (text.AsSpan(keyStart, keyEnd - keyStart).SequenceEqual("mods"))
+                    {
+                        if (start >= 0) throw new FormatException(PresetText.Get("P_InvalidOptions"));
+                        start = i;
+                        sectionDepth = depth;
+                    }
+                }
+                else if (c == '}')
+                {
+                    if (depth == sectionDepth && end < 0) end = i + 1;
+                    if (--depth < 0) throw new FormatException(PresetText.Get("P_InvalidOptions"));
+                    if (depth == 0) rootEnd = i;
+                }
+            }
+            if (depth != 0 || quoted || rootEnd < 0 || (start >= 0 && end < 0))
+                throw new FormatException(PresetText.Get("P_InvalidOptions"));
+            var section = new StringBuilder("{mods\r\n");
+            foreach (var mod in mods)
+            {
+                if (string.IsNullOrWhiteSpace(mod.folderName) || mod.folderName.Any(c => char.IsControl(c) || c is '"' or ':' or '\\'))
+                    throw new FormatException(PresetText.Get("P_InvalidEntries"));
+                section.Append("\t\t\"").Append(mod.folderName).Append(":0\"\r\n");
+            }
+            section.Append("\t}");
+            var modified = start >= 0 ? text[..start] + section + text[end..]
+                : text[..rootEnd] + "\t" + section + "\r\n" + text[rootEnd..];
+            WriteTextAtomically(path, modified, overwrite: true);
+        }
+
         public static string NormalizeCacheHash(string? hash) => IsValidCacheHash(hash) ? hash! : "-1";
         public static string NormalizeShaderHash(string? hash) => IsValidShaderHash(hash) ? hash! : "0";
 

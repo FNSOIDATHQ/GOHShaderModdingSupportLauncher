@@ -9,6 +9,7 @@ Language：English [中文](./READMEcn.md)
   - [Runtime Details](#runtime-details)
     - [Preprocess](#preprocess)
     - [Postprocess](#postprocess)
+    - [Mod presets](#mod-presets)
     - [Notice](#notice)
   - [Development Guide](#development-guide)
   - [Credits](#credits)
@@ -49,6 +50,35 @@ https://steamcommunity.com/sharedfiles/filedetails/?id=3410344592
 
 * [File Replace Method Only][Need enable in Settings] Restore vanilla shader file, modified file will remain as cache
 * [Need enable in Settings] Clear shader cache in C:\Users\YOURUSERNAME\Documents\my games\gates of hell\shader_cache
+
+### Mod presets
+
+The mod manager's preset toolbar can:  
+- save the current loaded list as a preset
+- overwrite the selected preset with the currently loaded list
+- load a saved preset
+- rename preset
+- delete preset 
+
+Presets are UTF-8 TOML files in `presets` beside the launcher executable.  
+Missing mods will be skipped and listed in a warning during preset loading process.  
+The preset filename is its display name.  
+
+One preset file including:  
+- `version = 1` to mark preset format version 
+- an ordered `[[mods]]` array
+
+```toml
+version = 1
+
+[[mods]]
+id = "mod_123456"
+name = "Workshop example"
+
+[[mods]]
+id = "local_mod"
+name = "Local example"
+```
 
 ### Notice
 * Force change bump quality is a special measure used to support my shader mods

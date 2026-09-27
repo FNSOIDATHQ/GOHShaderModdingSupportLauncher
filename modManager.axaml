@@ -4,9 +4,20 @@
              xmlns:loc="using:GOHShaderModdingSupportLauncher.Properties"
              x:Class="GOHShaderModdingSupportLauncher.ModManager"
              Loaded="Page_Loaded">
-  <Grid RowDefinitions="*,Auto,Auto" Margin="10">
-    <Grid ColumnDefinitions="*,155,*" MinHeight="350">
-      <DataGrid x:Name="unloadedMods" Grid.Column="0" AutoGenerateColumns="False"
+  <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="10">
+    <WrapPanel Grid.Row="0" Margin="0,0,0,8">
+      <TextBlock Text="{Binding P_Presets, Source={x:Static local:LocalizedStrings.Instance}}" VerticalAlignment="Center" Margin="0,0,8,4" />
+      <ComboBox x:Name="presetList" MinWidth="180" MaxWidth="260" Margin="0,0,8,4" SelectionChanged="presetList_SelectionChanged" />
+      <Button x:Name="savePreset" Click="savePreset_Click" Content="{Binding P_Save, Source={x:Static local:LocalizedStrings.Instance}}" Margin="0,0,8,4" />
+      <Button x:Name="overwritePreset" Click="overwritePreset_Click" Content="{Binding P_Overwrite, Source={x:Static local:LocalizedStrings.Instance}}" Margin="0,0,8,4" IsEnabled="False" />
+      <Button x:Name="loadPreset" Click="loadPreset_Click" Content="{Binding P_Load, Source={x:Static local:LocalizedStrings.Instance}}" Margin="0,0,8,4" IsEnabled="False" />
+      <Button x:Name="renamePreset" Click="renamePreset_Click" Content="{Binding P_Rename, Source={x:Static local:LocalizedStrings.Instance}}" Margin="0,0,8,4" IsEnabled="False" />
+      <Button x:Name="deletePreset" Click="deletePreset_Click" Content="{Binding P_Delete, Source={x:Static local:LocalizedStrings.Instance}}" Margin="0,0,8,4" IsEnabled="False" />
+    </WrapPanel>
+    <Grid Grid.Row="1" ColumnDefinitions="*,155,*" RowDefinitions="Auto,*" MinHeight="350">
+      <TextBlock Grid.Column="0" Text="{Binding M_Available, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" FontWeight="Bold" Margin="0,0,0,6" />
+      <TextBlock Grid.Column="2" Text="{Binding M_Loaded, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" FontWeight="Bold" Margin="0,0,0,6" />
+      <DataGrid x:Name="unloadedMods" Grid.Row="1" Grid.Column="0" AutoGenerateColumns="False"
                 IsReadOnly="True" SelectionMode="Extended" CanUserSortColumns="True"
                 SelectionChanged="unloadedMods_SelectionChanged">
         <DataGrid.Columns>
@@ -18,15 +29,15 @@
                                   Binding="{Binding hasShader}" />
         </DataGrid.Columns>
       </DataGrid>
-      <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="10" Margin="8">
-        <Button x:Name="refresh" Click="refresh_Click"
+      <StackPanel Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" Spacing="10" Margin="8">
+        <Button x:Name="refresh" Click="refresh_Click" HorizontalAlignment="Center"
                 Content="{Binding M_Refresh, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" />
-        <Button x:Name="loadMod" Click="loadMod_Click"
+        <Button x:Name="loadMod" Click="loadMod_Click" HorizontalAlignment="Center"
                 Content="{Binding M_Load, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" />
-        <Button x:Name="unloadMod" Click="unloadMod_Click"
+        <Button x:Name="unloadMod" Click="unloadMod_Click" HorizontalAlignment="Center"
                 Content="{Binding M_Unload, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" />
       </StackPanel>
-      <DataGrid x:Name="loadedMods" Grid.Column="2" AutoGenerateColumns="False" Background="Transparent"
+      <DataGrid x:Name="loadedMods" Grid.Row="1" Grid.Column="2" AutoGenerateColumns="False" Background="Transparent"
                 IsReadOnly="True" SelectionMode="Extended" CanUserSortColumns="False"
                 SelectionChanged="loadedMods_SelectionChanged">
         <DataGrid.Columns>
@@ -39,9 +50,9 @@
         </DataGrid.Columns>
       </DataGrid>
     </Grid>
-    <TextBlock Grid.Row="1" Text="{Binding M_SelectedMod, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="24"
+    <TextBlock Grid.Row="2" Text="{Binding M_SelectedMod, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="24"
                FontWeight="Bold" Background="#4CA8B2BB" Margin="0,6" />
-    <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8">
+    <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="8">
       <Button x:Name="openModFolder" Click="openModFolder_Click"
               Content="{Binding M_OpenFolder, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" />
       <Button x:Name="loadShaderCache" Click="loadShaderCache_Click"

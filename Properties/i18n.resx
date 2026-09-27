@@ -498,4 +498,70 @@ Please select a valid game directory in Settings and make sure the Workshop cont
 The Workshop launcher may match the current copy, or a unique GOHSMSLauncher.exe could not be found in Workshop item 3410344592. 
 Make sure Steam has finished downloading the item.</value>
   </data>
+  <data name="P_Presets" xml:space="preserve">
+    <value>Presets</value>
+  </data>
+  <data name="P_Save" xml:space="preserve">
+    <value>Save current list</value>
+  </data>
+  <data name="P_Load" xml:space="preserve">
+    <value>Load preset</value>
+  </data>
+  <data name="P_Rename" xml:space="preserve">
+    <value>Rename</value>
+  </data>
+  <data name="P_Delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="P_Name" xml:space="preserve">
+    <value>Preset name</value>
+  </data>
+  <data name="P_OK" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="P_Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="P_OverwriteConfirm" xml:space="preserve">
+    <value>Overwrite preset “{0}” with the current loaded mod list?</value>
+  </data>
+  <data name="P_DeleteConfirm" xml:space="preserve">
+    <value>Delete preset “{0}”? The current loaded mod list will stay unchanged.</value>
+  </data>
+  <data name="P_MissingMods" xml:space="preserve">
+    <value>The preset was loaded. These mods are missing and were skipped:</value>
+  </data>
+  <data name="P_Error" xml:space="preserve">
+    <value>The mod list or preset operation could not be completed.</value>
+  </data>
+  <data name="P_InvalidName" xml:space="preserve">
+    <value>Enter a valid Windows file name (up to 240 characters), without a path, reserved name, or trailing dot or space.</value>
+  </data>
+  <data name="P_InvalidToml" xml:space="preserve">
+    <value>The preset is not valid UTF-8 TOML.</value>
+  </data>
+  <data name="P_InvalidVersion" xml:space="preserve">
+    <value>The preset must contain version = 1.</value>
+  </data>
+  <data name="P_InvalidEntries" xml:space="preserve">
+    <value>The preset must contain a mods array with string id and name fields. Mod identifiers must be nonempty and unique.</value>
+  </data>
+  <data name="P_InvalidOptions" xml:space="preserve">
+    <value>The game configuration has invalid or ambiguous section boundaries. It was not changed.</value>
+  </data>
+  <data name="P_NameExists" xml:space="preserve">
+    <value>A preset with that name already exists.</value>
+  </data>
+  <data name="P_FileMissing" xml:space="preserve">
+    <value>The preset file no longer exists. Please refresh the list.</value>
+  </data>
+  <data name="P_Overwrite" xml:space="preserve">
+    <value>Overwrite</value>
+  </data>
+  <data name="M_Available" xml:space="preserve">
+    <value>Available</value>
+  </data>
+  <data name="M_Loaded" xml:space="preserve">
+    <value>Loaded</value>
+  </data>
 </root>

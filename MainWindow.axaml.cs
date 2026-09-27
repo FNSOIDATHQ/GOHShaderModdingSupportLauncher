@@ -660,11 +660,7 @@ namespace GOHShaderModdingSupportLauncher
 
         public void RefreshMods(bool afterGaming = false)
         {
-            universalVars.modDic.Clear();
-
-
-            ReadModsFromWorkshop();
-            ReadModsFromLocal();
+            universalVars.modDic = ScanMods();
 
             if (universalVars.NeedLockModList == true && afterGaming == true)
             {
@@ -782,7 +778,15 @@ namespace GOHShaderModdingSupportLauncher
             return false;
         }
 
-        private void ReadModsFromWorkshop()
+        internal Dictionary<string, Mod> ScanMods()
+        {
+            var mods = new Dictionary<string, Mod>();
+            ReadModsFromWorkshop(mods);
+            ReadModsFromLocal(mods);
+            return mods;
+        }
+
+        private void ReadModsFromWorkshop(Dictionary<string, Mod> mods)
         {
             if (universalVars.workshopDir?.Exists != true) return;
 
@@ -811,14 +815,14 @@ namespace GOHShaderModdingSupportLauncher
 
                 Mod single = new Mod(name, i18n.Main_ModWorkshop, dir.FullName, folderName, hasShader);
 
-                if (universalVars.modDic.TryAdd(folderName, single) == false)
+                if (mods.TryAdd(folderName, single) == false)
                 {
                     AppDiagnostics.Log($"Duplicate mod identifier ignored: {folderName} ({dir.FullName})");
                 }
             }
         }
 
-        private void ReadModsFromLocal()
+        private void ReadModsFromLocal(Dictionary<string, Mod> mods)
         {
             if (universalVars.localDir?.Exists != true) return;
 
@@ -845,7 +849,7 @@ namespace GOHShaderModdingSupportLauncher
 
                 Mod single = new Mod(name, i18n.Main_ModLocal, dir.FullName, folderName, hasShader);
 
-                if (universalVars.modDic.TryAdd(folderName, single) == false)
+                if (mods.TryAdd(folderName, single) == false)
                 {
                     AppDiagnostics.Log($"Duplicate mod identifier ignored: {folderName} ({dir.FullName})");
                 }

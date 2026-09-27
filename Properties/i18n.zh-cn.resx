@@ -498,4 +498,70 @@
 工坊启动器可能与当前程序相同，或工坊项目 3410344592 中未找到唯一的 GOHSMSLauncher.exe。
 请确认 Steam 已完成该项目的下载。</value>
   </data>
+  <data name="P_Presets" xml:space="preserve">
+    <value>预设</value>
+  </data>
+  <data name="P_Save" xml:space="preserve">
+    <value>保存当前列表</value>
+  </data>
+  <data name="P_Load" xml:space="preserve">
+    <value>加载预设</value>
+  </data>
+  <data name="P_Rename" xml:space="preserve">
+    <value>重命名</value>
+  </data>
+  <data name="P_Delete" xml:space="preserve">
+    <value>删除</value>
+  </data>
+  <data name="P_Name" xml:space="preserve">
+    <value>预设名称</value>
+  </data>
+  <data name="P_OK" xml:space="preserve">
+    <value>确定</value>
+  </data>
+  <data name="P_Cancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="P_OverwriteConfirm" xml:space="preserve">
+    <value>使用当前加载的 mod 列表覆盖预设“{0}”？</value>
+  </data>
+  <data name="P_DeleteConfirm" xml:space="preserve">
+    <value>确定删除预设“{0}”？当前加载的 mod 列表不会改变。</value>
+  </data>
+  <data name="P_MissingMods" xml:space="preserve">
+    <value>预设已加载。以下 mod 不存在，已跳过：</value>
+  </data>
+  <data name="P_Error" xml:space="preserve">
+    <value>无法完成 mod 列表或预设操作。</value>
+  </data>
+  <data name="P_InvalidName" xml:space="preserve">
+    <value>请输入有效的 Windows 文件名（最多 240 个字符），不能包含路径、保留名称或以句点、空格结尾。</value>
+  </data>
+  <data name="P_InvalidToml" xml:space="preserve">
+    <value>预设不是有效的 UTF-8 TOML 文件。</value>
+  </data>
+  <data name="P_InvalidVersion" xml:space="preserve">
+    <value>预设必须包含 version = 1。</value>
+  </data>
+  <data name="P_InvalidEntries" xml:space="preserve">
+    <value>预设必须包含 mods 数组，各项的 id 和 name 必须为字符串。mod 标识不能为空或重复。</value>
+  </data>
+  <data name="P_InvalidOptions" xml:space="preserve">
+    <value>游戏配置的区段边界无效或不明确，未修改文件。</value>
+  </data>
+  <data name="P_NameExists" xml:space="preserve">
+    <value>已存在同名预设。</value>
+  </data>
+  <data name="P_FileMissing" xml:space="preserve">
+    <value>预设文件已不存在，请刷新列表。</value>
+  </data>
+  <data name="P_Overwrite" xml:space="preserve">
+    <value>覆盖</value>
+  </data>
+  <data name="M_Available" xml:space="preserve">
+    <value>可用</value>
+  </data>
+  <data name="M_Loaded" xml:space="preserve">
+    <value>已加载</value>
+  </data>
 </root>

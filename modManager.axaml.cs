@@ -117,55 +117,14 @@ namespace GOHShaderModdingSupportLauncher
             
         }
 
-        private void UpdateOptionFile()
+        private void CommitLoadedMods(List<Mod> mods, Dictionary<string, Mod>? available = null)
         {
-            string modified = "";
-            using (StreamReader opt = File.OpenText(main.universalVars.optionLoc))
-            {
-                //push to mod list start point
-                while (opt.ReadLine() is var line)
-                {
-                    //no mod section
-                    if (opt.EndOfStream == true)
-                    {
-                        modified += "\t{mods\r\n";
-                        break;
-                    }
-                    modified += line+"\r\n";
-                    if (line.Contains("{mods") == true)
-                    {
-                        break;
-                    }
-
-                }
-
-                opt.Close();
-            }
-
-            foreach(Mod mod in loadedItems)
-            {
-                modified += "\t\t\""+mod.folderName+ ":0\"\r\n";
-            }
-
-            modified += "\t}\r\n}\r\n";
-
-            File.WriteAllText(main.universalVars.optionLoc, modified);
-        }
-
-        private void DataGridAddRange(ObservableCollection<Mod> items,List<Mod> mods)
-        {
-            foreach(var mod in mods)
-            {
-                items.Add(mod);
-            }
-        }
-
-        private void DataGridRemoveRange(ObservableCollection<Mod> items, List<Mod> mods)
-        {
-            foreach (var mod in mods)
-            {
-                items.Remove(mod);
-            }
+            FileManager.WriteLoadedMods(main.universalVars.optionLoc, mods);
+            if (available != null) main.universalVars.modDic = available;
+            foreach (var mod in main.universalVars.modDic.Values) mod.hasLoad = false;
+            foreach (var mod in mods) mod.hasLoad = true;
+            main.universalVars.modLoaded = mods;
+            UpdateUI();
         }
 
         private void loadMod_Click(object sender, RoutedEventArgs e)
@@ -177,15 +136,8 @@ namespace GOHShaderModdingSupportLauncher
                     MessageBox.Show(i18n.M_NoModSelected, i18n.Universal_Notice, MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
-            foreach (var mod in selected)
-            {
-                mod.hasLoad = true;
-                main.universalVars.modLoaded.Add(mod);
-            }
-            DataGridAddRange(loadedItems, selected);
-            DataGridRemoveRange(unloadedItems, selected);
-            UpdateOptionFile();
-            UpdateUI();
+            try { CommitLoadedMods(loadedItems.Concat(selected).ToList()); }
+            catch (Exception ex) when (IsPresetError(ex)) { ShowPresetError(ex); }
         }
 
         private void unloadMod_Click(object sender, RoutedEventArgs e)
@@ -197,15 +149,8 @@ namespace GOHShaderModdingSupportLauncher
                     MessageBox.Show(i18n.M_NoModSelected, i18n.Universal_Notice, MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
-            foreach (var mod in selected)
-            {
-                mod.hasLoad = false;
-                main.universalVars.modLoaded.Remove(mod);
-            }
-            DataGridAddRange(unloadedItems, selected);
-            DataGridRemoveRange(loadedItems, selected);
-            UpdateOptionFile();
-            UpdateUI();
+            try { CommitLoadedMods(loadedItems.Except(selected).ToList()); }
+            catch (Exception ex) when (IsPresetError(ex)) { ShowPresetError(ex); }
         }
 
         private void openModFolder_Click(object sender, RoutedEventArgs e)
@@ -382,6 +327,7 @@ namespace GOHShaderModdingSupportLauncher
         {
             main.RefreshMods();
             UpdateUI();
+            RefreshPresets();
         }
 
         private static readonly DataFormat<string> LoadedModDragFormat =
@@ -516,11 +462,11 @@ namespace GOHShaderModdingSupportLauncher
             int oldIndex = loadedItems.IndexOf(moved);
             int newIndex = loadedItems.IndexOf(target);
             if (oldIndex < 0 || newIndex < 0 || oldIndex == newIndex) return false;
-            loadedItems.Move(oldIndex, newIndex);
-            main.universalVars.modLoaded.Remove(moved);
-            main.universalVars.modLoaded.Insert(newIndex, moved);
-            UpdateOptionFile();
-            return true;
+            var next = loadedItems.ToList();
+            next.RemoveAt(oldIndex);
+            next.Insert(newIndex, moved);
+            try { CommitLoadedMods(next); return true; }
+            catch (Exception ex) when (IsPresetError(ex)) { ShowPresetError(ex); return false; }
         }
 
         private void AttachDragRoot()
@@ -550,6 +496,7 @@ namespace GOHShaderModdingSupportLauncher
         private void Page_Loaded(object sender, RoutedEventArgs e)
         {
             AttachDragRoot();
+            RefreshPresets();
             if (hasInit == true)
             {
 #if DEBUG
