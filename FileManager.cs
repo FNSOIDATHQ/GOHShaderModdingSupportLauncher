@@ -10,7 +10,7 @@ namespace GOHShaderModdingSupportLauncher
     {
         private const long MaxSettingsBytes = 32 * 1024;
         internal const int LanguageSettingIndex = 13;
-        private const int MaxSettingsLength = 16;
+        private const int MaxSettingsLength = 17;
 
         public static bool IsFileError(Exception ex) => ex
                                                         is IOException
@@ -64,9 +64,9 @@ namespace GOHShaderModdingSupportLauncher
                 throw new FormatException("The launcher settings file has invalid text encoding.", ex);
             }
 
-            if (lines.Length is not (13 or 14 or 15 or 16))
+            if (lines.Length is not (13 or 14 or 15 or 16 or 17))
             {
-                throw new FormatException("The launcher settings file must contain 13, 14, 15, or 16 settings.");
+                throw new FormatException("The launcher settings file must contain 13, 14, 15, 16, or 17 settings.");
             }
 
             if (
@@ -89,11 +89,17 @@ namespace GOHShaderModdingSupportLauncher
             if (IsValidCacheHash(lines[11]) == false || IsValidShaderHash(lines[12]) == false)
                 throw new FormatException("Invalid shader cache hash in settings.");
 
-            if ((lines.Length is 14 or 16) && lines[LanguageSettingIndex] is not ("en-US" or "zh-CN"))
+            if ((lines.Length is 14 or 16 or 17) && lines[LanguageSettingIndex] is not ("en-US" or "zh-CN"))
                 throw new FormatException("Invalid language in settings.");
 
             if ((lines.Length is 15 or 16) && (IsStandardAbsolutePath(lines[^2]) == false || IsStandardAbsolutePath(lines[^1]) == false))
                 throw new FormatException("Invalid cached path in settings.");
+
+            if (lines.Length == 17 &&
+                ((lines[14].Length > 0 && !IsStandardAbsolutePath(lines[14])) ||
+                 (lines[15].Length > 0 && !IsStandardAbsolutePath(lines[15])) ||
+                 (lines[16].Length > 0 && !IsStandardAbsolutePath(lines[16]))))
+                throw new FormatException("Invalid account or cached path in settings.");
 
             return lines;
         }
@@ -114,19 +120,17 @@ namespace GOHShaderModdingSupportLauncher
             }
         }
 
-        public static string? FindOptionsFile(string profileRoot)
+        public static string? FindOptionsFile(string profileRoot) => FindOptionsFiles(profileRoot).FirstOrDefault();
+
+        public static string[] FindOptionsFiles(string profileRoot)
         {
-            if (Path.IsPathFullyQualified(profileRoot) == false) return null;
-
+            if (!Path.IsPathFullyQualified(profileRoot)) return [];
             var profiles = Path.Combine(profileRoot, "profiles");
-
-            if (Directory.Exists(profiles) == false) return null;
-
-            // An empty account folder should not hide another account with a valid options file
+            if (!Directory.Exists(profiles)) return [];
             return Directory.EnumerateDirectories(profiles)
-                    .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-                    .Select(path => Path.Combine(path, "options.set"))
-                    .FirstOrDefault(File.Exists);
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .Select(path => Path.Combine(path, "options.set"))
+                .Where(File.Exists).ToArray();
         }
 
         public static bool IsGameDirectory(string path)

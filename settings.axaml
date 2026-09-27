@@ -8,7 +8,7 @@
                  Text="{Binding S_PathsRequired, Source={x:Static local:LocalizedStrings.Instance}}" />
       <TextBlock Text="{Binding S_General, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="24"
                  FontWeight="Bold" Background="#4CA8B2BB" />
-      <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto" RowSpacing="6">
+      <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
         <TextBlock Text="{Binding S_GamePath, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" VerticalAlignment="Center" />
         <TextBox x:Name="gamePath" Grid.Column="1" Margin="8,0,0,0"
                  LostFocus="gamePath_LostFocus" />
@@ -22,6 +22,11 @@
         <Button x:Name="browseGameConfigPath" Grid.Row="1" Grid.Column="2" Margin="8,0,0,0"
                 Click="browseGameConfigPath_Click"
                 Content="{Binding S_Browse, Source={x:Static local:LocalizedStrings.Instance}}" />
+        <TextBlock Grid.Row="2" Text="{Binding S_ProfileAccount, Source={x:Static local:LocalizedStrings.Instance}}"
+                   FontSize="20" VerticalAlignment="Center" />
+        <ComboBox x:Name="profileAccount" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2"
+                  Margin="8,0,0,0" HorizontalAlignment="Stretch"
+                  SelectionChanged="profileAccount_SelectionChanged" />
       </Grid>
       <CheckBox x:Name="pathConfirm" Click="pathConfirm_Click"
                 Content="{Binding S_PathConfirm, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" />

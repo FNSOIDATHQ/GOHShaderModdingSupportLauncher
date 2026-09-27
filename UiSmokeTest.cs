@@ -215,7 +215,7 @@ internal static class UiSmokeTest
             if (window.Title != i18n.Title || window.Title is null ||
                 ((ListBoxItem)primary.Items[0]!).Content as string != i18n.Tab_Launcher ||
                 ((ListBoxItem)footer.Items[0]!).Content as string != i18n.Tab_Settings ||
-                (FileManager.ReadSettings(settingsPath).Length != 14 || FileManager.ReadSettings(settingsPath)[13] != "zh-CN"))
+                (FileManager.ReadSettings(settingsPath).Length != 17 || FileManager.ReadSettings(settingsPath)[13] != "zh-CN"))
                 throw new InvalidOperationException($"Chinese language did not update or persist: title={window.Title}, expectedTitle={i18n.Title}, nav={((ListBoxItem)primary.Items[0]!).Content}, expectedNav={i18n.Tab_Launcher}, footer={((ListBoxItem)footer.Items[0]!).Content}, expectedFooter={i18n.Tab_Settings}, saved={FileManager.ReadSettings(settingsPath)[13]}.");
             primary.SelectedIndex = 0;
             var gameButton = ((Launcher)host.Content!).FindControl<Button>("game")!;
@@ -238,7 +238,7 @@ internal static class UiSmokeTest
             primary.SelectedIndex = 1;
             languageSelector.SelectedIndex = 0;
             Dispatcher.UIThread.RunJobs();
-            if ((FileManager.ReadSettings(settingsPath).Length != 14 || FileManager.ReadSettings(settingsPath)[13] != "en-US") ||
+            if ((FileManager.ReadSettings(settingsPath).Length != 17 || FileManager.ReadSettings(settingsPath)[13] != "en-US") ||
                 gameButton.Content as string != i18n.L_Main ||
                 window.universalVars.modDic["alpha"].type != i18n.Main_ModLocal ||
                 window.universalVars.modDic["mod_123"].type != i18n.Main_ModWorkshop)
@@ -264,25 +264,41 @@ internal static class UiSmokeTest
                     window.TrySetManualProfileDirectory(fixture))
                     throw new InvalidOperationException("Manual path validation rejected a valid folder or accepted an invalid one.");
                 var savedPaths = FileManager.ReadSettings(settingsPath);
-                if (savedPaths.Length != 16 || savedPaths[^2] != manualGame.FullName ||
+                if (savedPaths.Length != 17 || savedPaths[^2] != manualGame.FullName ||
                     savedPaths[^1] != manualProfile.FullName ||
                     window.universalVars.gameDir?.FullName != manualGame.FullName ||
                     window.universalVars.profileLoc != manualProfile.FullName)
                     throw new InvalidOperationException("A rejected manual path replaced the saved game or profile folder.");
+                var secondAccount = Directory.CreateDirectory(Path.Combine(manualProfile.FullName, "profiles", "second-account"));
+                var secondOptions = Path.Combine(secondAccount.FullName, "options.set");
+                File.WriteAllText(secondOptions, "{mods\n}\n");
+                if (!window.TrySetManualProfileDirectory(manualProfile.FullName))
+                    throw new InvalidOperationException("Profile rescan failed.");
+                footer.SelectedIndex = 0;
+                var accountSelector = ((Settings)host.Content!).FindControl<ComboBox>("profileAccount")
+                    ?? throw new InvalidOperationException("Profile account selector is missing.");
+                if (accountSelector.Items.Count != 2)
+                    throw new InvalidOperationException("Profile scan did not retain both valid accounts.");
+                accountSelector.SelectedIndex = 1;
+                Dispatcher.UIThread.RunJobs();
+                savedPaths = FileManager.ReadSettings(settingsPath);
+                if (window.universalVars.optionLoc != secondOptions || savedPaths[14] != secondOptions)
+                    throw new InvalidOperationException("Profile account selection did not update or persist.");
                 savedPaths[8] = bool.TrueString;
                 FileManager.WriteSettings(settingsPath, savedPaths);
                 var reopened = new MainWindow(settingsPath);
                 reopened.LoadConfigFromFile();
                 if (!reopened.universalVars.AlwaysConfirm ||
                     reopened.universalVars.gameDir?.FullName != manualGame.FullName ||
-                    reopened.universalVars.profileLoc != manualProfile.FullName)
-                    throw new InvalidOperationException("Restart ignored a valid manual path when confirmation was enabled.");
+                    reopened.universalVars.profileLoc != manualProfile.FullName ||
+                    reopened.universalVars.optionLoc != secondOptions)
+                    throw new InvalidOperationException("Restart ignored the selected profile account or a valid manual path when confirmation was enabled.");
             }
             finally
             {
                 Environment.CurrentDirectory = originalDirectory;
             }
-            AppDiagnostics.Log("Desktop UI self-test passed: six pages, two languages, mod load/unload/reorder and column sorting, left converter tabs, matching translucent title bar and sidebar, fitted background, resource restore, and cache cleanup.");
+            AppDiagnostics.Log("Desktop UI self-test passed: six pages, two languages, mod load/unload/reorder and column sorting, left converter tabs, matching translucent title bar and sidebar, fitted background, resource restore, cache cleanup, and profile account selection/persistence.");
             return 0;
         }
         finally

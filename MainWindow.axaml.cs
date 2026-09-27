@@ -23,6 +23,15 @@ namespace GOHShaderModdingSupportLauncher
     /// </summary>
     public partial class MainWindow : Window
     {
+        internal sealed record ProfileAccount(string OptionsPath)
+        {
+            public string ProfileRoot => Directory.GetParent(OptionsPath)!.Parent!.Parent!.FullName;
+            public override string ToString() => $"{Directory.GetParent(OptionsPath)!.Name} ({ProfileRoot})";
+        }
+
+        internal List<ProfileAccount> ProfileAccounts { get; } = new();
+        private string selectedProfileOptions = "";
+
         private bool HasGetGameRoot, HasGetProfileLoc;
         private bool openSettingsOnStartup;
         private bool settingsOnly;
@@ -134,7 +143,7 @@ namespace GOHShaderModdingSupportLauncher
             try
             {
                 var lines = FileManager.ReadSettings(source);
-                return lines.Length is 14 or 16 ? CultureInfo.GetCultureInfo(lines[FileManager.LanguageSettingIndex]) : fallback;
+                return lines.Length is 14 or 16 or 17 ? CultureInfo.GetCultureInfo(lines[FileManager.LanguageSettingIndex]) : fallback;
             }
             catch (Exception ex) when (FileManager.IsFileError(ex) || ex is FormatException)
             {
@@ -227,11 +236,8 @@ namespace GOHShaderModdingSupportLauncher
             LoadConfigFromFile();
             bool usingCachedGamePath = HasGetGameRoot;
 
-            if (HasGetProfileLoc == false)
-            {
-                AppDiagnostics.Log("Finding game profile.");
-                GetProfileLoc();
-            }
+            AppDiagnostics.Log("Finding game profiles.");
+            GetProfileLoc();
 
             if (HasGetGameRoot == false)
             {
@@ -288,7 +294,8 @@ namespace GOHShaderModdingSupportLauncher
             universalVars.lastCacheHash = lines[11];
             universalVars.lastShaderHash = lines[12];
 
-            if (lines.Length is not (15 or 16)) return;
+            if (lines.Length == 17) selectedProfileOptions = lines[14];
+            if (lines.Length is not (15 or 16 or 17)) return;
             int pathIndex = lines.Length - 2;
 
             try { HasGetGameRoot = TrySetGameDirectory(lines[pathIndex]); }
@@ -335,13 +342,32 @@ namespace GOHShaderModdingSupportLauncher
 
         private bool TrySetProfileDirectory(string path)
         {
-            string? options = FileManager.FindOptionsFile(path);
+            var accounts = FileManager.FindOptionsFiles(path);
+            foreach (var optionsPath in accounts)
+                if (!ProfileAccounts.Any(account => string.Equals(account.OptionsPath, optionsPath, StringComparison.OrdinalIgnoreCase)))
+                    ProfileAccounts.Add(new ProfileAccount(optionsPath));
+            var options = accounts.FirstOrDefault(option => string.Equals(option, selectedProfileOptions, StringComparison.OrdinalIgnoreCase))
+                ?? accounts.FirstOrDefault();
             if (options == null) return false;
+            ApplyProfileAccount(new ProfileAccount(options));
+            return true;
+        }
 
-            universalVars.profileLoc = path;
-            universalVars.cacheLoc = Path.Combine(path, "shader_cache");
-            universalVars.optionLoc = options;
+        private void ApplyProfileAccount(ProfileAccount account)
+        {
+            universalVars.profileLoc = account.ProfileRoot;
+            universalVars.cacheLoc = Path.Combine(account.ProfileRoot, "shader_cache");
+            universalVars.optionLoc = account.OptionsPath;
+            selectedProfileOptions = account.OptionsPath;
+        }
 
+        internal bool TrySelectProfileAccount(ProfileAccount account)
+        {
+            if (!ProfileAccounts.Contains(account) || !File.Exists(account.OptionsPath)) return false;
+            ApplyProfileAccount(account);
+            HasGetProfileLoc = true;
+            OnManualPathChanged();
+            SaveSettings();
             return true;
         }
 
@@ -391,22 +417,28 @@ namespace GOHShaderModdingSupportLauncher
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "my games", "gates of hell")
             };
 
+            string preferred = selectedProfileOptions;
             foreach (string candidate in candidates)
             {
                 try
                 {
-                    if (TrySetProfileDirectory(candidate))
-                    {
-                        HasGetProfileLoc = true;
-                        return;
-                    }
+                    foreach (string options in FileManager.FindOptionsFiles(candidate))
+                        if (!ProfileAccounts.Any(account => string.Equals(account.OptionsPath, options, StringComparison.OrdinalIgnoreCase)))
+                            ProfileAccounts.Add(new ProfileAccount(options));
                 }
                 catch (Exception ex) when (FileManager.IsFileError(ex))
                 {
                     AppDiagnostics.Log($"Unable to inspect profile: {candidate}", ex);
                 }
             }
-            AppDiagnostics.Log("Game profile was not found; manual selection is required.");
+            var selected = ProfileAccounts.FirstOrDefault(account => string.Equals(account.OptionsPath, preferred, StringComparison.OrdinalIgnoreCase))
+                ?? ProfileAccounts.FirstOrDefault();
+            if (selected != null)
+            {
+                ApplyProfileAccount(selected);
+                HasGetProfileLoc = true;
+            }
+            else AppDiagnostics.Log("Game profile was not found; manual selection is required.");
         }
 
         private async Task<bool> GetGameRootAsync()
@@ -894,11 +926,9 @@ namespace GOHShaderModdingSupportLauncher
                     , FileManager.NormalizeShaderHash(universalVars.lastShaderHash)
                     , LocalizedStrings.Instance.Culture.Name
                 };
-                if (HasGetGameRoot && HasGetProfileLoc)
-                {
-                    lines.Add(universalVars.gameDir!.FullName);
-                    lines.Add(universalVars.profileLoc);
-                }
+                lines.Add(selectedProfileOptions);
+                lines.Add(HasGetGameRoot ? universalVars.gameDir!.FullName : "");
+                lines.Add(HasGetProfileLoc ? universalVars.profileLoc : "");
                 FileManager.WriteSettings(universalVars.configLoc, lines);
             }
             catch (Exception ex) when (FileManager.IsFileError(ex))

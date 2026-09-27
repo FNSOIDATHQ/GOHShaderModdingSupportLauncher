@@ -42,9 +42,27 @@ namespace GOHShaderModdingSupportLauncher
             UpdatePathStatus();
         }
 
+        private bool updatingAccounts;
+
         internal void UpdatePathStatus()
         {
             pathStatus.IsVisible = !main.PathsReady;
+            updatingAccounts = true;
+            try
+            {
+                profileAccount.ItemsSource = main.ProfileAccounts.ToArray();
+                profileAccount.SelectedItem = main.ProfileAccounts.Find(account =>
+                    string.Equals(account.OptionsPath, main.universalVars.optionLoc, StringComparison.OrdinalIgnoreCase));
+                profileAccount.IsEnabled = main.ProfileAccounts.Count > 0;
+                gameConfigPath.Text = main.universalVars.profileLoc;
+            }
+            finally { updatingAccounts = false; }
+        }
+
+        private void profileAccount_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+        {
+            if (updatingAccounts || profileAccount.SelectedItem is not MainWindow.ProfileAccount account) return;
+            if (!main.TrySelectProfileAccount(account)) UpdatePathStatus();
         }
 
         private void gamePath_LostFocus(object sender, RoutedEventArgs e)
