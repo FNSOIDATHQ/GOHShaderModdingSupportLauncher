@@ -24,10 +24,7 @@ namespace GOHShaderModdingSupportLauncher
 
             InitializeComponent();
 
-            if (main.universalVars.gameDir.FullName != null)
-            {
-                gamePath.Text = main.universalVars.gameDir.FullName;
-            }
+            gamePath.Text = main.universalVars.gameDir?.FullName ?? "";
 
             if (main.universalVars.profileLoc != null)
             {
@@ -42,6 +39,12 @@ namespace GOHShaderModdingSupportLauncher
             lockModList.IsChecked = main.universalVars.NeedLockModList;
             autoLoadCache.IsChecked = main.universalVars.NeedAutoLoad;
             refreshCacheWhenModified.IsChecked = main.universalVars.NeedCheckShaderModify;
+            UpdatePathStatus();
+        }
+
+        internal void UpdatePathStatus()
+        {
+            pathStatus.IsVisible = !main.PathsReady;
         }
 
         private void gamePath_LostFocus(object sender, RoutedEventArgs e)

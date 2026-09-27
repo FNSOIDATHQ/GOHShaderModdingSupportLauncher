@@ -25,6 +25,8 @@ namespace GOHShaderModdingSupportLauncher
     {
         private bool HasGetGameRoot, HasGetProfileLoc;
         private bool openSettingsOnStartup;
+        private bool settingsOnly;
+        internal bool PathsReady => HasGetGameRoot && HasGetProfileLoc;
         private readonly UserControl?[] pages = new UserControl?[6];
         private bool initialized;
         private readonly string settingsPath;
@@ -199,7 +201,7 @@ namespace GOHShaderModdingSupportLauncher
             initialized = true;
             try
             {
-                if (!await InitBasicDataAsync()) { Close(); return; }
+                await InitBasicDataAsync();
                 languageSelector.IsEnabled = true;
                 if (openSettingsOnStartup) footerNavigation.SelectedIndex = 0;
                 else primaryNavigation.SelectedIndex = 0;
@@ -213,13 +215,13 @@ namespace GOHShaderModdingSupportLauncher
             }
         }
 
-        private async Task<bool> InitBasicDataAsync()
+        private async Task InitBasicDataAsync()
         {
-            universalVars.gameDir = new DirectoryInfo(Directory.GetCurrentDirectory());
-            universalVars.resourceDir = new DirectoryInfo(Directory.GetCurrentDirectory());
-
             HasGetGameRoot = false;
             HasGetProfileLoc = false;
+            settingsOnly = true;
+            primaryNavigation.IsEnabled = false;
+            ((ListBoxItem)footerNavigation.Items[1]!).IsEnabled = false;
 
             AppDiagnostics.Log("Loading settings.");
             LoadConfigFromFile();
@@ -234,7 +236,7 @@ namespace GOHShaderModdingSupportLauncher
             if (HasGetGameRoot == false)
             {
                 AppDiagnostics.Log("Finding game installation.");
-                if (!await GetGameRootAsync()) return false;
+                await GetGameRootAsync();
             }
 
             if (usingCachedGamePath && universalVars.AlwaysConfirm &&
@@ -245,12 +247,12 @@ namespace GOHShaderModdingSupportLauncher
                 openSettingsOnStartup = true;
             }
 
-            AppDiagnostics.Log("Scanning mods.");
-            RefreshMods();
+            openSettingsOnStartup |= !PathsReady;
+            if (PathsReady) RefreshMods();
+            UpdatePathAvailability();
 
             SaveSettings();
             AppDiagnostics.Log("Startup data initialized.");
-            return true;
         }
 
         internal void LoadConfigFromFile()
@@ -347,6 +349,7 @@ namespace GOHShaderModdingSupportLauncher
         {
             if (!TrySetGameDirectory(path)) return false;
             HasGetGameRoot = true;
+            OnManualPathChanged();
             SaveSettings();
             return true;
         }
@@ -355,8 +358,29 @@ namespace GOHShaderModdingSupportLauncher
         {
             if (!TrySetProfileDirectory(path)) return false;
             HasGetProfileLoc = true;
+            OnManualPathChanged();
             SaveSettings();
             return true;
+        }
+
+        private void OnManualPathChanged()
+        {
+            if (PathsReady) RefreshMods();
+            UpdatePathAvailability();
+            RefreshModPage();
+        }
+
+        internal void UpdatePathAvailability()
+        {
+            settingsOnly = !PathsReady;
+            primaryNavigation.IsEnabled = !settingsOnly;
+            ((ListBoxItem)footerNavigation.Items[1]!).IsEnabled = !settingsOnly;
+            if (settingsOnly)
+            {
+                primaryNavigation.SelectedIndex = -1;
+                footerNavigation.SelectedIndex = 0;
+            }
+            if (pages[4] is Settings settings) settings.UpdatePathStatus();
         }
 
         private void GetProfileLoc()
@@ -382,7 +406,7 @@ namespace GOHShaderModdingSupportLauncher
                     AppDiagnostics.Log($"Unable to inspect profile: {candidate}", ex);
                 }
             }
-            throw new InvalidOperationException($"{i18n.Main_NoProfile}\n{i18n.Main_RunGameOnce}\n\n{string.Join("\n", candidates)}");
+            AppDiagnostics.Log("Game profile was not found; manual selection is required.");
         }
 
         private async Task<bool> GetGameRootAsync()
@@ -468,7 +492,8 @@ namespace GOHShaderModdingSupportLauncher
 
             if (HasGetGameRoot == false)
             {
-                throw new InvalidOperationException(libraries.Count == 0 ? i18n.Main_NoSteam : i18n.Main_NoGame);
+                AppDiagnostics.Log("Game installation was not found; manual selection is required.");
+                return false;
             }
 
             string message = $"{i18n.Main_FoundGame0}\n{universalVars.gameDir}\n\n{i18n.Main_FoundGame1}";
@@ -476,12 +501,16 @@ namespace GOHShaderModdingSupportLauncher
             {
                 // Do not cache a path that the user rejected.
                 HasGetGameRoot = false;
+                universalVars.gameDir = null;
+                universalVars.resourceDir = null;
+                universalVars.localDir = null;
+                universalVars.workshopDir = null;
                 SaveSettings();
                 AppDiagnostics.Log("User declined the detected game path.");
                 return false;
             }
             
-            ClearCacheWork();
+            if (HasGetProfileLoc) ClearCacheWork();
             return true;
         }
 
@@ -915,6 +944,12 @@ namespace GOHShaderModdingSupportLauncher
 
         private void Navigate(int index)
         {
+            if (settingsOnly && index != 4)
+            {
+                primaryNavigation.SelectedIndex = -1;
+                footerNavigation.SelectedIndex = 0;
+                return;
+            }
             if (pages[index] == null)
                 pages[index] = index switch
                 {

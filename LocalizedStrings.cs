@@ -53,6 +53,7 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
         nameof(S_General),
         nameof(S_LockModList),
         nameof(S_PathConfirm),
+        nameof(S_PathsRequired),
         nameof(S_RefreshCache),
         nameof(S_Restore),
         nameof(Tab_About),
@@ -119,6 +120,7 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
     public string S_General => this[nameof(S_General)];
     public string S_LockModList => this[nameof(S_LockModList)];
     public string S_PathConfirm => this[nameof(S_PathConfirm)];
+    public string S_PathsRequired => this[nameof(S_PathsRequired)];
     public string S_RefreshCache => this[nameof(S_RefreshCache)];
     public string S_Restore => this[nameof(S_Restore)];
     public string Tab_About => this[nameof(Tab_About)];

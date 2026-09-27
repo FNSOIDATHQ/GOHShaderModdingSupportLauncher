@@ -456,4 +456,8 @@
 
 如果你不是开发者则无需关注该警告。</value>
   </data>
+  <data name="S_PathsRequired" xml:space="preserve">
+    <value>请在下方填写或浏览选择有效的游戏目录和配置目录，两个路径均验证后将允许访问其他功能。
+游戏目录请选择包含 call_to_arms.exe 的 binaries\x64。配置目录请选择包含 profiles 的目录（其中应有账户的 options.set 文件）。</value>
+  </data>
 </root>

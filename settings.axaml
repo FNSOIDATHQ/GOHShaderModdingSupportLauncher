@@ -4,6 +4,8 @@
              x:Class="GOHShaderModdingSupportLauncher.Settings">
   <ScrollViewer>
     <StackPanel Margin="15" Spacing="8">
+      <TextBlock x:Name="pathStatus" TextWrapping="Wrap" Foreground="#FFD27F"
+                 Text="{Binding S_PathsRequired, Source={x:Static local:LocalizedStrings.Instance}}" />
       <TextBlock Text="{Binding S_General, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="24"
                  FontWeight="Bold" Background="#4CA8B2BB" />
       <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto" RowSpacing="6">

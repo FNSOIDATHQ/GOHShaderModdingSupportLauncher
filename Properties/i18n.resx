@@ -456,4 +456,8 @@ If you are sure it is not please manually clear all cache from Utilities page.</
 
 If you are not a developer, no need to worry about this warning.</value>
   </data>
+  <data name="S_PathsRequired" xml:space="preserve">
+    <value>Please specify valid game and configuration directories below. Other tabs will become available once both paths are valid. 
+Select binaries\x64 containing call_to_arms.exe for the game, and the directory containing profiles with an account's options.set for the configuration.</value>
+  </data>
 </root>
