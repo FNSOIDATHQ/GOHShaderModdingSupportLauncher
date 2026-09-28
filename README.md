@@ -13,6 +13,7 @@ Language：English [中文](./READMEcn.md)
     - [Notice](#notice)
   - [Development Guide](#development-guide)
   - [Credits](#credits)
+  - [License](#license)
   - [Support my Work](#support-my-work)
 ---
 
@@ -106,6 +107,10 @@ Special Thanks to
 * Players who participated in the launcher test  
 
 for their contribution during the development!  
+
+## License
+Licensed under the Apache License, Version 2.0.
+See the [LICENSE](LICENSE) file for details.
 
 ## Support my Work
 If you like my products, please give this repository a STAR, I'd appreciate it =)  
