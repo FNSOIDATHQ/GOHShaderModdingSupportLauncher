@@ -564,4 +564,10 @@
   <data name="M_Loaded" xml:space="preserve">
     <value>已加载</value>
   </data>
+  <data name="L_ShaderSettingsWarning" xml:space="preserve">
+    <value>未能应用着色器模组所需的画质设置，游戏将继续启动，部分着色效果可能不正确。</value>
+  </data>
+  <data name="L_MissingShaderSetting" xml:space="preserve">
+    <value>游戏配置中缺少“{0}”画质设置，未修改文件。</value>
+  </data>
 </root>

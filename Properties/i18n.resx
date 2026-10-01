@@ -564,4 +564,10 @@ Make sure Steam has finished downloading the item.</value>
   <data name="M_Loaded" xml:space="preserve">
     <value>Loaded</value>
   </data>
+  <data name="L_ShaderSettingsWarning" xml:space="preserve">
+    <value>Unable to apply the graphics settings required by shader mods. The game will still launch, but some shader effects may not display correctly.</value>
+  </data>
+  <data name="L_MissingShaderSetting" xml:space="preserve">
+    <value>The game configuration is missing the '{0}' graphics setting. It was not changed.</value>
+  </data>
 </root>

@@ -377,6 +377,21 @@ namespace GOHShaderModdingSupportLauncher.Properties {
         }
         
         /// <summary>
+        ///   查找画质设置应用失败后继续启动的提示。
+        /// </summary>
+        public static string L_ShaderSettingsWarning {
+            get {
+                return ResourceManager.GetString("L_ShaderSettingsWarning", resourceCulture);
+            }
+        }
+
+        public static string L_MissingShaderSetting {
+            get {
+                return ResourceManager.GetString("L_MissingShaderSetting", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   查找类似 Auto Fix (Safe Mode) 的本地化字符串。
         /// </summary>
         public static string L_Safe {

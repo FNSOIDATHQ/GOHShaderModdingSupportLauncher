@@ -55,35 +55,23 @@ namespace GOHShaderModdingSupportLauncher
         //open bump options, a fix for my own shader mod
         public static void ForceChangeSettings(string optionLoc)
         {
-            string opt;
-            using (StreamReader sr = File.OpenText(optionLoc))
-            {
-                opt = sr.ReadToEnd();
+            string original = File.ReadAllText(optionLoc);
+            string modified = ShaderGraphicsSettings.Apply(original);
+            if (modified != original)
+                FileManager.WriteTextAtomically(optionLoc, modified, overwrite: true);
+        }
 
-                sr.Close();
+        internal static Exception? TryForceChangeSettings(string optionLoc)
+        {
+            try
+            {
+                ForceChangeSettings(optionLoc);
+                return null;
             }
-
-            int presetLoc = opt.IndexOf("{preset");
-            int presetEndLoc = opt.IndexOf("}\r\n\t\t{hdr");
-            int bumpLoc = opt.IndexOf("{bumpType");
-            int bumpEndLoc = opt.IndexOf("}\r\n\t\t{specular");
-
-
-            opt = opt.Remove(bumpLoc, bumpEndLoc - bumpLoc + 1);
-            opt = opt.Insert(bumpLoc, "{bumpType parallax}");
-            opt = opt.Remove(presetLoc, presetEndLoc - presetLoc + 1);
-            opt = opt.Insert(presetLoc, "{preset custom}");
-
-#if DEBUG
-            Trace.WriteLine(presetEndLoc);
-            //Trace.Write(opt);
-#endif
-
-            using (StreamWriter sw = File.CreateText(optionLoc))
+            catch (Exception ex)
             {
-
-                sw.Write(opt);
-                sw.Close();
+                AppDiagnostics.Log($"Unable to apply shader graphics settings; continuing launch. Options: {optionLoc}", ex);
+                return ex;
             }
         }
 
@@ -350,7 +338,10 @@ namespace GOHShaderModdingSupportLauncher
                     ReplaceFile(main.universalVars.resourceDir!);
                     replaced = true;
                 }
-                ForceChangeSettings(main.universalVars.optionLoc);
+                if (TryForceChangeSettings(main.universalVars.optionLoc) is Exception settingsError)
+                    MessageBox.Show($"{i18n.L_ShaderSettingsWarning}\n\n{main.universalVars.optionLoc}\n\n{settingsError.Message}",
+                        i18n.Universal_Warning, MessageBoxButton.OK, MessageBoxImage.Warning,
+                        attachToMainWindow: false);
                 string args = vars.lm == MainWindow.LauncherVars.LaunchMethod.DX101 ? "-dx 10.1" : "";
                 if (vars.showAddModInfo) args += " -showmodinfo";
                 if (vars.AdminUsed && !vars.runAsAdmin)

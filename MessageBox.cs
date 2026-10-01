@@ -14,10 +14,12 @@ internal static class MessageBox
 {
     public static void Show(string message, string title,
         MessageBoxButton buttons = MessageBoxButton.OK,
-        MessageBoxImage image = MessageBoxImage.Information)
+        MessageBoxImage image = MessageBoxImage.Information,
+        bool attachToMainWindow = true)
     {
         var dialog = Create(message, title, buttons, image);
-        var owner = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+        var owner = attachToMainWindow
+            ? (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow : null;
         if (owner?.IsVisible == true) dialog.Show(owner);
         else dialog.Show();
     }
