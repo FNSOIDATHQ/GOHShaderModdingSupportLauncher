@@ -9,7 +9,8 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <PlatformTarget>x64</PlatformTarget>
     <ApplicationIcon>gemIconBg.ico</ApplicationIcon>
-    <FileVersion>3.6</FileVersion>
+    <Version>3.7</Version>
+    <FileVersion>3.7</FileVersion>
     <IsAotCompatible>true</IsAotCompatible>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
   </PropertyGroup>

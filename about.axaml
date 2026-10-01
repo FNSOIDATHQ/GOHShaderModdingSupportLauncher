@@ -13,7 +13,7 @@
            Width="300" Height="125" Stretch="Uniform"
            HorizontalAlignment="Center" Margin="0,24,0,0"
            AutomationProperties.Name="Federation Studio" />
-    <TextBlock Text="v3.6    by Federation Studio 2026"
+    <TextBlock Text="v3.7    by Federation Studio 2026"
                FontSize="22" HorizontalAlignment="Center" Margin="0,4,0,0" />
     <Button x:Name="checkUpdateButton" Click="CheckUpdate_Click"
             Content="{Binding A_CheckUpdate, Source={x:Static local:LocalizedStrings.Instance}}"
