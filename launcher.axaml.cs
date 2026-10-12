@@ -198,10 +198,10 @@ namespace GOHShaderModdingSupportLauncher
                             //check if shader is in paks
                             foreach (var obj in resouce.GetFiles("*.pak", SearchOption.TopDirectoryOnly))
                             {
-                                using var curPak = FileManager.TryOpenPakRead(obj.FullName);
-                                if (curPak == null) continue;
+                                var entries = FileManager.TryReadPakEntries(obj.FullName);
+                                if (entries == null) continue;
 
-                                foreach (var file in curPak.Entries)
+                                foreach (var file in entries)
                                 {
                                     if (file.FullName.Contains("shader/dx10/") == true)
                                     {

@@ -741,10 +741,10 @@ namespace GOHShaderModdingSupportLauncher
 #if DEBUG
                     Trace.WriteLine("get a pak= " + obj.Name);
 #endif
-                    using var curPak = FileManager.TryOpenPakRead(obj.FullName);
-                    if (curPak == null) continue;
+                    var entries = FileManager.TryReadPakEntries(obj.FullName);
+                    if (entries == null) continue;
 
-                    foreach (var file in curPak.Entries)
+                    foreach (var file in entries)
                     {
                         if (file.FullName.Contains("shader/dx10/") == true)
                         {

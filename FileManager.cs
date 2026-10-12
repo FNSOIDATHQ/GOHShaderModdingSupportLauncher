@@ -4,6 +4,8 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text;
+using SharpCompress.Archives.Rar;
+using SharpCompress.Readers;
 
 namespace GOHShaderModdingSupportLauncher
 {
@@ -27,20 +29,54 @@ namespace GOHShaderModdingSupportLauncher
                                                 );
 
         #region Main Functions
-        public static ZipArchive? TryOpenPakRead(string path)
+        public sealed record PakEntry(string FullName, long Length, DateTimeOffset LastWriteTime);
+
+        public static PakEntry[]? TryReadPakEntries(string path)
         {
-            ZipArchive? archive = null;
+            string format = "unknown";
             try
             {
-                archive = ZipFile.OpenRead(path);
-                // Read mode defers parsing the central directory until Entries is accessed.
-                _ = archive.Entries.Count;
-                return archive;
+                using var stream = File.OpenRead(path);
+                Span<byte> header = stackalloc byte[8];
+                int read = stream.ReadAtLeast(header, header.Length, throwOnEndOfStream: false);
+                ReadOnlySpan<byte> signature = header[..read];
+                stream.Position = 0;
+
+                if (signature.StartsWith("PK\x03\x04"u8) ||
+                    signature.StartsWith("PK\x05\x06"u8) ||
+                    signature.StartsWith("PK\x07\x08"u8) ||
+                    signature.StartsWith("PK\x06\x06"u8))
+                {
+                    format = "ZIP";
+                    using var archive = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: true);
+                    // Materialize inside the try block: both readers parse entries lazily.
+                    return archive.Entries.Where(entry => entry.Name.Length > 0)
+                        .Select(entry => new PakEntry(entry.FullName.Replace('\\', '/'), entry.Length, entry.LastWriteTime))
+                        .ToArray();
+                }
+
+                if (signature.StartsWith("Rar!\x1a\x07\x00"u8) ||
+                    signature.StartsWith("Rar!\x1a\x07\x01\x00"u8))
+                {
+                    format = "RAR";
+                    using var archive = RarArchive.OpenArchive(stream, ReaderOptions.ForExternalStream);
+                    var entries = archive.Entries.Where(entry => !entry.IsDirectory)
+                        .Select(entry => new PakEntry((entry.Key ?? "").Replace('\\', '/'), entry.Size,
+                            entry.LastModifiedTime is DateTime modified ? new DateTimeOffset(modified) : DateTimeOffset.UnixEpoch))
+                        .ToArray();
+                    // Force main-header validation, including archives with no file entries.
+                    _ = archive.IsSolid;
+                    if (!archive.IsComplete) throw new InvalidDataException("The RAR archive is incomplete.");
+                    return entries;
+                }
+
+                AppDiagnostics.Log($"Skipping unsupported pak format (expected ZIP or RAR): {path}");
+                return null;
             }
-            catch (Exception ex) when (ex is InvalidDataException || IsFileError(ex))
+            catch (Exception ex) when (ex is not OutOfMemoryException)
             {
-                archive?.Dispose();
-                AppDiagnostics.Log($"Skipping unreadable pak: {path}", ex);
+                // Malformed third-party headers can produce different parser exceptions.
+                AppDiagnostics.Log($"Skipping unreadable pak ({format}): {path}", ex);
                 return null;
             }
         }

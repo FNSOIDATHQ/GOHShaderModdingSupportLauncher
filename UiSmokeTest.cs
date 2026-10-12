@@ -12,6 +12,10 @@ namespace GOHShaderModdingSupportLauncher;
 
 internal static class UiSmokeTest
 {
+    // RAR5 (store), containing shader/dx10/example.fx with the text "fixture".
+    internal static byte[] CreateRarShaderFixture() => Convert.FromBase64String(
+        "UmFyIRoHAQAzkrXlCgEFBgAFAQGAgAAGX6fjMgIDC4cABIcAIO5A5QWAAAAWc2hhZGVyL2R4MTAvZXhhbXBsZS5meAoDAm5YEHghWt0BZml4dHVyZWcIMVwhAgMLAAEAEIAAAAtzaGFkZXIvZHgxMAoDAm5YEHghWt0BSKlEohwCAwsAAQAQgAAABnNoYWRlcgoDAjCVD3ghWt0BHXdWUQMFBAA=");
+
     /// <summary>
     /// Exercises compiled AXAML and DataGrid under the actual desktop platform without touching game files.
     /// </summary>
@@ -30,8 +34,11 @@ internal static class UiSmokeTest
                 File.WriteAllText(Path.Combine(directory.FullName, "mod.info"), "{name \"" + name + "\"}\n");
                 if (name == "gamma")
                 {
-                    var shader = Directory.CreateDirectory(Path.Combine(directory.FullName, "resource", "shader", "dx10"));
-                    File.WriteAllText(Path.Combine(shader.FullName, "fixture.txt"), "shader");
+                    var resource = Directory.CreateDirectory(Path.Combine(directory.FullName, "resource"));
+                    var pak = Path.Combine(resource.FullName, "shader.pak");
+                    File.WriteAllBytes(pak, CreateRarShaderFixture());
+                    if (FileManager.TryReadPakEntries(pak) is not [{ FullName: "shader/dx10/example.fx", Length: 7 }])
+                        throw new InvalidOperationException("RAR pak metadata did not load.");
                 }
             }
             var workshop = Directory.CreateDirectory(Path.Combine(fixture, "workshop"));
