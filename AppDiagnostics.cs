@@ -32,7 +32,7 @@ namespace GOHShaderModdingSupportLauncher
                 }
 
                 Log(
-                    $"Version: {typeof(AppDiagnostics).Assembly.GetName().Version}; \n" 
+                    $"Version: {AppVersion.Current}; \n"
                     +$"Runtime: {RuntimeInformation.FrameworkDescription}; OS: {RuntimeInformation.OSDescription}; \n"
                     +$"Process: {RuntimeInformation.ProcessArchitecture}; OS architecture: {RuntimeInformation.OSArchitecture}; \n"
                     +$"Culture: {CultureInfo.CurrentUICulture.Name}; Base directory: {AppContext.BaseDirectory} \n"

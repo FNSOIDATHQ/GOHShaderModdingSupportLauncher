@@ -6,7 +6,11 @@ namespace GOHShaderModdingSupportLauncher;
 
 public partial class About : UserControl
 {
-    public About() => InitializeComponent();
+    public About()
+    {
+        InitializeComponent();
+        versionText.Text = $"v{AppVersion.Current}    by Federation Studio 2026";
+    }
 
     private async void CheckUpdate_Click(object? sender, RoutedEventArgs e)
     {

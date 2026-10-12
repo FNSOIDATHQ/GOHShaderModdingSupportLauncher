@@ -107,15 +107,6 @@ namespace GOHShaderModdingSupportLauncher.Properties {
         }
         
         /// <summary>
-        ///   查找类似 v3.7    by Federation Studio 2025 的本地化字符串。
-        /// </summary>
-        public static string A_Version {
-            get {
-                return ResourceManager.GetString("A_Version", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   查找类似 Captured exception message:   的本地化字符串。
         /// </summary>
         public static string APP_ExceptionMessage {
