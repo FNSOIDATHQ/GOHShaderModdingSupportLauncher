@@ -6,7 +6,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
-using System.IO.Compression;
 using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
@@ -742,7 +741,8 @@ namespace GOHShaderModdingSupportLauncher
 #if DEBUG
                     Trace.WriteLine("get a pak= " + obj.Name);
 #endif
-                    using ZipArchive curPak = ZipFile.Open(obj.FullName, ZipArchiveMode.Read);
+                    using var curPak = FileManager.TryOpenPakRead(obj.FullName);
+                    if (curPak == null) continue;
 
                     foreach (var file in curPak.Entries)
                     {

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text;
 
@@ -26,6 +27,24 @@ namespace GOHShaderModdingSupportLauncher
                                                 );
 
         #region Main Functions
+        public static ZipArchive? TryOpenPakRead(string path)
+        {
+            ZipArchive? archive = null;
+            try
+            {
+                archive = ZipFile.OpenRead(path);
+                // Read mode defers parsing the central directory until Entries is accessed.
+                _ = archive.Entries.Count;
+                return archive;
+            }
+            catch (Exception ex) when (ex is InvalidDataException || IsFileError(ex))
+            {
+                archive?.Dispose();
+                AppDiagnostics.Log($"Skipping unreadable pak: {path}", ex);
+                return null;
+            }
+        }
+
         public static string[] ReadSettings(string path)
         {
             using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);

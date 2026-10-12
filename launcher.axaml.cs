@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
-using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 using Avalonia.Controls;
@@ -199,7 +198,8 @@ namespace GOHShaderModdingSupportLauncher
                             //check if shader is in paks
                             foreach (var obj in resouce.GetFiles("*.pak", SearchOption.TopDirectoryOnly))
                             {
-                                ZipArchive curPak = ZipFile.Open(obj.FullName, ZipArchiveMode.Read);
+                                using var curPak = FileManager.TryOpenPakRead(obj.FullName);
+                                if (curPak == null) continue;
 
                                 foreach (var file in curPak.Entries)
                                 {
