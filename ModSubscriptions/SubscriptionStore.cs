@@ -109,19 +109,20 @@ internal sealed class SubscriptionStore
                 !document.RootElement.TryGetProperty("schemaVersion", out var schema) ||
                 schema.ValueKind != JsonValueKind.Number || !schema.TryGetInt32(out int version))
                 throw new InvalidDataException("The subscription schema version is missing or invalid.");
-            if (version is not (1 or SubscriptionLibrary.CurrentSchemaVersion)) throw new UnsupportedSubscriptionSchemaException(version);
+            if (version is not (1 or 2 or SubscriptionLibrary.CurrentSchemaVersion)) throw new UnsupportedSubscriptionSchemaException(version);
             var parsed = JsonSerializer.Deserialize(bytes, SubscriptionJsonContext.Default.SubscriptionLibrary)
                 ?? throw new InvalidDataException("The subscription library is empty.");
-            // Schema 1 predates content fingerprints. Its records remain readable but cannot authorize
-            // deletion/replacement without verification. Write schema 2 on the next successful save,
-            // so older launchers reject the new ownership format instead of treating it as corruption.
-            if (version == 1 && parsed.Subscriptions is not null)
+            // Schema 1 predates content fingerprints, and schemas 1/2 predate persisted notice kinds.
+            // Missing old fingerprints cannot authorize destructive cleanup. Upgrade on the next save;
+            // older launchers must explicitly reject the new format instead of trying backup recovery.
+            if (version is 1 or 2 && parsed.Subscriptions is not null)
                 parsed = parsed with
                 {
                     Subscriptions = parsed.Subscriptions.Select(subscription => subscription is null ? null! : subscription with
                     {
+                        Files = subscription.Files is null ? null! : subscription.Files with { Notices = subscription.Files.Notices ?? [] },
                         Installations = subscription.Installations?.Select(installation => installation is null ? null! : installation with
-                        { OwnedFileDetails = installation.OwnedFileDetails ?? [] }).ToArray()!
+                        { OwnedFileDetails = version == 1 ? installation.OwnedFileDetails ?? [] : installation.OwnedFileDetails }).ToArray()!
                     }).ToArray()
                 };
             parsed = parsed with { SchemaVersion = SubscriptionLibrary.CurrentSchemaVersion };
@@ -241,6 +242,11 @@ internal sealed class SubscriptionStore
 
     internal void SaveFileTracking(Guid id, FileTrackingState files) =>
         ChangeSubscription(id, value => value with { Files = files });
+
+    // Re-read tracking inside the metadata write lock: a network check must not undo
+    // an acknowledgement or a download committed while its request was in flight.
+    internal void ChangeFileTracking(Guid id, Func<FileTrackingState, FileTrackingState> change) =>
+        ChangeSubscription(id, value => value with { Files = change(value.Files) });
 
     internal void SaveDownload(Guid subscriptionId, ModDownload download) => ChangeSubscription(subscriptionId, value =>
     {

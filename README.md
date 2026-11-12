@@ -10,6 +10,7 @@ Language：English [中文](./READMEcn.md)
     - [Preprocess](#preprocess)
     - [Postprocess](#postprocess)
     - [Mod presets](#mod-presets)
+    - [Mod subscriptions](#mod-subscriptions)
     - [Notice](#notice)
   - [Development Guide](#development-guide)
   - [Credits](#credits)
@@ -81,6 +82,16 @@ id = "local_mod"
 name = "Local example"
 ```
 
+### Mod subscriptions
+
+Open **Mod subscriptions** to browse Gates of Hell mods on ModDB without an account. The page shows the author's summary, articles, images and files, and keeps favorites separate from subscriptions. Select the files you want before subscribing; downloads are never selected automatically.
+
+Downloaded archives can be inspected and installed into the selected game's `mods` directory. Confirm the original mod folder and that the archive is a complete package before installation. Patches, installers and unsupported layouts can be downloaded for manual installation; the launcher does not run their scripts or change game files outside `mods`.
+
+The first successful file check establishes a baseline. Later checks report new files and changed revisions; read or ignored notices are separate from installed versions. Use **Check subscriptions** for a manual check; while the launcher runs, subscriptions are also checked periodically. A failed check keeps the previous file list and notices available.
+
+Unsubscribing previews which managed files will be removed and which files will remain. Favorites are retained. Manual changes, files with uncertain ownership and installation steps outside `mods` need separate attention. Close the game and editor before installing, replacing or removing a mod.
+
 ### Notice
 * Force change bump quality is a special measure used to support my shader mods
 * Move Environment.CurrentDirectory to game directory is always necessary to let steam not truncate our launch commands
@@ -96,7 +107,7 @@ I'm building this program using Visual Studio 2026, with environment below:
 * Run `powershell -NoProfile -ExecutionPolicy Bypass -File .\Publish-Aot.ps1`. Distribute the sole EXE from `bin/net10-aot-single-file/`.
 * The EXE includes the .NET runtime and native UI libraries. No .NET runtime installation is required on the target PC.
 * On first launch, native DLLs are verified and extracted to `%LOCALAPPDATA%\GOHSMSLauncher\Native\<archive SHA-256>` (or `%TEMP%` if necessary). Missing or changed DLLs are restored on the next launch.
-* Use `--software-rendering` for software graphics. `--validate-native-bundle` verifies extraction and loading without opening the UI. `--self-test-ui` checks the six pages, two languages, and mod operations without launching the game.
+* Use `--software-rendering` for software graphics. `--validate-native-bundle` verifies extraction and loading without opening the UI. `--self-test-ui` checks seven pages, stable navigation, two languages, and mod operations without network access or launching the game.
 * Avalonia DataGrid 12.1.2 produces two upstream Native AOT analysis summaries for reflection based features. This launcher uses fixed read-only columns with compiled bindings; the publish script rejects all other trim/AOT warnings.
 * `Properties/i18n.Designer.cs` is maintained with the embedded Chinese resource lookup; keep that lookup when adding resource keys.
 * From commit a120cb0 onwards, this project has been using Codex to support development.

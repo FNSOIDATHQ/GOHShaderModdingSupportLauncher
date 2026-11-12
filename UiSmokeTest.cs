@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Threading;
 using GOHShaderModdingSupportLauncher.Properties;
@@ -65,7 +66,7 @@ internal static class UiSmokeTest
                 throw new InvalidOperationException("Unsupported settings language was accepted.");
             settings[13] = "en-US";
             FileManager.WriteSettings(settingsPath, settings);
-            var window = new MainWindow(settingsPath);
+            var window = new MainWindow(settingsPath) { SuppressSubscriptionActivation = true };
             window.universalVars.configLoc = settingsPath;
             var layout = window.FindControl<Grid>("windowLayout")
                 ?? throw new InvalidOperationException("Main window layout is missing.");
@@ -131,14 +132,14 @@ internal static class UiSmokeTest
                 ?? throw new InvalidOperationException("Footer navigation is missing.");
             var host = window.FindControl<ContentControl>("pageHost")
                 ?? throw new InvalidOperationException("Page host is missing.");
-            if (primary.Items.Count != 4 || footer.Items.Count != 2)
-                throw new InvalidOperationException("Six navigation entries were expected.");
+            if (primary.Items.Count != 5 || footer.Items.Count != 2)
+                throw new InvalidOperationException("Seven navigation entries were expected.");
             Type[] expected = [typeof(Launcher), typeof(ModManager), typeof(Converter),
-                typeof(Tools), typeof(Settings), typeof(About)];
+                typeof(Tools), typeof(ModSubscriptionsPage), typeof(Settings), typeof(About)];
             for (var i = 0; i < expected.Length; i++)
             {
-                if (i < 4) primary.SelectedIndex = i;
-                else footer.SelectedIndex = i - 4;
+                if (i < primary.Items.Count) primary.SelectedIndex = i;
+                else footer.SelectedIndex = i - primary.Items.Count;
                 if (host.Content?.GetType() != expected[i])
                     throw new InvalidOperationException($"Navigation page {i} failed to load.");
                 if (i == 1)
@@ -205,6 +206,27 @@ internal static class UiSmokeTest
                     ((Converter)host.Content).FindControl<TextBox>("convertPath")!.Text = "keep this path";
                 }
             }
+            // Routing follows stable tags even if an entry moves in the sidebar.
+            var subscriptionsItem = primary.Items.OfType<ListBoxItem>()
+                .Single(item => item.Tag as string == "ModSubscriptions");
+            var subscriptionsPage = default(ModSubscriptionsPage);
+            primary.SelectedItem = subscriptionsItem;
+            subscriptionsPage = host.Content as ModSubscriptionsPage
+                ?? throw new InvalidOperationException("Subscriptions page was not cached.");
+            var subscriptionViews = subscriptionsPage.GetLogicalDescendants().OfType<ComboBox>()
+                .Single(control => control.Name == "subscriptionView");
+            var subscriptionTabs = subscriptionsPage.GetLogicalDescendants().OfType<TabControl>()
+                .Single(control => control.Name == "subscriptionDetails");
+            if (subscriptionViews.Items.Count != 4 || subscriptionTabs.Items.Count != 4)
+                throw new InvalidOperationException("Subscriptions views or detail tabs did not load.");
+            primary.Items.Remove(subscriptionsItem);
+            primary.Items.Insert(0, subscriptionsItem);
+            primary.SelectedItem = subscriptionsItem;
+            if (!ReferenceEquals(host.Content, subscriptionsPage))
+                throw new InvalidOperationException("Moving a navigation item changed its page route.");
+            primary.Items.Remove(subscriptionsItem);
+            primary.Items.Add(subscriptionsItem);
+            window.UpdateSubscriptionBadge(2);
             var previous = i18n.Culture;
             try
             {
@@ -224,6 +246,7 @@ internal static class UiSmokeTest
             if (window.Title != i18n.Title || window.Title is null ||
                 ((ListBoxItem)primary.Items[0]!).Content as string != i18n.Tab_Launcher ||
                 ((ListBoxItem)footer.Items[0]!).Content as string != i18n.Tab_Settings ||
+                subscriptionsItem.Content as string != LocalizedStrings.Instance.Tab_ModSubscriptions + " (2)" ||
                 (FileManager.ReadSettings(settingsPath).Length != 17 || FileManager.ReadSettings(settingsPath)[13] != "zh-CN"))
                 throw new InvalidOperationException($"Chinese language did not update or persist: title={window.Title}, expectedTitle={i18n.Title}, nav={((ListBoxItem)primary.Items[0]!).Content}, expectedNav={i18n.Tab_Launcher}, footer={((ListBoxItem)footer.Items[0]!).Content}, expectedFooter={i18n.Tab_Settings}, saved={FileManager.ReadSettings(settingsPath)[13]}.");
             primary.SelectedIndex = 0;
@@ -307,7 +330,8 @@ internal static class UiSmokeTest
             {
                 Environment.CurrentDirectory = originalDirectory;
             }
-            AppDiagnostics.Log("Desktop UI self-test passed: six pages, two languages, mod presets, load/unload/reorder and column sorting, left converter tabs, matching translucent title bar and sidebar, fitted background, resource restore, cache cleanup, and profile account selection/persistence.");
+            subscriptionsPage.Dispose();
+            AppDiagnostics.Log("Desktop UI self-test passed: seven pages with stable navigation and subscription notices, two languages, mod presets, load/unload/reorder and column sorting, left converter tabs, matching translucent title bar and sidebar, fitted background, resource restore, cache cleanup, and profile account selection/persistence.");
             return 0;
         }
         finally

@@ -567,4 +567,96 @@ Make sure Steam has finished downloading the item.</value>
   <data name="L_MissingShaderSetting" xml:space="preserve">
     <value>The game configuration is missing the '{0}' graphics setting. It was not changed.</value>
   </data>
+  <data name="Tab_ModSubscriptions" xml:space="preserve"><value>Mod subscriptions</value></data>
+  <data name="MS_Browse" xml:space="preserve"><value>Browse</value></data>
+  <data name="MS_Subscribed" xml:space="preserve"><value>Subscribed</value></data>
+  <data name="MS_Favorites" xml:space="preserve"><value>Favorites</value></data>
+  <data name="MS_Updates" xml:space="preserve"><value>New files</value></data>
+  <data name="MS_Search" xml:space="preserve"><value>Search</value></data>
+  <data name="MS_Updated" xml:space="preserve"><value>Recently updated</value></data>
+  <data name="MS_Newest" xml:space="preserve"><value>Newest</value></data>
+  <data name="MS_Popular" xml:space="preserve"><value>Popular</value></data>
+  <data name="MS_Name" xml:space="preserve"><value>Name</value></data>
+  <data name="MS_Previous" xml:space="preserve"><value>Previous</value></data>
+  <data name="MS_Next" xml:space="preserve"><value>Next</value></data>
+  <data name="MS_Check" xml:space="preserve"><value>Check subscriptions</value></data>
+  <data name="MS_Ready" xml:space="preserve"><value>Ready · ModDB · no account required</value></data>
+  <data name="MS_Working" xml:space="preserve"><value>Working…</value></data>
+  <data name="MS_ChooseMod" xml:space="preserve"><value>Choose a Mod</value></data>
+  <data name="MS_Favorite" xml:space="preserve"><value>Favorite</value></data>
+  <data name="MS_Unfavorite" xml:space="preserve"><value>Remove favorite</value></data>
+  <data name="MS_Original" xml:space="preserve"><value>Open original</value></data>
+  <data name="MS_Unsubscribe" xml:space="preserve"><value>Unsubscribe</value></data>
+  <data name="MS_Summary" xml:space="preserve"><value>Summary</value></data>
+  <data name="MS_Articles" xml:space="preserve"><value>Articles</value></data>
+  <data name="MS_Images" xml:space="preserve"><value>Images</value></data>
+  <data name="MS_Files" xml:space="preserve"><value>Files</value></data>
+  <data name="MS_Cancelled" xml:space="preserve"><value>Cancelled</value></data>
+  <data name="MS_Failed" xml:space="preserve"><value>Operation failed</value></data>
+  <data name="MS_SelectGame" xml:space="preserve"><value>Select this subscription&apos;s game and profile in Settings first.</value></data>
+  <data name="MS_RequestFailed" xml:space="preserve"><value>Unable to load content</value></data>
+  <data name="MS_Cached" xml:space="preserve"><value>Showing cached content; refresh failed</value></data>
+  <data name="MS_Offline" xml:space="preserve"><value>Offline</value></data>
+  <data name="MS_IdentityChanged" xml:space="preserve"><value>The source returned a different Mod identity.</value></data>
+  <data name="MS_LoadArticles" xml:space="preserve"><value>Load articles</value></data>
+  <data name="MS_LoadImages" xml:space="preserve"><value>Load images</value></data>
+  <data name="MS_LoadFiles" xml:space="preserve"><value>Load file list</value></data>
+  <data name="MS_CheckFailed" xml:space="preserve"><value>Check failed; previous snapshots and notices are preserved.</value></data>
+  <data name="MS_Checked" xml:space="preserve"><value>Check completed. New and changed files require your selection.</value></data>
+  <data name="MS_LastCheck" xml:space="preserve"><value>Last successful check</value></data>
+  <data name="MS_Never" xml:space="preserve"><value>Not checked</value></data>
+  <data name="MS_RemovalPending" xml:space="preserve"><value>Removal needs recovery; retry recovery before further actions.</value></data>
+  <data name="MS_Empty" xml:space="preserve"><value>No content</value></data>
+  <data name="MS_ViewImage" xml:space="preserve"><value>Enlarge image</value></data>
+  <data name="MS_InvalidImage" xml:space="preserve"><value>Only public HTTPS image addresses are supported.</value></data>
+  <data name="MS_ImageTooLarge" xml:space="preserve"><value>The image exceeds the 20 MiB display limit.</value></data>
+  <data name="MS_InstallBoundary" xml:space="preserve"><value>Read the author&apos;s instructions first. Select files to download, then inspect each package. Standard installation places only complete Mod folders into the selected game&apos;s mods directory; scripts and installers are never executed.</value></data>
+  <data name="MS_NewFile" xml:space="preserve"><value>New file</value></data>
+  <data name="MS_ChangedFile" xml:space="preserve"><value>File changed</value></data>
+  <data name="MS_MarkRead" xml:space="preserve"><value>Mark read</value></data>
+  <data name="MS_Ignore" xml:space="preserve"><value>Ignore revision</value></data>
+  <data name="MS_SubscribeDownload" xml:space="preserve"><value>Subscribe and download selected files</value></data>
+  <data name="MS_ChooseFiles" xml:space="preserve"><value>Choose at least one file. No subscription was created.</value></data>
+  <data name="MS_Queued" xml:space="preserve"><value>Selected files queued. Inspect completed downloads to install.</value></data>
+  <data name="MS_Downloads" xml:space="preserve"><value>Downloads and installed files</value></data>
+  <data name="MS_ManualInstructions" xml:space="preserve"><value>Downloaded; manual installation required. Follow the author&apos;s instructions. Changes outside mods are not managed by the launcher.</value></data>
+  <data name="MS_Cancel" xml:space="preserve"><value>Cancel download</value></data>
+  <data name="MS_Retry" xml:space="preserve"><value>Retry download</value></data>
+  <data name="MS_InspectInstall" xml:space="preserve"><value>Inspect / install</value></data>
+  <data name="MS_DownloadOnly" xml:space="preserve"><value>Download only</value></data>
+  <data name="MS_OpenDownloads" xml:space="preserve"><value>Open download folder</value></data>
+  <data name="MS_ChooseRoot" xml:space="preserve"><value>Select the original Mod folder</value></data>
+  <data name="MS_NewInstall" xml:space="preserve"><value>Install as a new folder</value></data>
+  <data name="MS_Replace" xml:space="preserve"><value>Replace managed folder:</value></data>
+  <data name="MS_CompletePackage" xml:space="preserve"><value>I have read the author&apos;s instructions and confirm this is a complete standard Mod package, not an incremental patch.</value></data>
+  <data name="MS_Install" xml:space="preserve"><value>Install into mods</value></data>
+  <data name="MS_ConfirmPackage" xml:space="preserve"><value>Select a folder and confirm the complete package first.</value></data>
+  <data name="MS_CancelBeforeRemoval" xml:space="preserve"><value>Cancel queued/running downloads and wait for them to stop before unsubscribing.</value></data>
+  <data name="MS_CleanupBoundary" xml:space="preserve"><value>Only verified files owned by this subscription and its download cache will be deleted. Manual additions and favorites are kept. Manual changes outside mods cannot be undone here.</value></data>
+  <data name="MS_WillDelete" xml:space="preserve"><value>Files to delete</value></data>
+  <data name="MS_WillKeep" xml:space="preserve"><value>Paths to preserve</value></data>
+  <data name="MS_Blocked" xml:space="preserve"><value>Cleanup blocked</value></data>
+  <data name="MS_ConfirmRemoval" xml:space="preserve"><value>Confirm unsubscribe and delete listed files</value></data>
+  <data name="MS_Recover" xml:space="preserve"><value>Retry recovery</value></data>
+  <data name="MS_Download_Pending" xml:space="preserve"><value>Queued</value></data>
+  <data name="MS_Download_Downloading" xml:space="preserve"><value>Downloading</value></data>
+  <data name="MS_Download_Downloaded" xml:space="preserve"><value>Downloaded; not installed</value></data>
+  <data name="MS_Download_NeedsManualInstall" xml:space="preserve"><value>Manual installation required</value></data>
+  <data name="MS_Download_Failed" xml:space="preserve"><value>Download failed</value></data>
+  <data name="MS_Download_Cancelled" xml:space="preserve"><value>Download cancelled</value></data>
+  <data name="MS_Download_LocalFileMissing" xml:space="preserve"><value>Downloaded file missing</value></data>
+  <data name="MS_Install_Pending" xml:space="preserve"><value>Installation pending</value></data>
+  <data name="MS_Install_Installed" xml:space="preserve"><value>Installed into mods</value></data>
+  <data name="MS_Install_ReplacementPending" xml:space="preserve"><value>Replacement pending</value></data>
+  <data name="MS_Install_RemovalPending" xml:space="preserve"><value>Removal pending</value></data>
+  <data name="MS_Install_Failed" xml:space="preserve"><value>Installation failed</value></data>
+  <data name="MS_Install_LocalFilesMissing" xml:space="preserve"><value>Installed files missing</value></data>
+  <data name="MS_Error_RequestFailed" xml:space="preserve"><value>Request failed</value></data>
+  <data name="MS_Error_Timeout" xml:space="preserve"><value>Request timed out</value></data>
+  <data name="MS_Error_RateLimited" xml:space="preserve"><value>Rate limited; retry later</value></data>
+  <data name="MS_Error_AccessDenied" xml:space="preserve"><value>Source denied access</value></data>
+  <data name="MS_Error_NotFound" xml:space="preserve"><value>Content not found</value></data>
+  <data name="MS_Error_ParseFailed" xml:space="preserve"><value>Source layout could not be parsed</value></data>
+  <data name="MS_Error_Offline" xml:space="preserve"><value>No network content available</value></data>
+  <data name="MS_FileUnavailable" xml:space="preserve"><value>This noticed file is no longer in the current file list. You can still acknowledge its notice.</value></data>
 </root>

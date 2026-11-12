@@ -70,6 +70,7 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
         nameof(Tab_Converter),
         nameof(Tab_Launcher),
         nameof(Tab_ModManager),
+        nameof(Tab_ModSubscriptions),
         nameof(Tab_Settings),
         nameof(Tab_Tools),
         nameof(Title),
@@ -87,6 +88,7 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
     public CultureInfo Culture { get; private set; } = CultureInfo.CurrentUICulture;
 
     private string this[string key] => i18n.ResourceManager.GetString(key, i18n.Culture) ?? key;
+    internal string Get(string key) => this[key];
 
     public string P_Presets => this[nameof(P_Presets)];
     public string P_Save => this[nameof(P_Save)];
@@ -147,6 +149,7 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
     public string Tab_Converter => this[nameof(Tab_Converter)];
     public string Tab_Launcher => this[nameof(Tab_Launcher)];
     public string Tab_ModManager => this[nameof(Tab_ModManager)];
+    public string Tab_ModSubscriptions => this[nameof(Tab_ModSubscriptions)];
     public string Tab_Settings => this[nameof(Tab_Settings)];
     public string Tab_Tools => this[nameof(Tab_Tools)];
     public string Title => this[nameof(Title)];

@@ -567,4 +567,96 @@
   <data name="L_MissingShaderSetting" xml:space="preserve">
     <value>游戏配置中缺少“{0}”画质设置，未修改文件。</value>
   </data>
+  <data name="Tab_ModSubscriptions" xml:space="preserve"><value>Mod订阅</value></data>
+  <data name="MS_Browse" xml:space="preserve"><value>浏览</value></data>
+  <data name="MS_Subscribed" xml:space="preserve"><value>已订阅</value></data>
+  <data name="MS_Favorites" xml:space="preserve"><value>收藏</value></data>
+  <data name="MS_Updates" xml:space="preserve"><value>有新文件</value></data>
+  <data name="MS_Search" xml:space="preserve"><value>搜索</value></data>
+  <data name="MS_Updated" xml:space="preserve"><value>最近更新</value></data>
+  <data name="MS_Newest" xml:space="preserve"><value>最新发布</value></data>
+  <data name="MS_Popular" xml:space="preserve"><value>热门</value></data>
+  <data name="MS_Name" xml:space="preserve"><value>名称</value></data>
+  <data name="MS_Previous" xml:space="preserve"><value>上一页</value></data>
+  <data name="MS_Next" xml:space="preserve"><value>下一页</value></data>
+  <data name="MS_Check" xml:space="preserve"><value>检查订阅</value></data>
+  <data name="MS_Ready" xml:space="preserve"><value>就绪 · ModDB · 无需登录</value></data>
+  <data name="MS_Working" xml:space="preserve"><value>处理中…</value></data>
+  <data name="MS_ChooseMod" xml:space="preserve"><value>请选择 Mod</value></data>
+  <data name="MS_Favorite" xml:space="preserve"><value>收藏</value></data>
+  <data name="MS_Unfavorite" xml:space="preserve"><value>取消收藏</value></data>
+  <data name="MS_Original" xml:space="preserve"><value>打开原文</value></data>
+  <data name="MS_Unsubscribe" xml:space="preserve"><value>取消订阅</value></data>
+  <data name="MS_Summary" xml:space="preserve"><value>概览</value></data>
+  <data name="MS_Articles" xml:space="preserve"><value>文章</value></data>
+  <data name="MS_Images" xml:space="preserve"><value>图片</value></data>
+  <data name="MS_Files" xml:space="preserve"><value>文件</value></data>
+  <data name="MS_Cancelled" xml:space="preserve"><value>已取消</value></data>
+  <data name="MS_Failed" xml:space="preserve"><value>操作失败</value></data>
+  <data name="MS_SelectGame" xml:space="preserve"><value>请先在设置中选择此订阅对应的游戏目录和用户配置。</value></data>
+  <data name="MS_RequestFailed" xml:space="preserve"><value>无法读取内容</value></data>
+  <data name="MS_Cached" xml:space="preserve"><value>显示缓存内容；刷新失败</value></data>
+  <data name="MS_Offline" xml:space="preserve"><value>离线</value></data>
+  <data name="MS_IdentityChanged" xml:space="preserve"><value>来源返回了不同的 Mod 标识。</value></data>
+  <data name="MS_LoadArticles" xml:space="preserve"><value>读取文章</value></data>
+  <data name="MS_LoadImages" xml:space="preserve"><value>读取图片</value></data>
+  <data name="MS_LoadFiles" xml:space="preserve"><value>读取文件列表</value></data>
+  <data name="MS_CheckFailed" xml:space="preserve"><value>检查失败；已保留原文件快照和更新提示。</value></data>
+  <data name="MS_Checked" xml:space="preserve"><value>检查完成。新增与变更文件需要您主动选择下载。</value></data>
+  <data name="MS_LastCheck" xml:space="preserve"><value>上次成功检查</value></data>
+  <data name="MS_Never" xml:space="preserve"><value>尚未检查</value></data>
+  <data name="MS_RemovalPending" xml:space="preserve"><value>清理尚未完成；请重试恢复后继续。</value></data>
+  <data name="MS_Empty" xml:space="preserve"><value>暂无内容</value></data>
+  <data name="MS_ViewImage" xml:space="preserve"><value>放大图片</value></data>
+  <data name="MS_InvalidImage" xml:space="preserve"><value>仅支持公开 HTTPS 图片地址。</value></data>
+  <data name="MS_ImageTooLarge" xml:space="preserve"><value>图片超过 20 MiB 显示上限。</value></data>
+  <data name="MS_InstallBoundary" xml:space="preserve"><value>请先阅读作者说明。选择文件下载后，可分别检查压缩包。标准安装仅将完整 Mod 文件夹放入所选游戏的 mods 目录；不会执行脚本或安装器。</value></data>
+  <data name="MS_NewFile" xml:space="preserve"><value>新增文件</value></data>
+  <data name="MS_ChangedFile" xml:space="preserve"><value>文件已变更</value></data>
+  <data name="MS_MarkRead" xml:space="preserve"><value>标为已读</value></data>
+  <data name="MS_Ignore" xml:space="preserve"><value>忽略此修订</value></data>
+  <data name="MS_SubscribeDownload" xml:space="preserve"><value>订阅并下载所选文件</value></data>
+  <data name="MS_ChooseFiles" xml:space="preserve"><value>请至少选择一个文件。尚未创建订阅。</value></data>
+  <data name="MS_Queued" xml:space="preserve"><value>已将所选文件加入队列。下载完成后可检查并安装。</value></data>
+  <data name="MS_Downloads" xml:space="preserve"><value>下载与安装状态</value></data>
+  <data name="MS_ManualInstructions" xml:space="preserve"><value>已下载，需手动安装。请遵循作者说明；mods 目录外的更改不由启动器管理。</value></data>
+  <data name="MS_Cancel" xml:space="preserve"><value>取消下载</value></data>
+  <data name="MS_Retry" xml:space="preserve"><value>重试下载</value></data>
+  <data name="MS_InspectInstall" xml:space="preserve"><value>检查 / 安装</value></data>
+  <data name="MS_DownloadOnly" xml:space="preserve"><value>仅下载</value></data>
+  <data name="MS_OpenDownloads" xml:space="preserve"><value>打开下载目录</value></data>
+  <data name="MS_ChooseRoot" xml:space="preserve"><value>选择原始 Mod 文件夹</value></data>
+  <data name="MS_NewInstall" xml:space="preserve"><value>安装到新目录</value></data>
+  <data name="MS_Replace" xml:space="preserve"><value>替换已管理目录：</value></data>
+  <data name="MS_CompletePackage" xml:space="preserve"><value>我已阅读作者说明，确认这是完整的标准 Mod 包，并非增量补丁。</value></data>
+  <data name="MS_Install" xml:space="preserve"><value>安装到 mods</value></data>
+  <data name="MS_ConfirmPackage" xml:space="preserve"><value>请先选择目录并确认完整包。</value></data>
+  <data name="MS_CancelBeforeRemoval" xml:space="preserve"><value>请先取消排队或正在下载的任务，等待停止后再取消订阅。</value></data>
+  <data name="MS_CleanupBoundary" xml:space="preserve"><value>仅删除已核实归属的订阅文件与下载缓存。手动添加内容及收藏会保留。此操作无法撤销 mods 之外的手动安装步骤。</value></data>
+  <data name="MS_WillDelete" xml:space="preserve"><value>将删除的文件</value></data>
+  <data name="MS_WillKeep" xml:space="preserve"><value>将保留的路径</value></data>
+  <data name="MS_Blocked" xml:space="preserve"><value>清理受阻</value></data>
+  <data name="MS_ConfirmRemoval" xml:space="preserve"><value>确认取消订阅并删除所列文件</value></data>
+  <data name="MS_Recover" xml:space="preserve"><value>重试恢复</value></data>
+  <data name="MS_Download_Pending" xml:space="preserve"><value>等待下载</value></data>
+  <data name="MS_Download_Downloading" xml:space="preserve"><value>下载中</value></data>
+  <data name="MS_Download_Downloaded" xml:space="preserve"><value>已下载，尚未安装</value></data>
+  <data name="MS_Download_NeedsManualInstall" xml:space="preserve"><value>需手动安装</value></data>
+  <data name="MS_Download_Failed" xml:space="preserve"><value>下载失败</value></data>
+  <data name="MS_Download_Cancelled" xml:space="preserve"><value>下载已取消</value></data>
+  <data name="MS_Download_LocalFileMissing" xml:space="preserve"><value>下载文件缺失</value></data>
+  <data name="MS_Install_Pending" xml:space="preserve"><value>等待安装</value></data>
+  <data name="MS_Install_Installed" xml:space="preserve"><value>已放入 mods</value></data>
+  <data name="MS_Install_ReplacementPending" xml:space="preserve"><value>等待替换</value></data>
+  <data name="MS_Install_RemovalPending" xml:space="preserve"><value>等待清理</value></data>
+  <data name="MS_Install_Failed" xml:space="preserve"><value>安装失败</value></data>
+  <data name="MS_Install_LocalFilesMissing" xml:space="preserve"><value>本地安装文件缺失</value></data>
+  <data name="MS_Error_RequestFailed" xml:space="preserve"><value>请求失败</value></data>
+  <data name="MS_Error_Timeout" xml:space="preserve"><value>请求超时</value></data>
+  <data name="MS_Error_RateLimited" xml:space="preserve"><value>请求频率受限，请稍后重试</value></data>
+  <data name="MS_Error_AccessDenied" xml:space="preserve"><value>来源拒绝访问</value></data>
+  <data name="MS_Error_NotFound" xml:space="preserve"><value>内容不存在</value></data>
+  <data name="MS_Error_ParseFailed" xml:space="preserve"><value>无法解析来源页面结构</value></data>
+  <data name="MS_Error_Offline" xml:space="preserve"><value>没有可用的网络内容</value></data>
+  <data name="MS_FileUnavailable" xml:space="preserve"><value>此文件已不在当前文件列表中；您仍可标记已读或忽略提示。</value></data>
 </root>

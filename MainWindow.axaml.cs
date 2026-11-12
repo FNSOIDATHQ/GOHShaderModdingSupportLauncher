@@ -38,7 +38,11 @@ namespace GOHShaderModdingSupportLauncher
         private bool openSettingsOnStartup;
         private bool settingsOnly;
         internal bool PathsReady => HasGetGameRoot && HasGetProfileLoc;
-        private readonly UserControl?[] pages = new UserControl?[6];
+        internal enum PageId { Launcher, ModManager, Converter, Tools, ModSubscriptions, Settings, About }
+        private readonly Dictionary<PageId, UserControl> pages = new();
+        // UI checks construct every page while keeping all remote services idle.
+        internal bool SuppressSubscriptionActivation { get; set; }
+        private int subscriptionNoticeCount;
         private bool initialized;
         private bool checkingLauncherUpdate;
         private readonly HashSet<string> checkedUpdatePaths = new(StringComparer.OrdinalIgnoreCase);
@@ -216,9 +220,9 @@ namespace GOHShaderModdingSupportLauncher
             {
                 await InitBasicDataAsync();
                 languageSelector.IsEnabled = true;
-                if (openSettingsOnStartup) footerNavigation.SelectedIndex = 0;
-                else primaryNavigation.SelectedIndex = 0;
+                SelectNavigationPage(openSettingsOnStartup ? PageId.Settings : PageId.Launcher);
                 AppDiagnostics.Log("Main window rendered.");
+                if (!SuppressSubscriptionActivation) StartSubscriptionRuntime();
                 await CheckLauncherUpdateAsync();
             }
             catch (Exception ex)
@@ -235,7 +239,7 @@ namespace GOHShaderModdingSupportLauncher
             HasGetProfileLoc = false;
             settingsOnly = true;
             primaryNavigation.IsEnabled = false;
-            ((ListBoxItem)footerNavigation.Items[1]!).IsEnabled = false;
+            FindNavigationItem(PageId.About).IsEnabled = false;
 
             AppDiagnostics.Log("Loading settings.");
             LoadConfigFromFile();
@@ -456,19 +460,23 @@ namespace GOHShaderModdingSupportLauncher
             if (PathsReady) RefreshMods();
             UpdatePathAvailability();
             RefreshModPage();
+            if (!SuppressSubscriptionActivation) ChangeSubscriptionGame();
+            if (!SuppressSubscriptionActivation && pages.TryGetValue(PageId.ModSubscriptions, out var page))
+                ((ModSubscriptionsPage)page).OnGameChanged();
         }
 
         internal void UpdatePathAvailability()
         {
             settingsOnly = !PathsReady;
             primaryNavigation.IsEnabled = !settingsOnly;
-            ((ListBoxItem)footerNavigation.Items[1]!).IsEnabled = !settingsOnly;
+            FindNavigationItem(PageId.About).IsEnabled = !settingsOnly;
             if (settingsOnly)
             {
                 primaryNavigation.SelectedIndex = -1;
-                footerNavigation.SelectedIndex = 0;
+                SelectNavigationPage(PageId.Settings);
             }
-            if (pages[4] is Settings settings) settings.UpdatePathStatus();
+            if (pages.TryGetValue(PageId.Settings, out var page) && page is Settings settings)
+                settings.UpdatePathStatus();
         }
 
         private void GetProfileLoc()
@@ -1015,6 +1023,7 @@ namespace GOHShaderModdingSupportLauncher
             var oldLocalType = i18n.Main_ModLocal;
             var oldWorkshopType = i18n.Main_ModWorkshop;
             LocalizedStrings.Instance.SetCulture(culture);
+            UpdateSubscriptionBadge(subscriptionNoticeCount);
             foreach (var mod in universalVars.modDic.Values)
             {
                 if (mod.type == oldLocalType) mod.type = i18n.Main_ModLocal;
@@ -1027,49 +1036,83 @@ namespace GOHShaderModdingSupportLauncher
 
         private void PrimaryNavigation_SelectionChanged(object? sender, SelectionChangedEventArgs e)
         {
-            if (primaryNavigation.SelectedIndex < 0) return;
+            if (!TryGetPageId(primaryNavigation, out var pageId)) return;
             footerNavigation.SelectedIndex = -1;
-            Navigate(primaryNavigation.SelectedIndex);
+            Navigate(pageId);
         }
 
         private void FooterNavigation_SelectionChanged(object? sender, SelectionChangedEventArgs e)
         {
-            if (footerNavigation.SelectedIndex < 0) return;
+            if (!TryGetPageId(footerNavigation, out var pageId)) return;
             primaryNavigation.SelectedIndex = -1;
-            Navigate(footerNavigation.SelectedIndex + 4);
+            Navigate(pageId);
         }
 
-        private void Navigate(int index)
+        private static bool TryGetPageId(ListBox navigation, out PageId pageId)
         {
-            if (settingsOnly && index != 4)
+            pageId = default;
+            return navigation.SelectedItem is ListBoxItem { Tag: string tag } &&
+                Enum.TryParse(tag, out pageId) && Enum.IsDefined(pageId);
+        }
+
+        private ListBoxItem FindNavigationItem(PageId pageId) =>
+            primaryNavigation.Items.Concat(footerNavigation.Items).OfType<ListBoxItem>()
+                .Single(item => item.Tag as string == pageId.ToString());
+
+        private void SelectNavigationPage(PageId pageId)
+        {
+            var item = FindNavigationItem(pageId);
+            var navigation = primaryNavigation.Items.Contains(item) ? primaryNavigation : footerNavigation;
+            navigation.SelectedItem = item;
+        }
+
+        internal void UpdateSubscriptionBadge(int count)
+        {
+            subscriptionNoticeCount = Math.Max(0, count);
+            FindNavigationItem(PageId.ModSubscriptions).Content = LocalizedStrings.Instance.Tab_ModSubscriptions +
+                (subscriptionNoticeCount > 0 ? $" ({subscriptionNoticeCount})" : "");
+        }
+
+        private void Navigate(PageId pageId)
+        {
+            if (settingsOnly && pageId != PageId.Settings)
             {
                 primaryNavigation.SelectedIndex = -1;
-                footerNavigation.SelectedIndex = 0;
+                SelectNavigationPage(PageId.Settings);
                 return;
             }
-            if (pages[index] == null)
-                pages[index] = index switch
+            if (!pages.TryGetValue(pageId, out var page))
+            {
+                page = pageId switch
                 {
-                    0 => new Launcher(this),
-                    1 => new ModManager(this),
-                    2 => new Converter(this),
-                    3 => new Tools(this),
-                    4 => new Settings(this),
-                    5 => new About(),
-                    _ => throw new ArgumentOutOfRangeException(nameof(index))
+                    PageId.Launcher => new Launcher(this),
+                    PageId.ModManager => new ModManager(this),
+                    PageId.Converter => new Converter(this),
+                    PageId.Tools => new Tools(this),
+                    PageId.ModSubscriptions => new ModSubscriptionsPage(this),
+                    PageId.Settings => new Settings(this),
+                    PageId.About => new About(),
+                    _ => throw new ArgumentOutOfRangeException(nameof(pageId))
                 };
-            pageHost.Content = pages[index];
-            if (index == 1 && pages[index] is ModManager manager) manager.RefreshView();
+                pages.Add(pageId, page);
+            }
+            pageHost.Content = page;
+            if (page is ModManager manager) manager.RefreshView();
+            if (!SuppressSubscriptionActivation && page is ModSubscriptionsPage subscriptions) subscriptions.Activate();
         }
 
         public void RefreshModPage()
         {
-            if (pages[1] is ModManager manager) manager.RefreshView();
+            if (pages.TryGetValue(PageId.ModManager, out var page) && page is ModManager manager)
+                manager.RefreshView();
         }
 
         //when manually close by user, only store the settings
         private void OnClosed(object sender, EventArgs e)
         {
+            DisposeSubscriptionRuntime();
+            if (pages.TryGetValue(PageId.ModSubscriptions, out var page))
+                ((ModSubscriptionsPage)page).Dispose();
             SaveSettings();
         }
 

@@ -94,7 +94,7 @@ internal static class SubscriptionValidation
             string game = SubscriptionPaths.Normalize(subscription.GameDirectory);
             Require(game == subscription.GameDirectory && subscriptions.Add((subscription.Source, game.ToUpperInvariant())));
             var tracking = subscription.Files;
-            Require(tracking.KnownFiles is not null && tracking.AcknowledgedFiles is not null);
+            Require(tracking.KnownFiles is not null && tracking.AcknowledgedFiles is not null && tracking.Notices is not null);
             var fileIds = new HashSet<string>(StringComparer.Ordinal);
             foreach (var file in tracking.KnownFiles)
             {
@@ -108,6 +108,14 @@ internal static class SubscriptionValidation
                 Text(file.FileId);
                 Text(file.Revision);
                 Require(Enum.IsDefined(file.State) && acknowledged.Add((file.FileId, file.Revision)));
+            }
+            var notices = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var notice in tracking.Notices)
+            {
+                Require(notice is not null && Enum.IsDefined(notice.Kind));
+                File(notice.File);
+                Require(tracking.HasBaseline && notices.Add(notice.File.Id) &&
+                    tracking.KnownFiles.Any(file => file.Id == notice.File.Id && file.Revision == notice.File.Revision));
             }
 
             var downloads = new HashSet<Guid>();

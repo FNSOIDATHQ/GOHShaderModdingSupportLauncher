@@ -64,6 +64,8 @@ internal sealed record RemoteModFile
 internal sealed record ModFavorite(ModSourceId Source, DateTimeOffset AddedAt);
 internal enum FileNoticeState { Read, Ignored }
 internal sealed record FileAcknowledgement(string FileId, string Revision, FileNoticeState State);
+internal enum FileUpdateKind { NewFile, ChangedFile }
+internal sealed record FileUpdateNotice(RemoteModFile File, FileUpdateKind Kind);
 
 internal sealed record FileTrackingState
 {
@@ -73,6 +75,9 @@ internal sealed record FileTrackingState
     public RemoteModFile[] KnownFiles { get; init; } = [];
     [JsonRequired]
     public FileAcknowledgement[] AcknowledgedFiles { get; init; } = [];
+    // Persist the reason for an unread notice, independently of downloads and installed versions.
+    // Optional for libraries written before update tracking was implemented.
+    public FileUpdateNotice[] Notices { get; init; } = [];
     [JsonRequired]
     public DateTimeOffset? LastSuccessfulCheck { get; init; }
 }
@@ -137,7 +142,7 @@ internal sealed record OwnedModFile(string RelativePath, long SizeBytes, string 
 
 internal sealed record SubscriptionLibrary
 {
-    internal const int CurrentSchemaVersion = 2;
+    internal const int CurrentSchemaVersion = 3;
     public required int SchemaVersion { get; init; }
     public required long Revision { get; init; }
     public required RemoteMod[] Mods { get; init; }

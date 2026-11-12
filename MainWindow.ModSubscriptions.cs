@@ -5,6 +5,36 @@ namespace GOHShaderModdingSupportLauncher;
 
 public partial class MainWindow
 {
+    private ModSubscriptionRuntime? subscriptionRuntime;
+    internal ModSubscriptionRuntime SubscriptionRuntime => subscriptionRuntime ??= CreateSubscriptionRuntime();
+
+    internal string? SubscriptionGameDirectory => universalVars.localDir is { } mods &&
+        universalVars.gameDir?.Parent?.Parent is { } game &&
+        SubscriptionPaths.Normalize(mods.FullName).Equals(SubscriptionPaths.ModsDirectory(game.FullName), SubscriptionPaths.Comparison)
+            ? game.FullName : null;
+
+    private ModSubscriptionRuntime CreateSubscriptionRuntime()
+    {
+        var runtime = new ModSubscriptionRuntime(CreateModInstallationHost());
+        runtime.Changed += () => Dispatcher.UIThread.Post(() =>
+        {
+            if (runtime.Ready.IsCompletedSuccessfully)
+            {
+                string? game = SubscriptionGameDirectory;
+                int count = game is null ? 0 : runtime.Library.Subscriptions.Where(subscription =>
+                    subscription.GameDirectory.Equals(game, SubscriptionPaths.Comparison))
+                    .Sum(subscription => ModUpdateCheckService.GetNotices(subscription).Length);
+                UpdateSubscriptionBadge(count);
+            }
+        });
+        runtime.SelectGame(SubscriptionGameDirectory);
+        return runtime;
+    }
+
+    private void StartSubscriptionRuntime() => _ = SubscriptionRuntime;
+    private void DisposeSubscriptionRuntime() => subscriptionRuntime?.Dispose();
+    private void ChangeSubscriptionGame() => subscriptionRuntime?.SelectGame(SubscriptionGameDirectory);
+
     internal IModInstallationHost CreateModInstallationHost() => new MainWindowModInstallationHost(this);
 
     private sealed class MainWindowModInstallationHost(MainWindow main) : IModInstallationHost
