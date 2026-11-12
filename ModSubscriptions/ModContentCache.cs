@@ -29,7 +29,20 @@ internal sealed class ModContentCache(string? directory = null)
             using var stream = new FileStream(PathFor(key), FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
             if (stream.Length > MaxEntryBytes) return null;
             var value = JsonSerializer.Deserialize(stream, type);
-            return value is { Version: 1, Content: not null } && value.Key == key ? value : null;
+            if (value is not { Version: 1, Content: not null } || value.Key != key) return null;
+            // Version-one caches predate GitHub policy metadata. Missing init-only strings
+            // deserialize as null, so retain old offline content with the new field's default.
+            T content = value.Content switch
+            {
+                RemoteMod mod => (T)(object)(mod with { InstallationHint = mod.InstallationHint ?? "" }),
+                ModSourcePage<RemoteMod> page when page.Items is not null => (T)(object)(page with
+                {
+                    Items = page.Items.Select(mod => mod is null ? null! : mod with
+                    { InstallationHint = mod.InstallationHint ?? "" }).ToArray()
+                }),
+                _ => value.Content
+            };
+            return value with { Content = content };
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException) { return null; }
     }

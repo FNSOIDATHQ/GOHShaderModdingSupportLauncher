@@ -25,7 +25,14 @@ internal sealed class ModSubscriptionRuntime : IDisposable
     internal Task Ready { get; }
     internal SubscriptionStore Store { get; private set; } = null!;
     internal IModSource Source { get; private set; } = null!;
+    internal GitHubModSource GitHub { get; private set; } = null!;
+    internal GitHubOptionsStore GitHubSettings { get; private set; } = null!;
     internal ModDownloadService Downloads { get; private set; } = null!;
+    private ModDownloadService githubDownloads = null!;
+    internal IModSource? ResolveSource(string provider) => provider == Source.Provider ? Source :
+        provider == GitHub.Provider ? GitHub : null;
+    internal ModDownloadService GetDownloads(string provider) => provider == Source.Provider ? Downloads :
+        provider == GitHub.Provider ? githubDownloads : throw new ArgumentException("Unsupported Mod source.", nameof(provider));
     internal ModInstallService Installer { get; private set; } = null!;
     internal ModUpdateCheckService Updates { get; private set; } = null!;
     internal ModVerificationState Verification { get; } = new();
@@ -36,7 +43,8 @@ internal sealed class ModSubscriptionRuntime : IDisposable
     internal event Action? Changed;
 
     internal ModSubscriptionRuntime(IModInstallationHost host, SubscriptionStore? store = null, IModSource? source = null,
-        Action<ModHttpDiagnostic>? diagnostic = null, Action<string>? verificationDiagnostic = null)
+        Action<ModHttpDiagnostic>? diagnostic = null, Action<string>? verificationDiagnostic = null,
+        GitHubModSource? githubSource = null)
     {
         verificationBrowser = new(clearance, verificationDiagnostic);
         Verification.Changed += NotifyChanged;
@@ -44,9 +52,12 @@ internal sealed class ModSubscriptionRuntime : IDisposable
         {
             Store = store ?? new SubscriptionStore();
             Source = source ?? new ModDbSource(diagnostic: diagnostic, verification: Verification, clearance: clearance);
+            GitHubSettings = new GitHubOptionsStore(Path.Combine(Path.GetDirectoryName(Store.LibraryPath)!, "github-settings.json"));
+            GitHub = githubSource ?? new GitHubModSource(settings: GitHubSettings, diagnostic: diagnostic);
             Installer = new(Store, host);
-            Updates = new(Store, provider => provider == Source.Provider ? Source : null, Verification);
+            Updates = new(Store, ResolveSource, Verification);
             Downloads = new(Store, Source, progress: new RuntimeProgress(this), verification: Verification, clearance: clearance);
+            githubDownloads = new(Store, GitHub, progress: new RuntimeProgress(this));
             Volatile.Write(ref library, Store.Snapshot());
         });
         background = RunAsync();
@@ -199,7 +210,11 @@ internal sealed class ModSubscriptionRuntime : IDisposable
 
     private async Task ResumeAsync(string game)
     {
-        try { await Downloads.ResumePendingAsync(game, lifetime.Token).ConfigureAwait(false); }
+        try
+        {
+            await Task.WhenAll(Downloads.ResumePendingAsync(game, lifetime.Token),
+                githubDownloads.ResumePendingAsync(game, lifetime.Token)).ConfigureAwait(false);
+        }
         catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
         catch (Exception ex) { SetGameError(game, ex.Message); }
         finally { NotifyChanged(); }
@@ -289,6 +304,7 @@ internal sealed class ModSubscriptionRuntime : IDisposable
             await background.ConfigureAwait(false);
             await Ready.ConfigureAwait(false);
             await Downloads.DisposeAsync().ConfigureAwait(false);
+            await githubDownloads.DisposeAsync().ConfigureAwait(false);
         }
         catch (Exception) { /* Initialization failure is already exposed to the page. */ }
         finally
@@ -296,6 +312,7 @@ internal sealed class ModSubscriptionRuntime : IDisposable
             await verificationBrowser.DisposeAsync().ConfigureAwait(false);
             clearance.Clear();
             (Source as IDisposable)?.Dispose();
+            GitHub?.Dispose();
             lifetime.Dispose();
         }
     }

@@ -19,9 +19,10 @@ internal sealed record ModTransferOptions
     internal TimeSpan HostInterval { get; init; } = TimeSpan.FromSeconds(1);
     internal ModVerificationState? Verification { get; init; }
     internal ModBrowserClearance? Clearance { get; init; }
+    internal Func<Uri, bool> AllowHost { get; init; } = ModDbParser.IsMirrorHost;
 }
 
-// Streams only public ModDB mirrors. Temporary mirror addresses never enter durable state.
+// Streams only the selected provider's public hosts. Temporary addresses never enter durable state.
 internal sealed class ModFileTransferClient : IDisposable
 {
     private readonly HttpClient client;
@@ -64,7 +65,7 @@ internal sealed class ModFileTransferClient : IDisposable
         for (int redirect = 0; redirect <= 8; redirect++)
         {
             token.ThrowIfCancellationRequested();
-            if (!AnonymousModHttpClient.IsPublicHttps(current) || !ModDbParser.IsMirrorHost(current))
+            if (!AnonymousModHttpClient.IsPublicHttps(current) || !options.AllowHost(current))
                 throw AnonymousModHttpClient.Error(ModSourceError.AccessDenied, "The download left its supported anonymous mirror hosts.");
             CheckPaused(current);
             var host = limiter.For(current);

@@ -21,6 +21,7 @@ internal sealed class ModHostLimiter
 {
     internal static ModHostLimiter Shared { get; } = new();
     private readonly ConcurrentDictionary<string, Host> hosts = new(StringComparer.OrdinalIgnoreCase);
+    internal ConcurrentDictionary<string, DateTimeOffset> GitHubCooldowns { get; } = new();
     internal sealed class Host
     {
         internal SemaphoreSlim Gate { get; } = new(1, 1);
@@ -53,12 +54,20 @@ internal sealed class AnonymousModHttpClient : IDisposable
     }
 
     internal Task<string> GetTextAsync(Uri uri, Func<Uri, bool> allow, CancellationToken token) =>
+        GetPayloadAsync(uri, allow, token, json: false);
+
+    internal Task<string> GetJsonAsync(Uri uri, Func<Uri, bool> allow, CancellationToken token) =>
+        GetPayloadAsync(uri, allow, token, json: true);
+
+    private Task<string> GetPayloadAsync(Uri uri, Func<Uri, bool> allow, CancellationToken token, bool json) =>
         SendAsync(uri, allow, false, token, async (response, ct) =>
         {
             if (response.StatusCode == HttpStatusCode.PartialContent)
                 throw Error(ModSourceError.ParseFailed, "The source returned an incomplete content page.");
             string? type = response.Content.Headers.ContentType?.MediaType;
-            if (type is not null && type is not ("text/html" or "application/xhtml+xml" or "application/rss+xml" or "application/xml" or "text/xml"))
+            bool validType = json ? type is "application/json" or "application/vnd.github+json" :
+                type is "text/html" or "application/xhtml+xml" or "application/rss+xml" or "application/xml" or "text/xml";
+            if (type is not null && !validType)
                 throw Error(ModSourceError.ParseFailed, "The source returned an unexpected content type.");
             if (response.Content.Headers.ContentLength > options.MaxTextBytes)
                 throw Error(ModSourceError.ParseFailed, "The source page exceeds the response size limit.");
@@ -74,9 +83,9 @@ internal sealed class AnonymousModHttpClient : IDisposable
             }
             // ModDB publishes UTF-8. A response encoding never selects an arbitrary codepage provider.
             string html = System.Text.Encoding.UTF8.GetString(bytes.GetBuffer(), 0, checked((int)bytes.Length));
-            if (ModChallengeDetector.IsChallengeHtml(html)) RequireVerification(response.RequestMessage!.RequestUri!, response.StatusCode);
+            if (!json && ModChallengeDetector.IsChallengeHtml(html)) RequireVerification(response.RequestMessage!.RequestUri!, response.StatusCode);
             return html;
-        });
+        }, json);
 
     internal Task<Uri> ResolveFileAsync(Uri uri, Func<Uri, bool> allow, CancellationToken token) =>
         SendAsync(uri, allow, true, token, async (response, ct) =>
@@ -102,7 +111,7 @@ internal sealed class AnonymousModHttpClient : IDisposable
         });
 
     private async Task<T> SendAsync<T>(Uri uri, Func<Uri, bool> allow, bool probe, CancellationToken token,
-        Func<HttpResponseMessage, CancellationToken, Task<T>> read)
+        Func<HttpResponseMessage, CancellationToken, Task<T>> read, bool json = false)
     {
         for (int attempt = 0; ; attempt++)
         {
@@ -130,12 +139,20 @@ internal sealed class AnonymousModHttpClient : IDisposable
                     await host.Gate.WaitAsync(token).ConfigureAwait(false);
                     try
                     {
+                        ThrowIfGitHubLimited(current);
                         TimeSpan wait = host.NextRequest - DateTimeOffset.UtcNow;
                         if (wait > TimeSpan.Zero) await Task.Delay(wait, token).ConfigureAwait(false);
+                        ThrowIfGitHubLimited(current);
                         CheckPaused(current, probe);
                         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
                         timeout.CancelAfter(options.Timeout);
                         using var request = new HttpRequestMessage(HttpMethod.Get, current);
+                        if (json && current.IdnHost.Equals("api.github.com", StringComparison.OrdinalIgnoreCase))
+                        {
+                            request.Headers.Accept.Clear();
+                            request.Headers.Accept.ParseAdd("application/vnd.github+json");
+                            request.Headers.Add("X-GitHub-Api-Version", "2022-11-28");
+                        }
                         options.Clearance?.Apply(request);
                         if (probe) request.Headers.Range = new RangeHeaderValue(0, 15);
                         if (current != uri) request.Headers.Referrer = uri;
@@ -143,6 +160,7 @@ internal sealed class AnonymousModHttpClient : IDisposable
                         stage = ModHttpStage.Request;
                         Report(new(ModHttpDiagnostics.Host(current), stage, attempt + 1, ElapsedMilliseconds: Elapsed()));
                         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token).ConfigureAwait(false);
+                        DateTimeOffset? githubAfter = ObserveGitHubQuota(current, response);
                         stage = ModHttpStage.Headers;
                         Report(new(ModHttpDiagnostics.Host(current), stage, attempt + 1, (int)response.StatusCode, ElapsedMilliseconds: Elapsed()));
                         if (ModChallengeDetector.IsChallenge(response)) RequireVerification(current, response.StatusCode, probe);
@@ -155,6 +173,13 @@ internal sealed class AnonymousModHttpClient : IDisposable
                         }
                         if (!response.IsSuccessStatusCode)
                         {
+                            if (current.IdnHost.Equals("api.github.com", StringComparison.OrdinalIgnoreCase) &&
+                                response.StatusCode == HttpStatusCode.Forbidden && githubAfter is null &&
+                                response.Content.Headers.ContentType?.MediaType == "application/json")
+                            {
+                                string? body = await ReadChallengePageAsync(response, timeout.Token).ConfigureAwait(false);
+                                if (IsGitHubSecondaryLimit(body)) githubAfter = ObserveGitHubQuota(current, response, secondary: true);
+                            }
                             if ((int)response.StatusCode is 403 or 503 &&
                                 response.Content.Headers.ContentType?.MediaType is "text/html" or "application/xhtml+xml")
                             {
@@ -162,13 +187,13 @@ internal sealed class AnonymousModHttpClient : IDisposable
                                 if (html is not null && ModChallengeDetector.IsChallengeHtml(html)) RequireVerification(current, response.StatusCode, probe);
                             }
                             var retry = response.Headers.RetryAfter;
-                            DateTimeOffset? after = retry?.Date ?? (retry?.Delta is { } delta ? DateTimeOffset.UtcNow + delta : null);
+                            DateTimeOffset? after = githubAfter ?? retry?.Date ?? (retry?.Delta is { } delta ? DateTimeOffset.UtcNow + delta : null);
                             if ((int)response.StatusCode is 429 or 503)
                             {
                                 DateTimeOffset next = after ?? DateTimeOffset.UtcNow + TimeSpan.FromSeconds(Math.Pow(2, attempt));
                                 if (next > host.NextRequest) host.NextRequest = next;
                             }
-                            var kind = response.StatusCode switch
+                            var kind = githubAfter is not null && (int)response.StatusCode is 403 or 429 ? ModSourceError.RateLimited : response.StatusCode switch
                             {
                                 HttpStatusCode.TooManyRequests => ModSourceError.RateLimited,
                                 HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => ModSourceError.AccessDenied,
@@ -226,6 +251,53 @@ internal sealed class AnonymousModHttpClient : IDisposable
             }
             await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, attempt)), token).ConfigureAwait(false);
         }
+    }
+
+    private static string GitHubResource(Uri uri) => uri.AbsolutePath.StartsWith("/search/", StringComparison.Ordinal) ? "search" : "core";
+
+    private void ThrowIfGitHubLimited(Uri uri)
+    {
+        if (!uri.IdnHost.Equals("api.github.com", StringComparison.OrdinalIgnoreCase)) return;
+        DateTimeOffset next = DateTimeOffset.MinValue;
+        foreach (string key in new[] { "*", GitHubResource(uri) })
+            if (limiter.GitHubCooldowns.TryGetValue(key, out var until) && until > next) next = until;
+        if (next > DateTimeOffset.UtcNow)
+            throw new ModSourceException(new(ModSourceError.RateLimited, "GitHub's anonymous request quota is cooling down. Retry later.", RetryAfter: next));
+    }
+
+    private static bool IsGitHubSecondaryLimit(string? body)
+    {
+        if (body is null) return false;
+        try
+        {
+            using var json = System.Text.Json.JsonDocument.Parse(body);
+            return json.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object &&
+                json.RootElement.TryGetProperty("message", out var message) && message.ValueKind == System.Text.Json.JsonValueKind.String &&
+                message.GetString() is { } text && (text.Contains("secondary rate limit", StringComparison.OrdinalIgnoreCase) ||
+                    text.Contains("API rate limit exceeded", StringComparison.OrdinalIgnoreCase));
+        }
+        catch (System.Text.Json.JsonException) { return false; }
+    }
+
+    private DateTimeOffset? ObserveGitHubQuota(Uri uri, HttpResponseMessage response, bool secondary = false)
+    {
+        if (!uri.IdnHost.Equals("api.github.com", StringComparison.OrdinalIgnoreCase)) return null;
+        string? Header(string name) => response.Headers.TryGetValues(name, out var values) ? values.FirstOrDefault() : null;
+        bool exhausted = Header("X-RateLimit-Remaining") == "0";
+        DateTimeOffset? reset = null;
+        if (long.TryParse(Header("X-RateLimit-Reset"), System.Globalization.NumberStyles.None,
+            System.Globalization.CultureInfo.InvariantCulture, out long seconds) && seconds is >= 0 and <= 253402300798)
+            reset = DateTimeOffset.FromUnixTimeSeconds(seconds).AddSeconds(1);
+        DateTimeOffset? retry = response.Headers.RetryAfter?.Date ??
+            (response.Headers.RetryAfter?.Delta is { } delta ? DateTimeOffset.UtcNow + delta : null);
+        bool rejected = response.StatusCode == HttpStatusCode.TooManyRequests || secondary;
+        if (!exhausted && !rejected && retry is null) return null;
+        DateTimeOffset after = new[] { exhausted ? reset : null, retry, rejected ? DateTimeOffset.UtcNow.AddMinutes(1) : null }
+            .Where(value => value is not null).Select(value => value!.Value).DefaultIfEmpty(DateTimeOffset.UtcNow.AddMinutes(1)).Max();
+        string resource = Header("X-RateLimit-Resource") ?? GitHubResource(uri);
+        string key = retry is not null || rejected && !exhausted ? "*" : resource;
+        limiter.GitHubCooldowns.AddOrUpdate(key, after, (_, previous) => previous > after ? previous : after);
+        return after;
     }
 
     private static bool IsRetryable(ModSourceFailure failure) => failure.Kind != ModSourceError.VerificationRequired &&

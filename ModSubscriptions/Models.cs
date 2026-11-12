@@ -35,6 +35,8 @@ internal sealed record ModImage
     public string Caption { get; init; } = "";
 }
 
+internal enum RemoteProjectKind { Unknown, Mod, Tool, SourceOnly }
+
 internal sealed record RemoteMod
 {
     public required ModSourceId Id { get; init; }
@@ -44,6 +46,8 @@ internal sealed record RemoteMod
     public ModSourceCapabilities Capabilities { get; init; } = new();
     public ModArticle[] Articles { get; init; } = [];
     public ModImage[] Images { get; init; } = [];
+    public RemoteProjectKind Kind { get; init; }
+    public string InstallationHint { get; init; } = "";
 }
 
 internal sealed record RemoteModFile
@@ -53,11 +57,14 @@ internal sealed record RemoteModFile
     public required string Revision { get; init; }
     public required Uri PageUrl { get; init; }
     public required string Name { get; init; }
+    public Uri? BrowserUrl { get; init; }
     public string Description { get; init; } = "";
     public long? SizeBytes { get; init; }
     public string? Md5 { get; init; }
     public DateTimeOffset? PublishedAt { get; init; }
     public DateTimeOffset? UpdatedAt { get; init; }
+    public bool IsSourceSnapshot { get; init; }
+    public bool DownloadOnly { get; init; }
     // Temporary mirror URLs and account credentials have no place in this model.
 }
 
@@ -142,7 +149,7 @@ internal sealed record OwnedModFile(string RelativePath, long SizeBytes, string 
 
 internal sealed record SubscriptionLibrary
 {
-    internal const int CurrentSchemaVersion = 3;
+    internal const int CurrentSchemaVersion = 4;
     public required int SchemaVersion { get; init; }
     public required long Revision { get; init; }
     public required RemoteMod[] Mods { get; init; }

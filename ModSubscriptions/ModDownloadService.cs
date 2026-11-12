@@ -36,7 +36,11 @@ internal sealed class ModDownloadService : IAsyncDisposable
     {
         this.store = store;
         this.source = source;
-        this.transfer = transfer ?? new(new ModTransferOptions { Verification = verification, Clearance = clearance });
+        this.transfer = transfer ?? new(new ModTransferOptions
+        {
+            Verification = verification, Clearance = clearance,
+            AllowHost = source is GitHubModSource ? GitHubModSource.IsDownloadHost : ModDbParser.IsMirrorHost
+        });
         ownsTransfer = transfer is null;
         this.progress = progress;
         worker = Task.Run(WorkAsync);
@@ -195,7 +199,9 @@ internal sealed class ModDownloadService : IAsyncDisposable
                     {
                         SizeBytes = download.File.SizeBytes ?? link.File.SizeBytes,
                         Md5 = download.File.Md5 ?? link.File.Md5,
-                        Description = link.File.Description
+                        Description = link.File.Description,
+                        DownloadOnly = download.File.DownloadOnly || link.File.DownloadOnly,
+                        IsSourceSnapshot = download.File.IsSourceSnapshot || link.File.IsSourceSnapshot
                     } };
                     store.SaveDownload(job.SubscriptionId, download);
                     DateTimeOffset lastSaved = DateTimeOffset.UtcNow;

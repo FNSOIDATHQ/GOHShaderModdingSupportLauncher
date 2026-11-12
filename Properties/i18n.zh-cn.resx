@@ -580,7 +580,7 @@
   <data name="MS_Previous" xml:space="preserve"><value>上一页</value></data>
   <data name="MS_Next" xml:space="preserve"><value>下一页</value></data>
   <data name="MS_Check" xml:space="preserve"><value>检查订阅</value></data>
-  <data name="MS_Ready" xml:space="preserve"><value>就绪 · ModDB · 无需登录</value></data>
+  <data name="MS_Ready" xml:space="preserve"><value>就绪 · 无需登录</value></data>
   <data name="MS_Working" xml:space="preserve"><value>处理中…</value></data>
   <data name="MS_ChooseMod" xml:space="preserve"><value>请选择 Mod</value></data>
   <data name="MS_Favorite" xml:space="preserve"><value>收藏</value></data>
@@ -684,4 +684,22 @@
   <data name="MS_VerificationPrivacy" xml:space="preserve"><value>此窗口使用独立的临时浏览器资料。请勿登录账户；启动器不会读取个人浏览器资料或导入账户 Cookie。</value></data>
   <data name="MS_VerificationUnsupported" xml:space="preserve"><value>此来源暂不支持内置验证窗口。可打开原网站处理，并在稍后主动重试访问；其他浏览器中的验证结果不会自动共享给启动器。</value></data>
   <data name="MS_DownloadVerification" xml:space="preserve"><value>等待网站验证；下载任务仍保留在队列中</value></data>
+  <data name="MS_GitHubTopics" xml:space="preserve"><value>GitHub topics</value></data>
+  <data name="MS_GitHubSettingsInvalid" xml:space="preserve"><value>无法读取 GitHub topics。请填写并保存以修复配置；ModDB 仍可正常使用。</value></data>
+  <data name="MS_MatchAny" xml:space="preserve"><value>任一 topic 匹配</value></data>
+  <data name="MS_MatchAll" xml:space="preserve"><value>全部 topics 匹配</value></data>
+  <data name="MS_SaveTopics" xml:space="preserve"><value>保存 topics 并搜索</value></data>
+  <data name="MS_TopicsBoundary" xml:space="preserve"><value>多个 topic 用逗号分隔。搜索始终限定在这些 topics 内，留空则不搜索；可通过仓库 URL 直接添加项目。</value></data>
+  <data name="MS_AddRepository" xml:space="preserve"><value>添加仓库 URL</value></data>
+  <data name="MS_RepositoryUrlRequired" xml:space="preserve"><value>请输入 https://github.com/所有者/仓库 格式的公开仓库 URL。</value></data>
+  <data name="MS_UnsupportedSource" xml:space="preserve"><value>此来源当前不可用。</value></data>
+  <data name="MS_ProjectType" xml:space="preserve"><value>项目类型</value></data>
+  <data name="MS_Kind_Unknown" xml:space="preserve"><value>尚未分类的项目</value></data>
+  <data name="MS_Kind_Mod" xml:space="preserve"><value>Mod 候选项目</value></data>
+  <data name="MS_Kind_Tool" xml:space="preserve"><value>工具或资料</value></data>
+  <data name="MS_Kind_SourceOnly" xml:space="preserve"><value>源码项目</value></data>
+  <data name="MS_GitHubInstallHint" xml:space="preserve"><value>选择文件前请阅读 README 和 Release notes。项目 topic 不能证明附件是完整 Mod；工具和需要构建的文件仅供下载后手动使用。</value></data>
+  <data name="MS_SourceSnapshot" xml:space="preserve"><value>源码快照已固定到 commit SHA，可能需要构建或生成资源；启动器不会执行构建或生成器。</value></data>
+  <data name="MS_GitHubDownloadOnly" xml:space="preserve"><value>此文件仅供下载后手动使用，不提供标准 Mod 安装。</value></data>
+  <data name="MS_RetryAfter" xml:space="preserve"><value>可重试时间</value></data>
 </root>

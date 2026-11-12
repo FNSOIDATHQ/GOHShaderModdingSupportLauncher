@@ -86,6 +86,12 @@ name = "Local example"
 
 Open **Mod subscriptions** to browse Gates of Hell mods on ModDB without an account. The page shows the author's summary, articles, images and files, and keeps favorites separate from subscriptions. Select the files you want before subscribing; downloads are never selected automatically.
 
+Choose **GitHub** to search public repositories within your configured topics. The default is `gates-of-hell`; edit the comma-separated list, choose **Match any topic** or **Match all topics**, then **Save topics and search**. Keywords and sorting keep the same topic scope. An empty topics list does not search. **Add repository URL** opens an explicit public `https://github.com/owner/repository` even if it has no matching topics; repository IDs keep the same project from being added twice.
+
+GitHub details show the README, release notes, README images and selectable public release attachments. The project type is a browsing hint; a mod topic does not prove that an attachment is installable. Tools and files that need building are kept for download and manual use. Repositories without releases can offer source snapshots fixed to a commit SHA; the launcher does not run builds or generators. Complete standard mod packages use the same archive checks and explicit installation confirmation as ModDB packages.
+
+GitHub checks include all public releases, attachments added to existing releases and attachment revisions. Requests use the anonymous API quota, without a token or login. When that quota is exhausted, the page shows when to retry and keeps the previous file list and notices.
+
 Downloaded archives can be inspected and installed into the selected game's `mods` directory. Confirm the original mod folder and that the archive is a complete package before installation. Patches, installers and unsupported layouts can be downloaded for manual installation; the launcher does not run their scripts or change game files outside `mods`.
 
 The first successful file check establishes a baseline. Later checks report new files and changed revisions; read or ignored notices are separate from installed versions. Use **Check subscriptions** for a manual check; while the launcher runs, subscriptions are also checked periodically. A failed check keeps the previous file list and notices available.

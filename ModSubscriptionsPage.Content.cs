@@ -38,7 +38,8 @@ public sealed partial class ModSubscriptionsPage
 
     private async Task LoadArticlesAsync(Uri page, CancellationToken token)
     {
-        var response = await Task.Run(() => runtime!.Source.GetArticlesAsync(page, cancellationToken: token), token);
+        var currentSource = SourceForProvider(selected!.Id.Provider);
+        var response = await Task.Run(() => currentSource.GetArticlesAsync(page, cancellationToken: token), token);
         token.ThrowIfCancellationRequested(); status.Text = ReadStatus(response, () => LoadArticlesAsync(page, token));
         if (response.Content is not { } content) return;
         articles.Children.Clear();
@@ -47,7 +48,7 @@ public sealed partial class ModSubscriptionsPage
         {
             articles.Children.Add(Action(article.Title, async () =>
             {
-                var detail = await Task.Run(() => runtime!.Source.GetArticleAsync(article.PageUrl, cancellationToken: token), token);
+                var detail = await Task.Run(() => currentSource.GetArticleAsync(article.PageUrl, cancellationToken: token), token);
                 token.ThrowIfCancellationRequested(); status.Text = ReadStatus(detail, () => LoadArticlesAsync(page, token));
                 if (detail.Content is not { } body) return;
                 var panel = Column(); panel.Children.Add(Text(body.Title, 20)); AddReadable(panel, body.Body);
@@ -61,7 +62,8 @@ public sealed partial class ModSubscriptionsPage
 
     private async Task LoadImagesAsync(Uri page, CancellationToken token)
     {
-        var response = await Task.Run(() => runtime!.Source.GetImagesAsync(page, cancellationToken: token), token);
+        var currentSource = SourceForProvider(selected!.Id.Provider);
+        var response = await Task.Run(() => currentSource.GetImagesAsync(page, cancellationToken: token), token);
         token.ThrowIfCancellationRequested(); status.Text = ReadStatus(response, () => LoadImagesAsync(page, token));
         if (response.Content is not { } content) return;
         images.Children.Clear();
@@ -69,7 +71,7 @@ public sealed partial class ModSubscriptionsPage
         foreach (var image in content.Items)
             images.Children.Add(Action(image.Caption.Length > 0 ? image.Caption : image.Id, async () =>
             {
-                var full = await Task.Run(() => runtime!.Source.GetImageAsync(image.PageUrl, cancellationToken: token), token);
+                var full = await Task.Run(() => currentSource.GetImageAsync(image.PageUrl, cancellationToken: token), token);
                 token.ThrowIfCancellationRequested(); status.Text = ReadStatus(full, () => LoadImagesAsync(page, token));
                 if (full.Content is { } item) await ShowImageAsync(item, token);
             }));
@@ -157,7 +159,8 @@ public sealed partial class ModSubscriptionsPage
 
     private async Task LoadFilesAsync(RemoteMod mod, CancellationToken token)
     {
-        var response = await Task.Run(() => runtime!.Source.GetFileSnapshotAsync(mod.PageUrl, cancellationToken: token), token);
+        var currentSource = SourceForProvider(mod.Id.Provider);
+        var response = await Task.Run(() => currentSource.GetFileSnapshotAsync(mod.PageUrl, cancellationToken: token), token);
         token.ThrowIfCancellationRequested(); status.Text = ReadStatus(response, () => LoadFilesAsync(mod, token));
         snapshot = response.Content; snapshotFresh = response.IsSuccess && !response.IsStale;
         RenderFiles(mod, token);
@@ -181,10 +184,16 @@ public sealed partial class ModSubscriptionsPage
             var choice = new CheckBox { IsEnabled = available, IsChecked = available && chosen.Contains((file.Id, file.Revision)),
                 Content = file.Name + " · " + FormatBytes(file.SizeBytes) + (notice is null ? "" : " · " + T(notice.Kind == FileUpdateKind.NewFile ? "NewFile" : "ChangedFile")) };
             fileChoices.Add(file, choice); row.Children.Add(choice);
+            if (file.IsSourceSnapshot) row.Children.Add(Text(T("SourceSnapshot")));
+            if (file.DownloadOnly) row.Children.Add(Text(T("GitHubDownloadOnly")));
             AddReadable(row, file.Description);
             if (!available) row.Children.Add(Text(T("FileUnavailable")));
             var actions = Row();
-            actions.Children.Add(Action(T("Original"), () => { OpenUrl(file.PageUrl); return Task.CompletedTask; }));
+            actions.Children.Add(Action(T("Original"), () =>
+            {
+                OpenUrl(file.BrowserUrl ?? (mod.Id.Provider == "github" ? new Uri(mod.PageUrl.AbsoluteUri.TrimEnd('/') + "/releases") : file.PageUrl));
+                return Task.CompletedTask;
+            }));
             if (notice is not null)
             {
                 foreach (var state in new[] { FileNoticeState.Read, FileNoticeState.Ignored })
@@ -228,7 +237,11 @@ public sealed partial class ModSubscriptionsPage
 
     private async Task DownloadAsync(Guid subscriptionId, Guid downloadId)
     {
-        try { await runtime!.Downloads.EnqueueAsync(subscriptionId, downloadId, lifetime.Token); }
+        try
+        {
+            var subscription = runtime!.Library.Subscriptions.Single(item => item.Id == subscriptionId);
+            await runtime.GetDownloads(subscription.Source.Provider).EnqueueAsync(subscriptionId, downloadId, lifetime.Token);
+        }
         catch (OperationCanceledException) { }
         catch (Exception ex) { if (!disposed) await Dispatcher.UIThread.InvokeAsync(() => status.Text = T("Failed") + ": " + ex.Message); }
         finally { runtime?.NotifyChanged(); }
@@ -260,14 +273,15 @@ public sealed partial class ModSubscriptionsPage
             if (state is DownloadState.Pending or DownloadState.Downloading)
                 line.Children.Add(Action(T("Cancel"), async () =>
                 {
-                    await Task.Run(() => runtime.Downloads.CancelAsync(download.Id, lifetime.Token), lifetime.Token);
+                    await Task.Run(() => runtime.GetDownloads(sub.Source.Provider).CancelAsync(download.Id, lifetime.Token), lifetime.Token);
                     runtime.NotifyChanged();
                 }, independent: true));
             if (state is DownloadState.Failed or DownloadState.Cancelled or DownloadState.LocalFileMissing)
                 line.Children.Add(Action(T("Retry"), () => { _ = DownloadAsync(sub.Id, download.Id); return Task.CompletedTask; }));
             if (state is DownloadState.Downloaded or DownloadState.NeedsManualInstall)
             {
-                line.Children.Add(Action(T("InspectInstall"), () => InstallAsync(sub, download)));
+                if (!download.File.DownloadOnly) line.Children.Add(Action(T("InspectInstall"), () => InstallAsync(sub, download)));
+                else tasks.Children.Add(Text(T("GitHubDownloadOnly")));
                 line.Children.Add(Action(T("DownloadOnly"), async () => { await Task.Run(() => runtime.Installer.MarkDownloadOnly(sub.Id, download.Id)); runtime.NotifyChanged(); }));
                 line.Children.Add(Action(T("OpenDownloads"), () =>
                 {

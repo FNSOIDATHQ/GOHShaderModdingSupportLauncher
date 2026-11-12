@@ -109,12 +109,21 @@ internal sealed class SubscriptionStore
                 !document.RootElement.TryGetProperty("schemaVersion", out var schema) ||
                 schema.ValueKind != JsonValueKind.Number || !schema.TryGetInt32(out int version))
                 throw new InvalidDataException("The subscription schema version is missing or invalid.");
-            if (version is not (1 or 2 or SubscriptionLibrary.CurrentSchemaVersion)) throw new UnsupportedSubscriptionSchemaException(version);
+            if (version is not (1 or 2 or 3 or SubscriptionLibrary.CurrentSchemaVersion)) throw new UnsupportedSubscriptionSchemaException(version);
             var parsed = JsonSerializer.Deserialize(bytes, SubscriptionJsonContext.Default.SubscriptionLibrary)
                 ?? throw new InvalidDataException("The subscription library is empty.");
             // Schema 1 predates content fingerprints, and schemas 1/2 predate persisted notice kinds.
             // Missing old fingerprints cannot authorize destructive cleanup. Upgrade on the next save;
+            // Schema 4 adds GitHub project/file policy metadata. Source-generated init setters
+            // assign null for an absent string even when the model has an initializer.
+            // Restore that new optional field only for the older library formats;
             // older launchers must explicitly reject the new format instead of trying backup recovery.
+            if (version <= 3 && parsed.Mods is not null)
+                parsed = parsed with
+                {
+                    Mods = parsed.Mods.Select(mod => mod is null ? null! : mod with
+                    { InstallationHint = mod.InstallationHint ?? "" }).ToArray()
+                };
             if (version is 1 or 2 && parsed.Subscriptions is not null)
                 parsed = parsed with
                 {

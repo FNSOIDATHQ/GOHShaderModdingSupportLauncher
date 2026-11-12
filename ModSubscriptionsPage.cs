@@ -25,7 +25,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
     private RemoteMod? selected;
     private ModFileSnapshot? snapshot;
     private readonly Dictionary<RemoteModFile, CheckBox> fileChoices = [];
-    private ComboBox view = null!, sort = null!;
+    private ComboBox view = null!, sort = null!, source = null!;
     private TextBox keyword = null!;
     private ListBox mods = null!;
     private TextBlock status = null!, title = null!, tracking = null!;
@@ -71,12 +71,14 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
     private void BuildView()
     {
         rebuilding = true;
-        var root = new Grid { Margin = new Thickness(12), RowDefinitions = new("Auto,Auto,Auto,*") };
+        int sourceIndex = source?.SelectedIndex ?? 0;
+        var root = new Grid { Margin = new Thickness(12), RowDefinitions = new("Auto,Auto,Auto,Auto,*") };
         var toolbar = new WrapPanel { Orientation = Orientation.Horizontal, ItemSpacing = 6, LineSpacing = 6 };
         view = new ComboBox { Name = "subscriptionView", ItemsSource = new[] { T("Browse"), T("Subscribed"), T("Favorites"), T("Updates") }, SelectedIndex = 0, MinWidth = 135 };
-        var source = new ComboBox { ItemsSource = new[] { "ModDB" }, SelectedIndex = 0, MinWidth = 90 };
+        source = new ComboBox { Name = "subscriptionSource", ItemsSource = new[] { "ModDB", "GitHub" }, SelectedIndex = sourceIndex, MinWidth = 90 };
         keyword = new TextBox { Name = "subscriptionSearch", PlaceholderText = T("Search"), MaxLength = 50, Width = 170 };
         sort = new ComboBox { ItemsSource = new[] { T("Updated"), T("Newest"), T("Popular"), T("Name") }, SelectedIndex = 0 };
+        UpdateSortOptions();
         toolbar.Children.Add(view); toolbar.Children.Add(source); toolbar.Children.Add(keyword); toolbar.Children.Add(sort);
         toolbar.Children.Add(Action(T("Search"), async () => { browsePage = 1; await LoadListAsync(); }));
         previous = Action(T("Previous"), async () => { browsePage = Math.Max(1, browsePage - 1); await LoadListAsync(); });
@@ -84,8 +86,9 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
         toolbar.Children.Add(previous); toolbar.Children.Add(next);
         toolbar.Children.Add(Action(T("Check"), CheckAsync));
         root.Children.Add(toolbar);
+        var github = BuildGitHubOptions(); Grid.SetRow(github, 1); root.Children.Add(github);
         status = Text(T("Ready")); status.Name = "subscriptionStatus";
-        status.Margin = new Thickness(0, 8); Grid.SetRow(status, 1); root.Children.Add(status);
+        status.Margin = new Thickness(0, 8); Grid.SetRow(status, 2); root.Children.Add(status);
         var verification = Column();
         verification.Children.Add(Text(T("VerificationTitle"), 16));
         verificationMessage = Text(T("VerificationRequired"));
@@ -108,8 +111,8 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
         verification.Children.Add(verificationActions);
         verificationBanner = new Border { Name = "subscriptionVerification", IsVisible = false, Padding = new Thickness(10), Margin = new Thickness(0, 0, 0, 8),
             BorderThickness = new Thickness(1), BorderBrush = Brushes.DarkOrange, Child = verification };
-        Grid.SetRow(verificationBanner, 2); root.Children.Add(verificationBanner);
-        var body = new Grid { ColumnDefinitions = new("220,10,*") }; Grid.SetRow(body, 3);
+        Grid.SetRow(verificationBanner, 3); root.Children.Add(verificationBanner);
+        var body = new Grid { ColumnDefinitions = new("220,10,*") }; Grid.SetRow(body, 4);
         mods = new ListBox { Name = "subscriptionMods" };
         mods.SelectionChanged += async (_, _) =>
         {
@@ -152,6 +155,14 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
             }
             _ = RefreshAfterGameChangeAsync();
         };
+        source.SelectionChanged += (_, _) =>
+        {
+            github.IsVisible = source.SelectedIndex == 1;
+            UpdateSortOptions();
+            if (rebuilding || !active) return;
+            browsePage = 1; browseItems = []; hasNext = false;
+            OnGameChanged();
+        };
         rebuilding = false;
     }
 
@@ -163,7 +174,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
         runtime.Changed += RuntimeChanged;
         runtime.Verification.Changed += RuntimeChanged;
         timer.Start();
-        _ = RunAsync(async () => { await runtime.Ready; RefreshVerification(); await LoadListAsync(); });
+        _ = RunAsync(async () => { await runtime.Ready; LoadGitHubOptions(); RefreshVerification(); await LoadListAsync(); });
     }
 
     public void OnGameChanged()
@@ -192,6 +203,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
         verificationRetryAction = null;
         verificationNotice = null;
         BuildView();
+        if (runtime?.Ready.IsCompletedSuccessfully == true) LoadGitHubOptions();
         RefreshVerification();
         if (active) _ = RefreshAfterGameChangeAsync();
     }
@@ -238,7 +250,8 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
             string query = keyword.Text ?? "";
             int page = browsePage;
             var order = (ModBrowseSort)Math.Max(0, sort.SelectedIndex);
-            var result = await Task.Run(() => runtime.Source.BrowseAsync(query, page, order, cancellationToken: lifetime.Token), lifetime.Token);
+            var currentSource = SourceForProvider(SelectedProvider);
+            var result = await Task.Run(() => currentSource.BrowseAsync(query, page, order, cancellationToken: lifetime.Token), lifetime.Token);
             if (generation != listGeneration || disposed) return;
             status.Text = ReadStatus(result, LoadListAsync);
             browseItems = result.Content?.Items ?? [];
@@ -260,7 +273,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
         var library = runtime!.Library;
         string? game = main.SubscriptionGameDirectory;
         var subscribed = library.Subscriptions.Where(sub => sub.GameDirectory.Equals(game, SubscriptionPaths.Comparison)).ToArray();
-        return library.Mods.Where(mod => mod.Id.Provider == "moddb" && (view.SelectedIndex switch
+        return library.Mods.Where(mod => mod.Id.Provider == SelectedProvider && (view.SelectedIndex switch
         {
             1 => subscribed.Any(sub => sub.Source == mod.Id),
             2 => library.Favorites.Any(favorite => favorite.Source == mod.Id),
@@ -281,7 +294,9 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
 
     private sealed record ModRow(RemoteMod Mod, int Count)
     {
-        public override string ToString() => Mod.Title + "\nModDB" + (Count > 0 ? " · " + T("Updates") + $" ({Count})" : "");
+        public override string ToString() => Mod.Title + "\n" + ProviderName(Mod.Id.Provider) +
+            (Mod.Id.Provider == "github" ? " · " + T("Kind_" + Mod.Kind) : "") +
+            (Count > 0 ? " · " + T("Updates") + $" ({Count})" : "");
     }
     private int NoticeCount(RemoteMod mod) => Subscription(mod) is { } sub ? ModUpdateCheckService.GetNotices(sub).Length : 0;
     private GameModSubscription? Subscription(RemoteMod? mod = null) => runtime is not null && (mod ?? selected) is { } item && main.SubscriptionGameDirectory is { } game
@@ -300,36 +315,45 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
             verificationNotice = "VerificationRequired";
             RefreshVerification();
         }
-        AppDiagnostics.Log($"ModDB content failure: kind={failure.Kind}, HTTP={(int?)failure.StatusCode}, diagnostic={failure.DiagnosticKind}.");
+        AppDiagnostics.Log($"Mod source content failure: kind={failure.Kind}, HTTP={(int?)failure.StatusCode}, diagnostic={failure.DiagnosticKind}.");
         message += " · " + T("Error_" + failure.Kind);
         if (failure.StatusCode is { } code) message += $" (HTTP {(int)code})";
+        if (failure.RetryAfter is { } retryAfter) message += " · " + T("RetryAfter") + ": " + retryAfter.ToLocalTime().ToString("g");
         if (failure.DiagnosticKind is { } diagnostic && diagnostic != ModHttpFailureKind.Unknown)
             message += " · " + T("Network_" + diagnostic);
         return message + " · " + T("NetworkLog");
     }
 
-    private async Task OpenModAsync(RemoteMod mod)
+    private Task OpenModAsync(RemoteMod mod) => OpenModCoreAsync(mod, refresh: true);
+
+    private async Task OpenModCoreAsync(RemoteMod mod, bool refresh)
     {
         if (selected?.Id != mod.Id) verificationRetryAction = null;
         detailCancellation?.Cancel(); detailCancellation?.Dispose();
         detailCancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
         var token = detailCancellation.Token;
         selected = mod; snapshot = null; fileChoices.Clear();
-        title.Text = mod.Title + " · ModDB";
+        title.Text = mod.Title + " · " + ProviderName(mod.Id.Provider);
         summary.Children.Clear(); articles.Children.Clear(); images.Children.Clear(); files.Children.Clear();
-        AddReadable(summary, mod.Summary); RefreshTasks(); RefreshTracking();
+        ShowSummary(mod); RefreshTasks(); RefreshTracking();
         try
         {
-            var result = await Task.Run(() => runtime!.Source.GetModAsync(mod.PageUrl, cancellationToken: token), token);
+            var currentSource = SourceForProvider(mod.Id.Provider);
+            var result = refresh
+                ? await Task.Run(() => currentSource is GitHubModSource github
+                    ? github.GetModByIdAsync(mod.Id.RemoteId, cancellationToken: token)
+                    : currentSource.GetModAsync(mod.PageUrl, cancellationToken: token), token)
+                : new ModSourceResult<RemoteMod>(mod, DateTimeOffset.UtcNow);
             token.ThrowIfCancellationRequested(); status.Text = ReadStatus(result, () => OpenModAsync(mod));
             if (result.Content is { } full)
             {
                 if (full.Id != mod.Id) throw new InvalidDataException(T("IdentityChanged"));
-                selected = full;
+                selected = full; mod = full;
+                title.Text = full.Title + " · " + ProviderName(full.Id.Provider);
                 await Task.Run(() => runtime!.Store.SaveMod(full), token);
                 await runtime!.RefreshLibraryAsync(token);
                 token.ThrowIfCancellationRequested();
-                summary.Children.Clear(); AddReadable(summary, full.Summary);
+                summary.Children.Clear(); ShowSummary(full);
                 foreach (var image in full.Images) summary.Children.Add(ImageButton(image));
             }
             articles.Children.Add(Action(T("LoadArticles"), () => LoadArticlesAsync(mod.PageUrl, token)));

@@ -39,6 +39,9 @@ internal sealed class ModArchiveService
     {
         cancellationToken.ThrowIfCancellationRequested();
         ManagedModFiles.EnsureSafe(archivePath);
+        if (file.DownloadOnly || file.IsSourceSnapshot)
+            return new([], file.Description,
+                "This source snapshot or tool is download-only. Follow the author's instructions; the launcher does not run builds or generators.", false);
         try
         {
             using var source = new FileStream(archivePath, FileMode.Open, FileAccess.Read, FileShare.Read);

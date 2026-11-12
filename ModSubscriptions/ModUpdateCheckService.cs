@@ -50,7 +50,7 @@ internal sealed class ModUpdateCheckService(SubscriptionStore store, Func<string
                 cancellationToken.ThrowIfCancellationRequested();
                 // A human verification is never retried by the scheduler. Leave all snapshots,
                 // notices and successful check timestamps intact until the user resumes it.
-                if (onlyDue && verification?.IsPaused == true) break;
+                if (onlyDue && subscription.Source.Provider == "moddb" && verification?.IsPaused == true) continue;
                 var now = DateTimeOffset.UtcNow;
                 if (onlyDue && ((nextAttempts.TryGetValue(subscription.Id, out var next) && next > now) ||
                     (subscription.Files.LastSuccessfulCheck is { } last && last + CheckInterval > now))) continue;
@@ -84,7 +84,9 @@ internal sealed class ModUpdateCheckService(SubscriptionStore store, Func<string
             return Result(false, new(ModSourceError.RequestFailed, "This source does not provide complete file update evidence."));
         try
         {
-            var response = await source.GetFileSnapshotAsync(mod.PageUrl, ModReadMode.Refresh, token).ConfigureAwait(false);
+            var response = source is GitHubModSource github
+                ? await github.GetFileSnapshotByIdAsync(mod.Id.RemoteId, ModReadMode.Refresh, token).ConfigureAwait(false)
+                : await source.GetFileSnapshotAsync(mod.PageUrl, ModReadMode.Refresh, token).ConfigureAwait(false);
             token.ThrowIfCancellationRequested();
             if (!response.IsSuccess || response.IsStale)
             {

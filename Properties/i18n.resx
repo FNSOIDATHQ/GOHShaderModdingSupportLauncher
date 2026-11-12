@@ -580,7 +580,7 @@ Make sure Steam has finished downloading the item.</value>
   <data name="MS_Previous" xml:space="preserve"><value>Previous</value></data>
   <data name="MS_Next" xml:space="preserve"><value>Next</value></data>
   <data name="MS_Check" xml:space="preserve"><value>Check subscriptions</value></data>
-  <data name="MS_Ready" xml:space="preserve"><value>Ready · ModDB · no account required</value></data>
+  <data name="MS_Ready" xml:space="preserve"><value>Ready · no account required</value></data>
   <data name="MS_Working" xml:space="preserve"><value>Working…</value></data>
   <data name="MS_ChooseMod" xml:space="preserve"><value>Choose a Mod</value></data>
   <data name="MS_Favorite" xml:space="preserve"><value>Favorite</value></data>
@@ -684,4 +684,22 @@ Make sure Steam has finished downloading the item.</value>
   <data name="MS_VerificationPrivacy" xml:space="preserve"><value>This window uses a separate temporary browser profile. Do not sign in; the launcher does not read your personal browser profile or import account cookies.</value></data>
   <data name="MS_VerificationUnsupported" xml:space="preserve"><value>This source does not support the built-in verification window. You can open the original website and explicitly retry access later. Verification completed in another browser is not automatically shared with the launcher.</value></data>
   <data name="MS_DownloadVerification" xml:space="preserve"><value>Waiting for website verification; download remains queued</value></data>
+  <data name="MS_GitHubTopics" xml:space="preserve"><value>GitHub topics</value></data>
+  <data name="MS_GitHubSettingsInvalid" xml:space="preserve"><value>GitHub topics could not be loaded. Enter topics and save to repair the settings; ModDB is still available.</value></data>
+  <data name="MS_MatchAny" xml:space="preserve"><value>Match any topic</value></data>
+  <data name="MS_MatchAll" xml:space="preserve"><value>Match all topics</value></data>
+  <data name="MS_SaveTopics" xml:space="preserve"><value>Save topics and search</value></data>
+  <data name="MS_TopicsBoundary" xml:space="preserve"><value>Separate topics with commas. Searches stay within these topics; an empty list disables search. Use a repository URL to add a project directly.</value></data>
+  <data name="MS_AddRepository" xml:space="preserve"><value>Add repository URL</value></data>
+  <data name="MS_RepositoryUrlRequired" xml:space="preserve"><value>Enter a public repository URL in the form https://github.com/owner/repository.</value></data>
+  <data name="MS_UnsupportedSource" xml:space="preserve"><value>This source is not available.</value></data>
+  <data name="MS_ProjectType" xml:space="preserve"><value>Project type</value></data>
+  <data name="MS_Kind_Unknown" xml:space="preserve"><value>Unclassified project</value></data>
+  <data name="MS_Kind_Mod" xml:space="preserve"><value>Mod candidate</value></data>
+  <data name="MS_Kind_Tool" xml:space="preserve"><value>Tool or resource</value></data>
+  <data name="MS_Kind_SourceOnly" xml:space="preserve"><value>Source project</value></data>
+  <data name="MS_GitHubInstallHint" xml:space="preserve"><value>Read the README and release notes before choosing files. A project topic does not confirm that an attachment contains a complete mod. Tools and files that need building remain downloads for manual use.</value></data>
+  <data name="MS_SourceSnapshot" xml:space="preserve"><value>Source snapshot fixed to a commit SHA. It may need a build or generated resources; the launcher does not run builds or generators.</value></data>
+  <data name="MS_GitHubDownloadOnly" xml:space="preserve"><value>This file is for download and manual use. It is not offered for standard mod installation.</value></data>
+  <data name="MS_RetryAfter" xml:space="preserve"><value>Retry after</value></data>
 </root>

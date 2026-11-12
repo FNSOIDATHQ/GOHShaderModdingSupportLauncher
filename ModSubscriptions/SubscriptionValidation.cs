@@ -37,6 +37,7 @@ internal static class SubscriptionValidation
         Text(file.Revision);
         Text(file.Name);
         Url(file.PageUrl);
+        if (file.BrowserUrl is not null) Url(file.BrowserUrl);
         Require(file.Md5 is null || (file.Md5.Length == 32 && file.Md5.All(Uri.IsHexDigit)));
     }
 
@@ -47,7 +48,8 @@ internal static class SubscriptionValidation
         var sources = new HashSet<ModSourceId>();
         foreach (var mod in library.Mods)
         {
-            Require(mod is not null && mod.Summary is not null && mod.Capabilities is not null &&
+            Require(mod is not null && mod.Summary is not null && mod.InstallationHint is not null &&
+                Enum.IsDefined(mod.Kind) && mod.Capabilities is not null &&
                 mod.Articles is not null && mod.Images is not null);
             Source(mod.Id);
             Require(sources.Add(mod.Id) && Enum.IsDefined(mod.Capabilities.UpdateEvidence));
