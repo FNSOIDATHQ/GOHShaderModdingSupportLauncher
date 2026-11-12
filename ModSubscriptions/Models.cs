@@ -55,6 +55,7 @@ internal sealed record RemoteModFile
     public required string Name { get; init; }
     public string Description { get; init; } = "";
     public long? SizeBytes { get; init; }
+    public string? Md5 { get; init; }
     public DateTimeOffset? PublishedAt { get; init; }
     public DateTimeOffset? UpdatedAt { get; init; }
     // Temporary mirror URLs and account credentials have no place in this model.
@@ -90,6 +91,7 @@ internal sealed record ModDownload
     public string? LocalPath { get; init; }
     [JsonRequired]
     public long ReceivedBytes { get; init; }
+    public string? ContentSha256 { get; init; }
     [JsonRequired]
     public DateTimeOffset UpdatedAt { get; init; }
     public string? Error { get; init; }
@@ -102,6 +104,8 @@ internal sealed record ModInstallation
     public required string DirectoryPath { get; init; }
     // Relative to DirectoryPath. A manually added file is not implicitly owned.
     public required string[] OwnedFiles { get; init; }
+    // Older records have no fingerprints and cannot authorize destructive cleanup.
+    public OwnedModFile[] OwnedFileDetails { get; init; } = [];
     [JsonRequired]
     public InstallationState State { get; init; }
     [JsonRequired]
@@ -129,9 +133,11 @@ internal sealed record GameModSubscription
 
 internal sealed record LocalModOwnership(Guid SubscriptionId, ModSourceId Source, ModInstallation Installation);
 
+internal sealed record OwnedModFile(string RelativePath, long SizeBytes, string Sha256);
+
 internal sealed record SubscriptionLibrary
 {
-    internal const int CurrentSchemaVersion = 1;
+    internal const int CurrentSchemaVersion = 2;
     public required int SchemaVersion { get; init; }
     public required long Revision { get; init; }
     public required RemoteMod[] Mods { get; init; }

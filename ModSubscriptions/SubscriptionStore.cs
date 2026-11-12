@@ -109,9 +109,22 @@ internal sealed class SubscriptionStore
                 !document.RootElement.TryGetProperty("schemaVersion", out var schema) ||
                 schema.ValueKind != JsonValueKind.Number || !schema.TryGetInt32(out int version))
                 throw new InvalidDataException("The subscription schema version is missing or invalid.");
-            if (version != SubscriptionLibrary.CurrentSchemaVersion) throw new UnsupportedSubscriptionSchemaException(version);
+            if (version is not (1 or SubscriptionLibrary.CurrentSchemaVersion)) throw new UnsupportedSubscriptionSchemaException(version);
             var parsed = JsonSerializer.Deserialize(bytes, SubscriptionJsonContext.Default.SubscriptionLibrary)
                 ?? throw new InvalidDataException("The subscription library is empty.");
+            // Schema 1 predates content fingerprints. Its records remain readable but cannot authorize
+            // deletion/replacement without verification. Write schema 2 on the next successful save,
+            // so older launchers reject the new ownership format instead of treating it as corruption.
+            if (version == 1 && parsed.Subscriptions is not null)
+                parsed = parsed with
+                {
+                    Subscriptions = parsed.Subscriptions.Select(subscription => subscription is null ? null! : subscription with
+                    {
+                        Installations = subscription.Installations?.Select(installation => installation is null ? null! : installation with
+                        { OwnedFileDetails = installation.OwnedFileDetails ?? [] }).ToArray()!
+                    }).ToArray()
+                };
+            parsed = parsed with { SchemaVersion = SubscriptionLibrary.CurrentSchemaVersion };
             SubscriptionValidation.Library(parsed);
             return parsed;
         }
@@ -265,8 +278,33 @@ internal sealed class SubscriptionStore
         return null;
     }
 
+    // The filesystem service commits a fully prepared transaction in a single library write.
+    internal void CommitInstallation(Guid subscriptionId, ModInstallation installation, Guid? replacementId) =>
+        ChangeSubscription(subscriptionId, value =>
+        {
+            if (value.State != SubscriptionState.Active || installation.State != InstallationState.Installed ||
+                !value.Downloads.Any(item => item.Id == installation.DownloadId && item.State is DownloadState.Downloaded or DownloadState.NeedsManualInstall))
+                throw new InvalidOperationException("The selected file is not ready for installation.");
+            if (replacementId is { } id && !value.Installations.Any(item => item.Id == id))
+                throw new InvalidOperationException("The managed installation to replace no longer exists.");
+            return value with
+            {
+                Installations = [.. value.Installations.Where(item => item.Id != replacementId), installation],
+                Downloads = value.Downloads.Select(item => item.Id == installation.DownloadId ? item with
+                { State = DownloadState.Downloaded, Error = null, UpdatedAt = DateTimeOffset.UtcNow } : item).ToArray()
+            };
+        });
+
+    internal void CommitRemoval(Guid subscriptionId) => Change(value =>
+    {
+        var subscription = value.Subscriptions.Single(item => item.Id == subscriptionId);
+        if (subscription.State == SubscriptionState.Active || subscription.Downloads.Any(item => item.State == DownloadState.Downloading))
+            throw new InvalidOperationException("The subscription is not ready for cleanup.");
+        return value with { Subscriptions = value.Subscriptions.Where(item => item.Id != subscriptionId).ToArray() };
+    });
+
     // Removing metadata is only safe once the filesystem service has cleared its records.
-    // Stage one intentionally provides no operation that deletes installed or downloaded files.
+    // Filesystem cleanup must go through ModInstallService before removing owned records.
     internal void RemoveSubscription(Guid id) => Change(value =>
     {
         var subscription = value.Subscriptions.SingleOrDefault(item => item.Id == id)

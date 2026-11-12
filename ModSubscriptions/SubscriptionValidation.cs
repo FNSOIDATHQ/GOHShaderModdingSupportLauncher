@@ -37,6 +37,7 @@ internal static class SubscriptionValidation
         Text(file.Revision);
         Text(file.Name);
         Url(file.PageUrl);
+        Require(file.Md5 is null || (file.Md5.Length == 32 && file.Md5.All(Uri.IsHexDigit)));
     }
 
     internal static void Library(SubscriptionLibrary library)
@@ -115,6 +116,8 @@ internal static class SubscriptionValidation
                 Require(download is not null && download.Id != Guid.Empty && taskIds.Add(download.Id) &&
                     downloads.Add(download.Id) && Enum.IsDefined(download.State) && download.ReceivedBytes >= 0);
                 File(download.File);
+                Require(download.ContentSha256 is null || (download.ContentSha256.Length == 64 &&
+                    download.ContentSha256.All(c => c is >= '0' and <= '9' or >= 'a' and <= 'f')));
                 if (download.LocalPath is not null)
                     Require(SubscriptionPaths.ManagedPath(game, download.LocalPath) == download.LocalPath && downloadedPaths.Add(download.LocalPath));
                 if (download.State is DownloadState.Downloaded or DownloadState.NeedsManualInstall)
@@ -129,6 +132,12 @@ internal static class SubscriptionValidation
                 var owned = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (string file in installation.OwnedFiles)
                     Require(SubscriptionPaths.RelativeFile(file) == file && owned.Add(file));
+                Require(installation.OwnedFileDetails is not null);
+                var detailed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var detail in installation.OwnedFileDetails)
+                    Require(detail is not null && owned.Contains(detail.RelativePath) && detailed.Add(detail.RelativePath) &&
+                        detail.SizeBytes >= 0 && detail.Sha256 is { Length: 64 } && detail.Sha256.All(c => c is >= '0' and <= '9' or >= 'a' and <= 'f'));
+                Require(detailed.Count == 0 || detailed.Count == owned.Count);
                 if (installation.State == InstallationState.Installed) Require(owned.Count > 0);
             }
         }
