@@ -196,9 +196,9 @@ internal sealed class ModSubscriptionRuntime : IDisposable
 
     // A failed install/removal can leave a durable transaction after the first recovery.
     // Explicit retry must inspect that journal again, even in the same launcher session.
-    internal Task RecoverAgainAsync(string game, CancellationToken token = default) => RecoverAsync(game, true, token);
+    internal Task RecoverAgainAsync(string game, CancellationToken token = default, ModRecoveryOperation[]? reviewed = null) => RecoverAsync(game, true, token, reviewed);
 
-    private async Task RecoverAsync(string game, bool force, CancellationToken token)
+    private async Task RecoverAsync(string game, bool force, CancellationToken token, ModRecoveryOperation[]? reviewed = null)
     {
         game = SubscriptionPaths.Normalize(game);
         await Ready.ConfigureAwait(false);
@@ -206,9 +206,10 @@ internal sealed class ModSubscriptionRuntime : IDisposable
         try
         {
             if (!force && recovered.Contains(game)) return;
-            await Task.Run(() => Installer.Recover(game), token).ConfigureAwait(false);
+            await Task.Run(() => Installer.Recover(game, reviewed), token).ConfigureAwait(false);
             await RefreshLibraryAsync().ConfigureAwait(false);
             recovered.Add(game);
+            SetGameError(game, null);
             // Only persisted, explicitly selected tasks are resumed; never infer a latest file.
             _ = ResumeAsync(game);
         }

@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -580,7 +580,7 @@ Make sure Steam has finished downloading the item.</value>
   <data name="MS_Previous" xml:space="preserve"><value>Previous</value></data>
   <data name="MS_Next" xml:space="preserve"><value>Next</value></data>
   <data name="MS_Check" xml:space="preserve"><value>Check subscriptions</value></data>
-  <data name="MS_Ready" xml:space="preserve"><value>Ready · no account required</value></data>
+  <data name="MS_Ready" xml:space="preserve"><value>Ready</value></data>
   <data name="MS_Working" xml:space="preserve"><value>Working…</value></data>
   <data name="MS_ChooseMod" xml:space="preserve"><value>Choose a Mod</value></data>
   <data name="MS_Favorite" xml:space="preserve"><value>Favorite</value></data>
@@ -637,7 +637,7 @@ Make sure Steam has finished downloading the item.</value>
   <data name="MS_WillKeep" xml:space="preserve"><value>Paths to preserve</value></data>
   <data name="MS_Blocked" xml:space="preserve"><value>Cleanup blocked</value></data>
   <data name="MS_ConfirmRemoval" xml:space="preserve"><value>Confirm unsubscribe and delete listed files</value></data>
-  <data name="MS_Recover" xml:space="preserve"><value>Retry recovery</value></data>
+  <data name="MS_Recover" xml:space="preserve"><value>Recover unfinished operations (current game)</value></data>
   <data name="MS_Download_Pending" xml:space="preserve"><value>Queued</value></data>
   <data name="MS_Download_Downloading" xml:space="preserve"><value>Downloading</value></data>
   <data name="MS_Download_Downloaded" xml:space="preserve"><value>Downloaded; not installed</value></data>
@@ -705,4 +705,38 @@ Make sure Steam has finished downloading the item.</value>
   <data name="MS_MowPortalHint" xml:space="preserve"><value>Browse Gates of Hell pages, version notes, images and public download links on Mow Portal. Search filters the current category page; use Next to continue. Only Yandex public files support anonymous downloads here. Other hosts keep their original-page links.</value></data>
   <data name="MS_PageOrLinkChanged" xml:space="preserve"><value>Page or download links changed; confirmation needed. This does not confirm a newly uploaded or revised file.</value></data>
   <data name="MS_DownloadUnavailable" xml:space="preserve"><value>Anonymous download is not supported for this link. You can view its public original page; the launcher does not offer account login.</value></data>
+  <data name="MS_SearchPlaceholder" xml:space="preserve"><value>Search mods</value></data>
+  <data name="MS_Description" xml:space="preserve"><value>Description</value></data>
+  <data name="MS_Refresh" xml:space="preserve"><value>Refresh</value></data>
+  <data name="MS_CheckScope" xml:space="preserve"><value>Check subscriptions from all sources for the current game.</value></data>
+  <data name="MS_GitHubConfiguration" xml:space="preserve"><value>GitHub topics and repository</value></data>
+  <data name="MS_BackToList" xml:space="preserve"><value>Back to list</value></data>
+  <data name="MS_ChooseSubscribe" xml:space="preserve"><value>Choose files to subscribe</value></data>
+  <data name="MS_ContinueCleanup" xml:space="preserve"><value>Continue cleanup</value></data>
+  <data name="MS_NotSubscribed" xml:space="preserve"><value>Not subscribed</value></data>
+  <data name="MS_CleanupIncomplete" xml:space="preserve"><value>Cleanup incomplete</value></data>
+  <data name="MS_PageNumber" xml:space="preserve"><value>Page {0}</value></data>
+  <data name="MS_ActiveDownloads" xml:space="preserve"><value>{0} active downloads</value></data>
+  <data name="MS_DetailsAbove" xml:space="preserve"><value>See page details</value></data>
+  <data name="MS_CachedLoading" xml:space="preserve"><value>Showing cached content · refreshing…</value></data>
+  <data name="MS_NotLoaded" xml:space="preserve"><value>Not loaded yet</value></data>
+  <data name="MS_RetryContent" xml:space="preserve"><value>Retry</value></data>
+  <data name="MS_RefreshContent" xml:space="preserve"><value>Refresh content</value></data>
+  <data name="MS_MoreOnScroll" xml:space="preserve"><value>Scroll for more…</value></data>
+  <data name="MS_ImageOnScroll" xml:space="preserve"><value>Image loads when visible</value></data>
+  <data name="MS_ImageFailed" xml:space="preserve"><value>Unable to load image</value></data>
+  <data name="MS_BackToReading" xml:space="preserve"><value>Back to reading</value></data>
+  <data name="MS_BackToFiles" xml:space="preserve"><value>Back / cancel</value></data>
+  <data name="MS_GameScope" xml:space="preserve"><value>Game:</value></data>
+  <data name="MS_UnfinishedOperations" xml:space="preserve"><value>Unfinished operations</value></data>
+  <data name="MS_RecoveryScope" xml:space="preserve"><value>Review unfinished operations for the current game across all sources. Recovery can roll back installations, finish committed changes, continue previously confirmed deletion, and resume explicitly selected downloads. Deleted files cannot be restored.</value></data>
+  <data name="MS_RecoveryReadFailed" xml:space="preserve"><value>Unable to inspect unfinished operations</value></data>
+  <data name="MS_Recovery_ContinueRemoval" xml:space="preserve"><value>Continue deleting previously confirmed files</value></data>
+  <data name="MS_Recovery_FinishInstall" xml:space="preserve"><value>Finish committed installation and remove its backup</value></data>
+  <data name="MS_Recovery_RollBack" xml:space="preserve"><value>Roll back uncommitted changes</value></data>
+  <data name="MS_RecoveryDownloads" xml:space="preserve"><value>Selected downloads that may resume:</value></data>
+  <data name="MS_ConfirmRecoveryRemoval" xml:space="preserve"><value>Confirm recovery and continue listed deletions</value></data>
+  <data name="MS_ConfirmRecovery" xml:space="preserve"><value>Confirm recovery of listed operations</value></data>
+  <data name="MS_PaginationLimit" xml:space="preserve"><value>Pagination limit reached. Open the original page for more.</value></data>
+  <data name="MS_CachedStatus" xml:space="preserve"><value>Cached</value></data>
 </root>

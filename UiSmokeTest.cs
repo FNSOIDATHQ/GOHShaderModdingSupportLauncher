@@ -134,8 +134,8 @@ internal static class UiSmokeTest
                 ?? throw new InvalidOperationException("Page host is missing.");
             if (primary.Items.Count != 5 || footer.Items.Count != 2)
                 throw new InvalidOperationException("Seven navigation entries were expected.");
-            Type[] expected = [typeof(Launcher), typeof(ModManager), typeof(Converter),
-                typeof(Tools), typeof(ModSubscriptionsPage), typeof(Settings), typeof(About)];
+            Type[] expected = [typeof(Launcher), typeof(ModManager), typeof(ModSubscriptionsPage),
+                typeof(Converter), typeof(Tools), typeof(Settings), typeof(About)];
             for (var i = 0; i < expected.Length; i++)
             {
                 if (i < primary.Items.Count) primary.SelectedIndex = i;
@@ -198,7 +198,7 @@ internal static class UiSmokeTest
                     optionReader.Dispose();
                     PresetUiSmokeTest.Run(manager, window, fixture);
                 }
-                if (i == 2)
+                if (i == 3)
                 {
                     var tabs = ((Converter)host.Content).FindControl<TabControl>("Tabs");
                     if (tabs?.TabStripPlacement != Dock.Left)
@@ -217,7 +217,12 @@ internal static class UiSmokeTest
                 .Single(control => control.Name == "subscriptionView");
             var subscriptionTabs = subscriptionsPage.GetLogicalDescendants().OfType<TabControl>()
                 .Single(control => control.Name == "subscriptionDetails");
-            if (subscriptionViews.Items.Count != 4 || subscriptionTabs.Items.Count != 4)
+            var subscriptionSources = subscriptionsPage.GetLogicalDescendants().OfType<Avalonia.Controls.Primitives.TabStrip>()
+                .Single(control => control.Name == "subscriptionSource");
+            if (subscriptionViews.Items.Count != 4 || subscriptionTabs.Items.Count != 2 || subscriptionSources.Items.Count != 3 ||
+                primary.Items.IndexOf(subscriptionsItem) != primary.Items.OfType<ListBoxItem>().ToList().FindIndex(item => item.Tag as string == "ModManager") + 1 ||
+                subscriptionsPage.GetLogicalDescendants().OfType<TextBlock>().Single(control => control.Name == "subscriptionStatus").Text != LocalizedStrings.Instance.Get("MS_Ready") ||
+                subscriptionsPage.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "subscriptionUnsubscribe").IsVisible)
                 throw new InvalidOperationException("Subscriptions views or detail tabs did not load.");
             primary.Items.Remove(subscriptionsItem);
             primary.Items.Insert(0, subscriptionsItem);
@@ -225,7 +230,7 @@ internal static class UiSmokeTest
             if (!ReferenceEquals(host.Content, subscriptionsPage))
                 throw new InvalidOperationException("Moving a navigation item changed its page route.");
             primary.Items.Remove(subscriptionsItem);
-            primary.Items.Add(subscriptionsItem);
+            primary.Items.Insert(2, subscriptionsItem);
             window.UpdateSubscriptionBadge(2);
             var previous = i18n.Culture;
             try
@@ -259,7 +264,7 @@ internal static class UiSmokeTest
                 window.universalVars.modDic["alpha"].type != i18n.Main_ModLocal ||
                 window.universalVars.modDic["mod_123"].type != i18n.Main_ModWorkshop)
                 throw new InvalidOperationException("Cached mod table headers or type labels did not change language.");
-            primary.SelectedIndex = 2;
+            primary.SelectedIndex = 3;
             var conversionPath = ((Converter)host.Content!).FindControl<TextBox>("convertPath")!;
             if (conversionPath.Text != "keep this path")
                 throw new InvalidOperationException("Language switching discarded converter input.");

@@ -64,9 +64,9 @@
                    SelectionChanged="PrimaryNavigation_SelectionChanged">
             <ListBoxItem Content="{Binding Tab_Launcher, Source={x:Static local:LocalizedStrings.Instance}}" Tag="Launcher" />
             <ListBoxItem Content="{Binding Tab_ModManager, Source={x:Static local:LocalizedStrings.Instance}}" Tag="ModManager" />
+            <ListBoxItem Content="{Binding Tab_ModSubscriptions, Source={x:Static local:LocalizedStrings.Instance}}" Tag="ModSubscriptions" />
             <ListBoxItem Content="{Binding Tab_Converter, Source={x:Static local:LocalizedStrings.Instance}}" Tag="Converter" />
             <ListBoxItem Content="{Binding Tab_Tools, Source={x:Static local:LocalizedStrings.Instance}}" Tag="Tools" />
-            <ListBoxItem Content="{Binding Tab_ModSubscriptions, Source={x:Static local:LocalizedStrings.Instance}}" Tag="ModSubscriptions" />
           </ListBox>
           <StackPanel Grid.Row="1" Margin="12,8,12,6" Spacing="4">
             <TextBlock Text="Language / 语言" Foreground="White" />

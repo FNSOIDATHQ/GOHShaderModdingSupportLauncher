@@ -8,6 +8,7 @@ internal sealed record ModInstallRequest(Guid SubscriptionId, Guid DownloadId, s
 internal sealed record ModCleanupFile(string Path, OwnedModFile Fingerprint);
 internal sealed record ModCleanupPlan(Guid SubscriptionId, string GameDirectory, ModCleanupFile[] Files,
     string[] PreservedPaths, string[] BlockingReasons);
+internal sealed record ModRecoveryOperation(string Kind, Guid SubscriptionId, string[] Paths, string JournalRevision);
 
 internal enum ModTransactionKind { Install, Remove }
 internal sealed record ModFileMove(string SourcePath, string BackupName, OwnedModFile Fingerprint);
@@ -138,8 +139,57 @@ internal sealed class ModInstallService(SubscriptionStore store, IModInstallatio
     {
         var subscription = Subscription(subscriptionId);
         using var lease = GameOperationLock.Acquire(subscription.GameDirectory);
-        RecoverCore(subscription.GameDirectory);
+        store.Reload();
         return BuildCleanupPlan(Subscription(subscriptionId));
+    }
+
+    // A preview must never run recovery: a removal journal may already have crossed the deletion boundary.
+    internal ModRecoveryOperation[] PreviewRecovery(string gameDirectory)
+    {
+        string game = SubscriptionPaths.Normalize(gameDirectory);
+        // Journals are replaced atomically. Background inspection must not take the operation lock
+        // away from an install/delete; reviewed recovery rechecks everything under that lock.
+        return PreviewRecoveryCore(game);
+    }
+
+    private ModRecoveryOperation[] PreviewRecoveryCore(string game)
+    {
+        store.Reload();
+        string root = Path.Combine(ManagedModFiles.PrivateRoot(game), "transactions");
+        ManagedModFiles.EnsureSafe(root);
+        if (!Directory.Exists(root)) return [];
+        var library = store.Snapshot();
+        var operations = new List<ModRecoveryOperation>();
+        foreach (string directory in Directory.EnumerateDirectories(root))
+        {
+            ManagedModFiles.EnsureSafe(directory);
+            string journal = Path.Combine(directory, "transaction.json");
+            if (!File.Exists(journal)) continue;
+            var transaction = ReadJournal(directory, journal, game);
+            var subscription = library.Subscriptions.SingleOrDefault(item => item.Id == transaction.SubscriptionId);
+            bool committed = transaction.Kind == ModTransactionKind.Remove ? subscription is null :
+                transaction.Installation is { } installation && subscription?.Installations.Any(item => item.Id == installation.Id) == true;
+            string kind = transaction.Kind == ModTransactionKind.Remove && (transaction.RemovalStarted || committed)
+                ? "ContinueRemoval" : committed ? "FinishInstall" : "RollBack";
+            string[] paths = transaction.Moves.Select(move => move.SourcePath)
+                .Concat(transaction.RemovedDirectories)
+                .Concat(new[] { directory, transaction.Installation?.DirectoryPath, transaction.PreviousInstallation?.DirectoryPath }
+                    .OfType<string>()).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            string revision = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                JsonSerializer.SerializeToUtf8Bytes(transaction, ModTransactionJsonContext.Default.ModFileTransaction)));
+            operations.Add(new(kind, transaction.SubscriptionId, paths, revision));
+        }
+        return operations.ToArray();
+    }
+
+    private ModFileTransaction ReadJournal(string directory, string journal, string game)
+    {
+        ManagedModFiles.EnsureSafe(journal);
+        if (new FileInfo(journal).Length > 32 * 1024 * 1024) throw new InvalidDataException("The installation recovery journal is too large.");
+        var transaction = JsonSerializer.Deserialize(File.ReadAllBytes(journal), ModTransactionJsonContext.Default.ModFileTransaction)
+            ?? throw new InvalidDataException("The installation recovery journal is invalid.");
+        ValidateJournal(directory, game, transaction);
+        return transaction;
     }
 
     internal void Unsubscribe(ModCleanupPlan reviewedPlan, CancellationToken token = default)
@@ -202,10 +252,18 @@ internal sealed class ModInstallService(SubscriptionStore store, IModInstallatio
         }
     }
 
-    internal void Recover(string gameDirectory)
+    internal void Recover(string gameDirectory, ModRecoveryOperation[]? reviewed = null)
     {
         string game = SubscriptionPaths.Normalize(gameDirectory);
         using var lease = GameOperationLock.Acquire(game);
+        if (reviewed is not null)
+        {
+            var current = PreviewRecoveryCore(game);
+            if (current.Length != reviewed.Length || current.Any(item => !reviewed.Any(previous =>
+                previous.Kind == item.Kind && previous.SubscriptionId == item.SubscriptionId && previous.JournalRevision == item.JournalRevision &&
+                previous.Paths.Order(StringComparer.OrdinalIgnoreCase).SequenceEqual(item.Paths.Order(StringComparer.OrdinalIgnoreCase), StringComparer.OrdinalIgnoreCase))))
+                throw new IOException("The recovery scope changed. Review the unfinished operations again before continuing.");
+        }
         RecoverCore(game);
     }
 
@@ -221,11 +279,7 @@ internal sealed class ModInstallService(SubscriptionStore store, IModInstallatio
             string journal = Path.Combine(directory, "transaction.json");
             if (!File.Exists(journal)) continue; // Never adopt an uncommitted temporary journal.
             EnsureStopped(game);
-            ManagedModFiles.EnsureSafe(journal);
-            if (new FileInfo(journal).Length > 32 * 1024 * 1024) throw new InvalidDataException("The installation recovery journal is too large.");
-            var transaction = JsonSerializer.Deserialize(File.ReadAllBytes(journal), ModTransactionJsonContext.Default.ModFileTransaction)
-                ?? throw new InvalidDataException("The installation recovery journal is invalid.");
-            ValidateJournal(directory, game, transaction);
+            var transaction = ReadJournal(directory, journal, game);
             var subscription = store.Snapshot().Subscriptions.SingleOrDefault(item => item.Id == transaction.SubscriptionId);
             bool committed = transaction.Kind == ModTransactionKind.Remove ? subscription is null :
                 transaction.Installation is { } installation && subscription?.Installations.Any(item => item.Id == installation.Id) == true;

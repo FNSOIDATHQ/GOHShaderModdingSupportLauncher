@@ -11,9 +11,6 @@ public sealed partial class ModSubscriptionsPage
     private TextBlock githubSettingsStatus = null!;
     private string SelectedProvider => source.SelectedIndex switch { 1 => "github", 2 => "mowportal", _ => "moddb" };
 
-    private static string ProviderName(string provider) => provider switch
-    { "moddb" => "ModDB", "github" => "GitHub", "mowportal" => "Mow Portal", _ => provider };
-
     private IModSource SourceForProvider(string provider) => runtime!.ResolveSource(provider)
         ?? throw new InvalidOperationException(T("UnsupportedSource"));
 
@@ -31,7 +28,6 @@ public sealed partial class ModSubscriptionsPage
     {
         var panel = Column(); panel.Margin = new Thickness(0, 8, 0, 0);
         panel.Name = "subscriptionGitHubOptions";
-        panel.IsVisible = source.SelectedIndex == 1;
         var topics = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
         topics.Children.Add(Text(T("GitHubTopics")));
         githubTopics = new TextBox { Name = "subscriptionGitHubTopics", Width = 255, MaxLength = 1024,
@@ -88,20 +84,27 @@ public sealed partial class ModSubscriptionsPage
             url.UserInfo.Length != 0 || !url.IsDefaultPort || url.Query.Length != 0 || url.Fragment.Length != 0 ||
             url.AbsolutePath.Trim('/').Split('/').Length != 2)
         { status.Text = T("RepositoryUrlRequired"); return; }
+        listCancellation?.Cancel(); listCancellation?.Dispose();
+        listCancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
+        var token = listCancellation.Token;
         int generation = ++listGeneration;
-        var response = await Task.Run(() => SourceForProvider("github").GetModAsync(url, cancellationToken: lifetime.Token), lifetime.Token);
+        var response = await Task.Run(() => SourceForProvider("github").GetModAsync(url, cancellationToken: token), token);
         if (generation != listGeneration || disposed) return;
         status.Text = ReadStatus(response, AddGitHubRepositoryAsync);
         string? readStatus = status.Text;
         if (response.Content is not { } mod) return;
         await Task.Run(() => runtime!.Store.SaveMod(mod), lifetime.Token);
         await runtime!.RefreshLibraryAsync(lifetime.Token);
+        if (generation != listGeneration || disposed) return;
         if (view.SelectedIndex == 0)
         {
             browseItems = [mod, .. browseItems.Where(item => item.Id != mod.Id)];
             RenderModList(browseItems);
         }
+        var content = ReadingState(mod);
+        content.Mod = mod; content.Overview.Result = response; content.Overview.Attempted = true;
         await OpenModCoreAsync(mod, refresh: false);
+        if (generation != listGeneration || disposed || selected?.Id != mod.Id) return;
         status.Text = readStatus;
         runtime.NotifyChanged();
     }
@@ -114,6 +117,6 @@ public sealed partial class ModSubscriptionsPage
             summary.Children.Add(Text(T("GitHubInstallHint")));
         }
         if (mod.Id.Provider == "mowportal") summary.Children.Add(Text(T("MowPortalHint")));
-        AddReadable(summary, mod.Summary);
+        AddReadable(summary, string.IsNullOrWhiteSpace(mod.Summary) ? T("Empty") : mod.Summary);
     }
 }
