@@ -33,6 +33,7 @@
     <PackageReference Include="Avalonia.Controls.DataGrid" Version="12.1.2" />
     <PackageReference Include="Tomlyn" Version="2.10.1" />
     <PackageReference Include="SharpCompress" Version="0.50.5" />
+    <PackageReference Include="HtmlAgilityPack" Version="1.13.1" />
   </ItemGroup>
   <ItemGroup>
     <Compile Update="Properties\i18n.Designer.cs">
