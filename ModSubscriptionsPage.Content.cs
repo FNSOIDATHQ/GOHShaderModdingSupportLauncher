@@ -12,9 +12,16 @@ namespace GOHShaderModdingSupportLauncher;
 
 public sealed partial class ModSubscriptionsPage
 {
-    private readonly HttpClient imageClient = new(ModAnonymousTransport.Create())
-    { Timeout = TimeSpan.FromSeconds(25) };
+    private readonly HttpClient imageClient = CreateImageClient();
     private bool snapshotFresh;
+
+    private static HttpClient CreateImageClient()
+    {
+        var client = new HttpClient(ModAnonymousTransport.Create()) { Timeout = TimeSpan.FromSeconds(25) };
+        string version = typeof(ModSubscriptionsPage).Assembly.GetName().Version?.ToString(3) ?? "1.0";
+        client.DefaultRequestHeaders.UserAgent.ParseAdd($"GOHSMSLauncher/{version} (+https://github.com/FNSOIDATHQ/GOHShaderModdingSupportLauncher)");
+        return client;
+    }
 
     [GeneratedRegex(@"\[([^\]\r\n]+)\]\((https?://[^\s)]+)\)")]
     private static partial Regex ContentLinks();
@@ -32,7 +39,7 @@ public sealed partial class ModSubscriptionsPage
     private async Task LoadArticlesAsync(Uri page, CancellationToken token)
     {
         var response = await Task.Run(() => runtime!.Source.GetArticlesAsync(page, cancellationToken: token), token);
-        token.ThrowIfCancellationRequested(); status.Text = ReadStatus(response);
+        token.ThrowIfCancellationRequested(); status.Text = ReadStatus(response, () => LoadArticlesAsync(page, token));
         if (response.Content is not { } content) return;
         articles.Children.Clear();
         if (content.Items.Length == 0) articles.Children.Add(Text(T("Empty")));
@@ -41,7 +48,7 @@ public sealed partial class ModSubscriptionsPage
             articles.Children.Add(Action(article.Title, async () =>
             {
                 var detail = await Task.Run(() => runtime!.Source.GetArticleAsync(article.PageUrl, cancellationToken: token), token);
-                token.ThrowIfCancellationRequested(); status.Text = ReadStatus(detail);
+                token.ThrowIfCancellationRequested(); status.Text = ReadStatus(detail, () => LoadArticlesAsync(page, token));
                 if (detail.Content is not { } body) return;
                 var panel = Column(); panel.Children.Add(Text(body.Title, 20)); AddReadable(panel, body.Body);
                 panel.Children.Add(Action(T("Original"), () => { OpenUrl(body.PageUrl); return Task.CompletedTask; }, independent: true));
@@ -55,7 +62,7 @@ public sealed partial class ModSubscriptionsPage
     private async Task LoadImagesAsync(Uri page, CancellationToken token)
     {
         var response = await Task.Run(() => runtime!.Source.GetImagesAsync(page, cancellationToken: token), token);
-        token.ThrowIfCancellationRequested(); status.Text = ReadStatus(response);
+        token.ThrowIfCancellationRequested(); status.Text = ReadStatus(response, () => LoadImagesAsync(page, token));
         if (response.Content is not { } content) return;
         images.Children.Clear();
         if (content.Items.Length == 0) images.Children.Add(Text(T("Empty")));
@@ -63,7 +70,7 @@ public sealed partial class ModSubscriptionsPage
             images.Children.Add(Action(image.Caption.Length > 0 ? image.Caption : image.Id, async () =>
             {
                 var full = await Task.Run(() => runtime!.Source.GetImageAsync(image.PageUrl, cancellationToken: token), token);
-                token.ThrowIfCancellationRequested(); status.Text = ReadStatus(full);
+                token.ThrowIfCancellationRequested(); status.Text = ReadStatus(full, () => LoadImagesAsync(page, token));
                 if (full.Content is { } item) await ShowImageAsync(item, token);
             }));
         if (content.NextPage is { } nextPage) images.Children.Add(Action(T("Next"), () => LoadImagesAsync(nextPage, token)));
@@ -75,27 +82,71 @@ public sealed partial class ModSubscriptionsPage
     private async Task ShowImageAsync(ModImage image, CancellationToken token)
     {
         if (!AnonymousModHttpClient.IsPublicHttps(image.ImageUrl)) throw new InvalidDataException(T("InvalidImage"));
-        using var response = await imageClient.GetAsync(image.ImageUrl, HttpCompletionOption.ResponseHeadersRead, token);
-        response.EnsureSuccessStatusCode();
-        const int maxBytes = 20 * 1024 * 1024;
-        if (response.Content.Headers.ContentLength > maxBytes) throw new InvalidDataException(T("ImageTooLarge"));
-        using var stream = await response.Content.ReadAsStreamAsync(token);
-        using var bytes = new MemoryStream();
-        var buffer = new byte[64 * 1024];
-        int count;
-        while ((count = await stream.ReadAsync(buffer, token)) > 0)
+        if (runtime is null) return;
+        await runtime.Ready.WaitAsync(token);
+        using var request = new HttpRequestMessage(HttpMethod.Get, image.ImageUrl);
+        var host = ModHostLimiter.Shared.For(image.ImageUrl);
+        bool acquired = false;
+        Bitmap? bitmap = null;
+        try
         {
-            if (bytes.Length + count > maxBytes) throw new InvalidDataException(T("ImageTooLarge"));
-            await bytes.WriteAsync(buffer.AsMemory(0, count), token);
+            runtime.PrepareVerificationRequest(request);
+            await host.Gate.WaitAsync(token); acquired = true;
+            TimeSpan wait = host.NextRequest - DateTimeOffset.UtcNow;
+            if (wait > TimeSpan.Zero) await Task.Delay(wait, token);
+            runtime.PrepareVerificationRequest(request);
+            host.NextRequest = DateTimeOffset.UtcNow.AddSeconds(1);
+            using var response = await imageClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
+            if (ModChallengeDetector.IsChallenge(response)) runtime.RequireVerification(image.ImageUrl, response.StatusCode);
+            string? contentType = response.Content.Headers.ContentType?.MediaType;
+            bool html = contentType is "text/html" or "application/xhtml+xml";
+            const int maxBytes = 20 * 1024 * 1024;
+            const int maxChallengeBytes = 64 * 1024;
+            if (!html && response.Content.Headers.ContentLength > maxBytes) throw new InvalidDataException(T("ImageTooLarge"));
+            using var stream = await response.Content.ReadAsStreamAsync(token);
+            using var bytes = new MemoryStream();
+            var buffer = new byte[64 * 1024];
+            int limit = html ? maxChallengeBytes : maxBytes;
+            int count;
+            while ((count = await stream.ReadAsync(buffer, token)) > 0)
+            {
+                if (bytes.Length + count > limit)
+                {
+                    if (!html) throw new InvalidDataException(T("ImageTooLarge"));
+                    int remaining = limit - checked((int)bytes.Length);
+                    if (remaining > 0) await bytes.WriteAsync(buffer.AsMemory(0, remaining), token);
+                    break;
+                }
+                await bytes.WriteAsync(buffer.AsMemory(0, count), token);
+            }
+            var prefix = System.Text.Encoding.UTF8.GetString(bytes.GetBuffer(), 0, Math.Min(checked((int)bytes.Length), maxChallengeBytes));
+            if (html || prefix.AsSpan().TrimStart('\uFEFF').TrimStart().StartsWith("<", StringComparison.Ordinal))
+            {
+                if (ModChallengeDetector.IsChallengeHtml(prefix)) runtime.RequireVerification(image.ImageUrl, response.StatusCode);
+                response.EnsureSuccessStatusCode();
+                throw new InvalidDataException(T("InvalidImage"));
+            }
+            response.EnsureSuccessStatusCode();
+            bytes.Position = 0;
+            bitmap = await Task.Run(() => Bitmap.DecodeToWidth(bytes, 1600), token);
+            token.ThrowIfCancellationRequested();
         }
-        bytes.Position = 0;
-        using var bitmap = await Task.Run(() => Bitmap.DecodeToWidth(bytes, 1600), token);
-        token.ThrowIfCancellationRequested();
-        var panel = Column();
-        panel.Children.Add(new Image { Source = bitmap, Stretch = Stretch.Uniform });
-        panel.Children.Add(Text(image.Caption));
-        panel.Children.Add(Action(T("Original"), () => { OpenUrl(image.ImageUrl); return Task.CompletedTask; }, independent: true));
-        await ShowReaderAsync(T("Images"), panel);
+        catch (ModSourceException ex) when (ex.Failure.Kind == ModSourceError.VerificationRequired)
+        {
+            bitmap?.Dispose();
+            status.Text = ReadStatus(new ModSourceResult<ModImage>(null, null, ex.Failure), () => ShowImageAsync(image, token));
+            return;
+        }
+        catch { bitmap?.Dispose(); throw; }
+        finally { if (acquired) host.Gate.Release(); }
+        using (bitmap)
+        {
+            var panel = Column();
+            panel.Children.Add(new Image { Source = bitmap, Stretch = Stretch.Uniform });
+            panel.Children.Add(Text(image.Caption));
+            panel.Children.Add(Action(T("Original"), () => { OpenUrl(image.ImageUrl); return Task.CompletedTask; }, independent: true));
+            await ShowReaderAsync(T("Images"), panel);
+        }
     }
 
     private Task ShowReaderAsync(string caption, Control content)
@@ -107,7 +158,7 @@ public sealed partial class ModSubscriptionsPage
     private async Task LoadFilesAsync(RemoteMod mod, CancellationToken token)
     {
         var response = await Task.Run(() => runtime!.Source.GetFileSnapshotAsync(mod.PageUrl, cancellationToken: token), token);
-        token.ThrowIfCancellationRequested(); status.Text = ReadStatus(response);
+        token.ThrowIfCancellationRequested(); status.Text = ReadStatus(response, () => LoadFilesAsync(mod, token));
         snapshot = response.Content; snapshotFresh = response.IsSuccess && !response.IsStale;
         RenderFiles(mod, token);
     }
@@ -193,19 +244,25 @@ public sealed partial class ModSubscriptionsPage
         {
             var progress = runtime.Progress.TryGetValue(download.Id, out var current) && download.State is DownloadState.Pending or DownloadState.Downloading ? current : null;
             var state = progress?.State ?? download.State;
+            bool waitingForVerification = state == DownloadState.Pending && download.Error == nameof(ModSourceError.VerificationRequired);
             var installed = sub.Installations.Where(installation => installation.DownloadId == download.Id).ToArray();
-            var label = installed.Length > 0 ? string.Join(", ", installed.Select(item => T("Install_" + item.State))) : T("Download_" + state);
+            var label = waitingForVerification ? T("DownloadVerification") : installed.Length > 0
+                ? string.Join(", ", installed.Select(item => T("Install_" + item.State))) : T("Download_" + state);
             var line = Row(); line.Children.Add(Text(download.File.Name + " · " + label));
             tasks.Children.Add(line);
             long received = progress?.ReceivedBytes ?? download.ReceivedBytes;
             long? total = progress?.TotalBytes ?? download.File.SizeBytes;
             tasks.Children.Add(new ProgressBar { Minimum = 0, Maximum = Math.Max(1, total ?? received), Value = received, IsIndeterminate = state == DownloadState.Downloading && total is null });
             tasks.Children.Add(Text(FormatBytes(received) + " / " + FormatBytes(total)));
-            if (download.Error is { } error && state != DownloadState.NeedsManualInstall) tasks.Children.Add(Text(T("Failed") + ": " + error));
+            if (download.Error is { } error && state != DownloadState.NeedsManualInstall && !waitingForVerification) tasks.Children.Add(Text(T("Failed") + ": " + error));
             if (state == DownloadState.NeedsManualInstall) tasks.Children.Add(Text(T("ManualInstructions")));
             if (sub.State != SubscriptionState.Active) continue;
             if (state is DownloadState.Pending or DownloadState.Downloading)
-                line.Children.Add(Action(T("Cancel"), () => { runtime.Downloads.Cancel(download.Id); return Task.CompletedTask; }, independent: true));
+                line.Children.Add(Action(T("Cancel"), async () =>
+                {
+                    await Task.Run(() => runtime.Downloads.CancelAsync(download.Id, lifetime.Token), lifetime.Token);
+                    runtime.NotifyChanged();
+                }, independent: true));
             if (state is DownloadState.Failed or DownloadState.Cancelled or DownloadState.LocalFileMissing)
                 line.Children.Add(Action(T("Retry"), () => { _ = DownloadAsync(sub.Id, download.Id); return Task.CompletedTask; }));
             if (state is DownloadState.Downloaded or DownloadState.NeedsManualInstall)

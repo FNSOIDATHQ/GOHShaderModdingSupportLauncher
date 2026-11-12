@@ -667,4 +667,21 @@ Make sure Steam has finished downloading the item.</value>
   <data name="MS_Network_Timeout" xml:space="preserve"><value>The server did not respond in time</value></data>
   <data name="MS_Network_RedirectRejected" xml:space="preserve"><value>The source redirected to an unsupported address</value></data>
   <data name="MS_NetworkLog" xml:space="preserve"><value>Connection details are available in the launcher&apos;s diagnostic log.</value></data>
+  <data name="MS_Error_VerificationRequired" xml:space="preserve"><value>Cloudflare verification is required</value></data>
+  <data name="MS_VerificationTitle" xml:space="preserve"><value>ModDB requires Cloudflare verification</value></data>
+  <data name="MS_VerificationRequired" xml:space="preserve"><value>Requests to this source are paused. Open the isolated verification window and complete the website&apos;s check yourself. No account login is needed.</value></data>
+  <data name="MS_VerificationOpen" xml:space="preserve"><value>Open verification window</value></data>
+  <data name="MS_VerificationRetry" xml:space="preserve"><value>Verify access and retry</value></data>
+  <data name="MS_VerificationCancel" xml:space="preserve"><value>Close verification session</value></data>
+  <data name="MS_VerificationOriginal" xml:space="preserve"><value>Open original page</value></data>
+  <data name="MS_VerificationOpening" xml:space="preserve"><value>Opening the isolated browser…</value></data>
+  <data name="MS_VerificationBrowserOpen" xml:space="preserve"><value>Complete the check in the isolated browser, then select Verify access and retry. Simply opening the browser does not restore access.</value></data>
+  <data name="MS_VerificationChecking" xml:space="preserve"><value>Checking whether ModDB access has been restored…</value></data>
+  <data name="MS_VerificationPassed" xml:space="preserve"><value>ModDB access has been restored. Downloads that need attention can be retried explicitly.</value></data>
+  <data name="MS_VerificationFailed" xml:space="preserve"><value>Verification has not restored access. Keep the browser open to complete the check, then retry; cached content remains available.</value></data>
+  <data name="MS_VerificationCancelled" xml:space="preserve"><value>The verification session was closed. Requests remain paused until you verify access or retry the source.</value></data>
+  <data name="MS_VerificationUnavailable" xml:space="preserve"><value>A Microsoft Edge or Google Chrome verification window could not be opened. Use the original website or cached content, and retry access later.</value></data>
+  <data name="MS_VerificationPrivacy" xml:space="preserve"><value>This window uses a separate temporary browser profile. Do not sign in; the launcher does not read your personal browser profile or import account cookies.</value></data>
+  <data name="MS_VerificationUnsupported" xml:space="preserve"><value>This source does not support the built-in verification window. You can open the original website and explicitly retry access later. Verification completed in another browser is not automatically shared with the launcher.</value></data>
+  <data name="MS_DownloadVerification" xml:space="preserve"><value>Waiting for website verification; download remains queued</value></data>
 </root>

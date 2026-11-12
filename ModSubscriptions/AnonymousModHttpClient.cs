@@ -12,6 +12,8 @@ internal sealed record ModHttpOptions
     internal int MaxRetries { get; init; } = 2;
     internal int MaxTextBytes { get; init; } = 4 * 1024 * 1024;
     internal Action<ModHttpDiagnostic>? Diagnostic { get; init; }
+    internal ModVerificationState? Verification { get; init; }
+    internal ModBrowserClearance? Clearance { get; init; }
 }
 
 // Serializes requests (including response bodies) per host across all production clients.
@@ -71,13 +73,21 @@ internal sealed class AnonymousModHttpClient : IDisposable
                 bytes.Write(buffer, 0, read);
             }
             // ModDB publishes UTF-8. A response encoding never selects an arbitrary codepage provider.
-            return System.Text.Encoding.UTF8.GetString(bytes.GetBuffer(), 0, checked((int)bytes.Length));
+            string html = System.Text.Encoding.UTF8.GetString(bytes.GetBuffer(), 0, checked((int)bytes.Length));
+            if (ModChallengeDetector.IsChallengeHtml(html)) RequireVerification(response.RequestMessage!.RequestUri!, response.StatusCode);
+            return html;
         });
 
     internal Task<Uri> ResolveFileAsync(Uri uri, Func<Uri, bool> allow, CancellationToken token) =>
         SendAsync(uri, allow, true, token, async (response, ct) =>
         {
             string? type = response.Content.Headers.ContentType?.MediaType;
+            if (type is not null && type.Contains("html", StringComparison.OrdinalIgnoreCase))
+            {
+                string? html = await ReadChallengePageAsync(response, ct).ConfigureAwait(false);
+                if (html is not null && ModChallengeDetector.IsChallengeHtml(html))
+                    RequireVerification(response.RequestMessage!.RequestUri!, response.StatusCode, fileProbe: true);
+            }
             if (type is null || type.Contains("html", StringComparison.OrdinalIgnoreCase) || type.Contains("xml", StringComparison.OrdinalIgnoreCase))
                 throw Error(ModSourceError.AccessDenied, "The mirror returned a page instead of an anonymous file download.");
             // The range is only a probe. Even if ignored, never buffer a large Mod here.
@@ -115,15 +125,18 @@ internal sealed class AnonymousModHttpClient : IDisposable
                         throw new ModSourceException(new(ModSourceError.AccessDenied,
                             "The source redirected outside its supported anonymous hosts.", DiagnosticKind: ModHttpFailureKind.RedirectRejected));
                     }
+                    CheckPaused(current, probe);
                     var host = limiter.For(current);
                     await host.Gate.WaitAsync(token).ConfigureAwait(false);
                     try
                     {
                         TimeSpan wait = host.NextRequest - DateTimeOffset.UtcNow;
                         if (wait > TimeSpan.Zero) await Task.Delay(wait, token).ConfigureAwait(false);
+                        CheckPaused(current, probe);
                         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
                         timeout.CancelAfter(options.Timeout);
                         using var request = new HttpRequestMessage(HttpMethod.Get, current);
+                        options.Clearance?.Apply(request);
                         if (probe) request.Headers.Range = new RangeHeaderValue(0, 15);
                         if (current != uri) request.Headers.Referrer = uri;
                         host.NextRequest = DateTimeOffset.UtcNow + options.HostInterval;
@@ -132,6 +145,7 @@ internal sealed class AnonymousModHttpClient : IDisposable
                         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token).ConfigureAwait(false);
                         stage = ModHttpStage.Headers;
                         Report(new(ModHttpDiagnostics.Host(current), stage, attempt + 1, (int)response.StatusCode, ElapsedMilliseconds: Elapsed()));
+                        if (ModChallengeDetector.IsChallenge(response)) RequireVerification(current, response.StatusCode, probe);
                         if ((int)response.StatusCode is 301 or 302 or 303 or 307 or 308)
                         {
                             if (redirect == 8 || response.Headers.Location is null)
@@ -141,6 +155,12 @@ internal sealed class AnonymousModHttpClient : IDisposable
                         }
                         if (!response.IsSuccessStatusCode)
                         {
+                            if ((int)response.StatusCode is 403 or 503 &&
+                                response.Content.Headers.ContentType?.MediaType is "text/html" or "application/xhtml+xml")
+                            {
+                                string? html = await ReadChallengePageAsync(response, timeout.Token).ConfigureAwait(false);
+                                if (html is not null && ModChallengeDetector.IsChallengeHtml(html)) RequireVerification(current, response.StatusCode, probe);
+                            }
                             var retry = response.Headers.RetryAfter;
                             DateTimeOffset? after = retry?.Date ?? (retry?.Delta is { } delta ? DateTimeOffset.UtcNow + delta : null);
                             if ((int)response.StatusCode is 429 or 503)
@@ -208,8 +228,38 @@ internal sealed class AnonymousModHttpClient : IDisposable
         }
     }
 
-    private static bool IsRetryable(ModSourceFailure failure) => failure.Kind == ModSourceError.RateLimited ||
-        failure.StatusCode is HttpStatusCode.RequestTimeout or HttpStatusCode.InternalServerError or HttpStatusCode.BadGateway or HttpStatusCode.ServiceUnavailable or HttpStatusCode.GatewayTimeout;
+    private static bool IsRetryable(ModSourceFailure failure) => failure.Kind != ModSourceError.VerificationRequired &&
+        (failure.Kind == ModSourceError.RateLimited ||
+        failure.StatusCode is HttpStatusCode.RequestTimeout or HttpStatusCode.InternalServerError or HttpStatusCode.BadGateway or HttpStatusCode.ServiceUnavailable or HttpStatusCode.GatewayTimeout);
+
+    private async Task<string?> ReadChallengePageAsync(HttpResponseMessage response, CancellationToken token)
+    {
+        if (response.Content.Headers.ContentLength > options.MaxTextBytes) return null;
+        await using var input = await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false);
+        using var bytes = new MemoryStream();
+        var buffer = new byte[16 * 1024];
+        int count;
+        while ((count = await input.ReadAsync(buffer, token).ConfigureAwait(false)) > 0)
+        {
+            if (bytes.Length + count > options.MaxTextBytes) return null;
+            bytes.Write(buffer, 0, count);
+        }
+        return System.Text.Encoding.UTF8.GetString(bytes.GetBuffer(), 0, checked((int)bytes.Length));
+    }
+
+    private void CheckPaused(Uri uri, bool fileProbe)
+    {
+        if (options.Verification?.IsPausedFor(uri) == true) options.Verification.RecordProbe(uri, fileProbe);
+        options.Verification?.ThrowIfPaused(uri);
+    }
+
+    private void RequireVerification(Uri uri, HttpStatusCode? status, bool fileProbe = false)
+    {
+        options.Clearance?.Clear(uri);
+        options.Verification?.RecordProbe(uri, fileProbe);
+        options.Verification?.Pause(uri);
+        throw ModChallengeDetector.Required(uri, status);
+    }
 
     internal static bool IsPublicHttps(Uri uri) => uri.IsAbsoluteUri && uri.Scheme == Uri.UriSchemeHttps &&
         uri.IsDefaultPort && uri.UserInfo.Length == 0;

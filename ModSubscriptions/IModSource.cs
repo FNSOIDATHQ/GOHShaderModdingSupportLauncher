@@ -2,12 +2,13 @@ using System.Net;
 
 namespace GOHShaderModdingSupportLauncher.ModSubscriptions;
 
-internal enum ModSourceError { RequestFailed, Timeout, RateLimited, AccessDenied, NotFound, ParseFailed, Offline }
+internal enum ModSourceError { RequestFailed, Timeout, RateLimited, AccessDenied, NotFound, ParseFailed, Offline, VerificationRequired }
 internal enum ModReadMode { Refresh, CacheOnly }
 internal enum ModBrowseSort { Updated, Newest, Popular, Name }
 
 internal sealed record ModSourceFailure(ModSourceError Kind, string Message,
-    HttpStatusCode? StatusCode = null, DateTimeOffset? RetryAfter = null, ModHttpFailureKind? DiagnosticKind = null);
+    HttpStatusCode? StatusCode = null, DateTimeOffset? RetryAfter = null, ModHttpFailureKind? DiagnosticKind = null,
+    Uri? VerificationUri = null);
 
 // A failed refresh can carry old content. Callers must check IsSuccess before replacing a snapshot.
 internal sealed record ModSourceResult<T>(T? Content, DateTimeOffset? FetchedAt,

@@ -17,6 +17,8 @@ internal sealed record ModTransferOptions
     internal TimeSpan IdleTimeout { get; init; } = TimeSpan.FromSeconds(30);
     internal TimeSpan RetryDelay { get; init; } = TimeSpan.FromSeconds(1);
     internal TimeSpan HostInterval { get; init; } = TimeSpan.FromSeconds(1);
+    internal ModVerificationState? Verification { get; init; }
+    internal ModBrowserClearance? Clearance { get; init; }
 }
 
 // Streams only public ModDB mirrors. Temporary mirror addresses never enter durable state.
@@ -64,6 +66,7 @@ internal sealed class ModFileTransferClient : IDisposable
             token.ThrowIfCancellationRequested();
             if (!AnonymousModHttpClient.IsPublicHttps(current) || !ModDbParser.IsMirrorHost(current))
                 throw AnonymousModHttpClient.Error(ModSourceError.AccessDenied, "The download left its supported anonymous mirror hosts.");
+            CheckPaused(current);
             var host = limiter.For(current);
             await host.Gate.WaitAsync(token).ConfigureAwait(false);
             try
@@ -72,9 +75,11 @@ internal sealed class ModFileTransferClient : IDisposable
                 if (wait > TimeSpan.FromSeconds(30))
                     throw new ModSourceException(new(ModSourceError.RateLimited, "The mirror requested a longer cooldown. Retry later.", RetryAfter: host.NextRequest));
                 if (wait > TimeSpan.Zero) await Task.Delay(wait, token).ConfigureAwait(false);
+                CheckPaused(current);
                 using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
                 timeout.CancelAfter(options.IdleTimeout);
                 using var request = new HttpRequestMessage(HttpMethod.Get, current);
+                options.Clearance?.Apply(request);
                 if (offset > 0)
                 {
                     request.Headers.Range = new RangeHeaderValue(offset, null);
@@ -84,6 +89,21 @@ internal sealed class ModFileTransferClient : IDisposable
                 }
                 host.NextRequest = DateTimeOffset.UtcNow + options.HostInterval;
                 using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token).ConfigureAwait(false);
+                if (ModChallengeDetector.IsChallenge(response)) RequireVerification(current, response.StatusCode);
+                if ((response.Content.Headers.ContentType?.MediaType is "text/html" or "application/xhtml+xml") &&
+                    response.Content.Headers.ContentLength is null or <= 1024 * 1024)
+                {
+                    using var page = new MemoryStream();
+                    await using var pageStream = await response.Content.ReadAsStreamAsync(timeout.Token).ConfigureAwait(false);
+                    var pageBuffer = new byte[16 * 1024]; int pageCount;
+                    while ((pageCount = await pageStream.ReadAsync(pageBuffer, timeout.Token).ConfigureAwait(false)) > 0)
+                    {
+                        if (page.Length + pageCount > 1024 * 1024) break;
+                        page.Write(pageBuffer, 0, pageCount);
+                    }
+                    if (ModChallengeDetector.IsChallengeHtml(System.Text.Encoding.UTF8.GetString(page.GetBuffer(), 0, (int)page.Length)))
+                        RequireVerification(current, response.StatusCode);
+                }
                 if ((int)response.StatusCode is 301 or 302 or 303 or 307 or 308)
                 {
                     if (redirect == 8 || response.Headers.Location is null)
@@ -174,6 +194,20 @@ internal sealed class ModFileTransferClient : IDisposable
             finally { host.Gate.Release(); }
         }
         throw new InvalidDataException("The mirror redirect limit was exceeded.");
+    }
+
+    private void CheckPaused(Uri uri)
+    {
+        if (options.Verification?.IsPausedFor(uri) == true) options.Verification.RecordProbe(uri, fileProbe: true);
+        options.Verification?.ThrowIfPaused(uri);
+    }
+
+    private void RequireVerification(Uri uri, HttpStatusCode? status)
+    {
+        options.Clearance?.Clear(uri);
+        options.Verification?.RecordProbe(uri, fileProbe: true);
+        options.Verification?.Pause(uri);
+        throw ModChallengeDetector.Required(uri, status);
     }
 
     private static ModResumeMetadata? ReadResume(string path)

@@ -31,6 +31,15 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
     private TextBlock status = null!, title = null!, tracking = null!;
     private StackPanel summary = null!, articles = null!, images = null!, files = null!, tasks = null!;
     private Button favorite = null!, previous = null!, next = null!;
+    private Border verificationBanner = null!;
+    private TextBlock verificationMessage = null!, verificationPrivacy = null!;
+    private Button verificationOpen = null!, verificationRetry = null!, verificationCancel = null!;
+    private Uri? verificationOpenedFor;
+    private string? verificationNotice;
+    private bool verificationBusy;
+    private DateTimeOffset? verificationRequestAt;
+    private CancellationTokenSource? verificationCancellation;
+    private Func<Task>? verificationRetryAction;
 
     public ModSubscriptionsPage(MainWindow main)
     {
@@ -52,7 +61,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
         {
             button.IsEnabled = false;
             try { if (independent) await ExecuteAsync(action); else await RunAsync(action); }
-            finally { button.IsEnabled = true; }
+            finally { button.IsEnabled = true; if (!disposed) RefreshVerification(); }
         };
         return button;
     }
@@ -62,7 +71,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
     private void BuildView()
     {
         rebuilding = true;
-        var root = new Grid { Margin = new Thickness(12), RowDefinitions = new("Auto,Auto,*") };
+        var root = new Grid { Margin = new Thickness(12), RowDefinitions = new("Auto,Auto,Auto,*") };
         var toolbar = new WrapPanel { Orientation = Orientation.Horizontal, ItemSpacing = 6, LineSpacing = 6 };
         view = new ComboBox { Name = "subscriptionView", ItemsSource = new[] { T("Browse"), T("Subscribed"), T("Favorites"), T("Updates") }, SelectedIndex = 0, MinWidth = 135 };
         var source = new ComboBox { ItemsSource = new[] { "ModDB" }, SelectedIndex = 0, MinWidth = 90 };
@@ -77,7 +86,30 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
         root.Children.Add(toolbar);
         status = Text(T("Ready")); status.Name = "subscriptionStatus";
         status.Margin = new Thickness(0, 8); Grid.SetRow(status, 1); root.Children.Add(status);
-        var body = new Grid { ColumnDefinitions = new("220,10,*") }; Grid.SetRow(body, 2);
+        var verification = Column();
+        verification.Children.Add(Text(T("VerificationTitle"), 16));
+        verificationMessage = Text(T("VerificationRequired"));
+        verification.Children.Add(verificationMessage);
+        verificationPrivacy = Text(T("VerificationPrivacy"));
+        verification.Children.Add(verificationPrivacy);
+        var verificationActions = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
+        verificationOpen = Action(T("VerificationOpen"), OpenVerificationAsync, independent: true);
+        verificationOpen.Name = "subscriptionVerificationOpen";
+        verificationRetry = Action(T("VerificationRetry"), CompleteVerificationAsync, independent: true);
+        verificationRetry.Name = "subscriptionVerificationRetry";
+        verificationCancel = Action(T("VerificationCancel"), CloseVerificationAsync, independent: true);
+        verificationCancel.Name = "subscriptionVerificationCancel";
+        verificationActions.Children.Add(verificationOpen); verificationActions.Children.Add(verificationRetry); verificationActions.Children.Add(verificationCancel);
+        verificationActions.Children.Add(Action(T("VerificationOriginal"), () =>
+        {
+            OpenUrl(CurrentVerificationOrigin ?? new Uri("https://www.moddb.com/games/gates-of-hell/mods"));
+            return Task.CompletedTask;
+        }, independent: true));
+        verification.Children.Add(verificationActions);
+        verificationBanner = new Border { Name = "subscriptionVerification", IsVisible = false, Padding = new Thickness(10), Margin = new Thickness(0, 0, 0, 8),
+            BorderThickness = new Thickness(1), BorderBrush = Brushes.DarkOrange, Child = verification };
+        Grid.SetRow(verificationBanner, 2); root.Children.Add(verificationBanner);
+        var body = new Grid { ColumnDefinitions = new("220,10,*") }; Grid.SetRow(body, 3);
         mods = new ListBox { Name = "subscriptionMods" };
         mods.SelectionChanged += async (_, _) =>
         {
@@ -129,13 +161,15 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
         active = true;
         runtime = main.SubscriptionRuntime;
         runtime.Changed += RuntimeChanged;
+        runtime.Verification.Changed += RuntimeChanged;
         timer.Start();
-        _ = RunAsync(async () => { await runtime.Ready; await LoadListAsync(); });
+        _ = RunAsync(async () => { await runtime.Ready; RefreshVerification(); await LoadListAsync(); });
     }
 
     public void OnGameChanged()
     {
         detailCancellation?.Cancel();
+        verificationRetryAction = null;
         listGeneration++;
         selected = null; snapshot = null;
         title.Text = T("ChooseMod");
@@ -155,7 +189,10 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
     {
         if (args.PropertyName != nameof(LocalizedStrings.Tab_ModSubscriptions)) return;
         detailCancellation?.Cancel(); selected = null; snapshot = null;
+        verificationRetryAction = null;
+        verificationNotice = null;
         BuildView();
+        RefreshVerification();
         if (active) _ = RefreshAfterGameChangeAsync();
     }
 
@@ -164,6 +201,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
         if (!disposed)
         {
             RefreshTasks(); RefreshTracking();
+            RefreshVerification();
             if (view.SelectedIndex != 0) RenderLibraryList();
         }
     });
@@ -202,7 +240,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
             var order = (ModBrowseSort)Math.Max(0, sort.SelectedIndex);
             var result = await Task.Run(() => runtime.Source.BrowseAsync(query, page, order, cancellationToken: lifetime.Token), lifetime.Token);
             if (generation != listGeneration || disposed) return;
-            status.Text = ReadStatus(result);
+            status.Text = ReadStatus(result, LoadListAsync);
             browseItems = result.Content?.Items ?? [];
             hasNext = result.Content?.NextPage is not null;
             items = browseItems;
@@ -249,11 +287,19 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
     private GameModSubscription? Subscription(RemoteMod? mod = null) => runtime is not null && (mod ?? selected) is { } item && main.SubscriptionGameDirectory is { } game
         ? runtime.Library.Subscriptions.SingleOrDefault(sub => sub.Source == item.Id && sub.GameDirectory.Equals(game, SubscriptionPaths.Comparison)) : null;
 
-    private static string ReadStatus<TContent>(ModSourceResult<TContent> result)
+    private string ReadStatus<TContent>(ModSourceResult<TContent> result, Func<Task>? retry = null)
     {
         if (result.IsSuccess && !result.IsStale) return T("Ready");
         string message = T(result.Content is null ? "RequestFailed" : "Cached");
         if (result.Failure is not { } failure) return message + " · " + T("Offline");
+        if (failure.Kind == ModSourceError.VerificationRequired)
+        {
+            if (failure.VerificationUri is { } verificationUri && AnonymousModHttpClient.IsPublicHttps(verificationUri))
+                runtime?.Verification.Pause(verificationUri);
+            verificationRetryAction = retry;
+            verificationNotice = "VerificationRequired";
+            RefreshVerification();
+        }
         AppDiagnostics.Log($"ModDB content failure: kind={failure.Kind}, HTTP={(int?)failure.StatusCode}, diagnostic={failure.DiagnosticKind}.");
         message += " · " + T("Error_" + failure.Kind);
         if (failure.StatusCode is { } code) message += $" (HTTP {(int)code})";
@@ -264,6 +310,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
 
     private async Task OpenModAsync(RemoteMod mod)
     {
+        if (selected?.Id != mod.Id) verificationRetryAction = null;
         detailCancellation?.Cancel(); detailCancellation?.Dispose();
         detailCancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
         var token = detailCancellation.Token;
@@ -274,7 +321,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
         try
         {
             var result = await Task.Run(() => runtime!.Source.GetModAsync(mod.PageUrl, cancellationToken: token), token);
-            token.ThrowIfCancellationRequested(); status.Text = ReadStatus(result);
+            token.ThrowIfCancellationRequested(); status.Text = ReadStatus(result, () => OpenModAsync(mod));
             if (result.Content is { } full)
             {
                 if (full.Id != mod.Id) throw new InvalidDataException(T("IdentityChanged"));
@@ -312,6 +359,8 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
         if (main.SubscriptionGameDirectory is not { } game) { status.Text = T("SelectGame"); return; }
         await runtime!.EnsureRecoveredAsync(game, lifetime.Token);
         var results = await Task.Run(() => runtime.Updates.CheckGameAsync(game, cancellationToken: lifetime.Token), lifetime.Token);
+        if (results.Any(result => result.Failure?.Kind == ModSourceError.VerificationRequired))
+        { verificationRetryAction = CheckAsync; RefreshVerification(); }
         runtime.ReportCheckResults(results, game);
         await runtime.RefreshLibraryAsync(lifetime.Token);
         if (!string.Equals(game, main.SubscriptionGameDirectory, StringComparison.OrdinalIgnoreCase)) return;
@@ -339,9 +388,13 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
     public void Dispose()
     {
         if (disposed) return;
-        disposed = true; timer.Stop(); lifetime.Cancel(); detailCancellation?.Cancel();
+        disposed = true; timer.Stop(); lifetime.Cancel(); detailCancellation?.Cancel(); verificationCancellation?.Cancel();
         LocalizedStrings.Instance.PropertyChanged -= LanguageChanged;
-        if (runtime is not null) runtime.Changed -= RuntimeChanged;
+        if (runtime is not null)
+        {
+            runtime.Changed -= RuntimeChanged;
+            runtime.Verification.Changed -= RuntimeChanged;
+        }
         imageClient.Dispose();
     }
 }

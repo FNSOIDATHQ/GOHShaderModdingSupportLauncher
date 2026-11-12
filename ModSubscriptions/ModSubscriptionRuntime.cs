@@ -11,10 +11,14 @@ internal sealed class ModSubscriptionRuntime : IDisposable
     { SingleReader = true, FullMode = BoundedChannelFullMode.DropWrite });
     private readonly SemaphoreSlim recoveryGate = new(1, 1);
     private readonly SemaphoreSlim libraryGate = new(1, 1);
+    private readonly SemaphoreSlim verificationGate = new(1, 1);
+    private readonly ModBrowserClearance clearance = new();
+    private readonly ModVerificationBrowser verificationBrowser;
     private readonly object statusGate = new();
     private readonly HashSet<string> recovered = new(StringComparer.OrdinalIgnoreCase);
     private SubscriptionLibrary library = SubscriptionLibrary.Empty();
     private readonly Task background;
+    private Task? shutdown;
     private string? gameDirectory;
     private string? error;
     private bool disposed;
@@ -24,6 +28,7 @@ internal sealed class ModSubscriptionRuntime : IDisposable
     internal ModDownloadService Downloads { get; private set; } = null!;
     internal ModInstallService Installer { get; private set; } = null!;
     internal ModUpdateCheckService Updates { get; private set; } = null!;
+    internal ModVerificationState Verification { get; } = new();
     // Detached store snapshots are replaced atomically; UI readers never clone JSON on the dispatcher.
     internal SubscriptionLibrary Library => Volatile.Read(ref library);
     internal ConcurrentDictionary<Guid, ModDownloadProgress> Progress { get; } = new();
@@ -31,18 +36,115 @@ internal sealed class ModSubscriptionRuntime : IDisposable
     internal event Action? Changed;
 
     internal ModSubscriptionRuntime(IModInstallationHost host, SubscriptionStore? store = null, IModSource? source = null,
-        Action<ModHttpDiagnostic>? diagnostic = null)
+        Action<ModHttpDiagnostic>? diagnostic = null, Action<string>? verificationDiagnostic = null)
     {
+        verificationBrowser = new(clearance, verificationDiagnostic);
+        Verification.Changed += NotifyChanged;
         Ready = Task.Run(() =>
         {
             Store = store ?? new SubscriptionStore();
-            Source = source ?? new ModDbSource(diagnostic: diagnostic);
+            Source = source ?? new ModDbSource(diagnostic: diagnostic, verification: Verification, clearance: clearance);
             Installer = new(Store, host);
-            Updates = new(Store, provider => provider == Source.Provider ? Source : null);
-            Downloads = new(Store, Source, progress: new RuntimeProgress(this));
+            Updates = new(Store, provider => provider == Source.Provider ? Source : null, Verification);
+            Downloads = new(Store, Source, progress: new RuntimeProgress(this), verification: Verification, clearance: clearance);
             Volatile.Write(ref library, Store.Snapshot());
         });
         background = RunAsync();
+    }
+
+    internal async Task OpenVerificationAsync(Uri origin, CancellationToken token = default)
+    {
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(token, lifetime.Token);
+        await Ready.WaitAsync(cancellation.Token).ConfigureAwait(false);
+        await verificationGate.WaitAsync(cancellation.Token).ConfigureAwait(false);
+        try
+        {
+            if (!Verification.IsPausedFor(origin)) return;
+            Uri page = Verification.TryGetProbe(origin, out var target, out _) ? target : origin;
+            await verificationBrowser.OpenAsync(page, cancellation.Token).ConfigureAwait(false);
+        }
+        finally { verificationGate.Release(); }
+    }
+
+    internal async Task<bool> CompleteVerificationAsync(Uri origin, CancellationToken token = default)
+    {
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(token, lifetime.Token);
+        await Ready.WaitAsync(cancellation.Token).ConfigureAwait(false);
+        await verificationGate.WaitAsync(cancellation.Token).ConfigureAwait(false);
+        try
+        {
+            if (!Verification.IsPausedFor(origin)) return true;
+            if (ModBrowserClearance.IsSupportedOrigin(origin) && verificationBrowser.IsOpen)
+            {
+                try { await verificationBrowser.CaptureAsync(origin, cancellation.Token).ConfigureAwait(false); }
+                catch (Exception ex) when (ex is IOException or System.Net.WebSockets.WebSocketException or
+                    InvalidOperationException or System.Text.Json.JsonException)
+                { /* A closed browser does not prevent an explicit native access probe. */ }
+            }
+            bool passed;
+            using (Verification.AllowRetry(origin))
+            {
+                passed = true;
+                if (Verification.TryGetProbe(origin, out var target, out bool fileProbe))
+                    passed = await ProbeProtectedRequestAsync(origin, target, fileProbe, cancellation.Token).ConfigureAwait(false);
+                if (passed && ModBrowserClearance.IsSupportedOrigin(origin))
+                {
+                    var response = await Source.BrowseAsync(cancellationToken: cancellation.Token).ConfigureAwait(false);
+                    passed = response.IsSuccess && !response.IsStale;
+                }
+                else if (!ModBrowserClearance.IsSupportedOrigin(origin) && !Verification.TryGetProbe(origin, out _, out _)) passed = false;
+            }
+            cancellation.Token.ThrowIfCancellationRequested();
+            if (!passed) return false;
+            Verification.Clear(origin);
+            lock (statusGate) Error = null;
+            await verificationBrowser.CloseAsync(clearSession: false, cancellationToken: CancellationToken.None).ConfigureAwait(false);
+            wake.Writer.TryWrite(0);
+            string? game = Volatile.Read(ref gameDirectory);
+            if (game is not null && !Verification.IsPaused) _ = ResumeAsync(game);
+            NotifyChanged();
+            return true;
+        }
+        finally { verificationGate.Release(); }
+    }
+
+    internal async Task CloseVerificationAsync(CancellationToken token = default)
+    {
+        await verificationGate.WaitAsync(token).ConfigureAwait(false);
+        try { await verificationBrowser.CloseAsync(cancellationToken: CancellationToken.None).ConfigureAwait(false); }
+        finally { verificationGate.Release(); }
+    }
+
+    internal void PrepareVerificationRequest(HttpRequestMessage request)
+    {
+        if (request.RequestUri is not { } uri) throw new ArgumentException("A request address is required.", nameof(request));
+        request.Headers.Remove("Cookie");
+        if (ModBrowserClearance.IsSupportedOrigin(uri)) request.Headers.UserAgent.Clear();
+        if (Verification.IsPausedFor(uri)) Verification.RecordProbe(uri, fileProbe: true);
+        Verification.ThrowIfPaused(uri);
+        clearance.Apply(request);
+    }
+
+    internal void RequireVerification(Uri uri, System.Net.HttpStatusCode? status, bool fileProbe = true)
+    {
+        clearance.Clear(uri);
+        Verification.RecordProbe(uri, fileProbe);
+        Verification.Pause(uri);
+        throw ModChallengeDetector.Required(uri, status);
+    }
+
+    private async Task<bool> ProbeProtectedRequestAsync(Uri origin, Uri target, bool fileProbe, CancellationToken token)
+    {
+        using var http = new AnonymousModHttpClient(new ModHttpOptions
+        { Verification = Verification, Clearance = clearance, MaxRetries = 0 });
+        bool Allow(Uri uri) => ModVerificationState.Origin(uri) == ModVerificationState.Origin(origin);
+        try
+        {
+            if (fileProbe) await http.ResolveFileAsync(target, Allow, token).ConfigureAwait(false);
+            else await http.GetTextAsync(target, Allow, token).ConfigureAwait(false);
+            return true;
+        }
+        catch (ModSourceException) { return false; }
     }
 
     private sealed class RuntimeProgress(ModSubscriptionRuntime owner) : IProgress<ModDownloadProgress>
@@ -167,11 +269,17 @@ internal sealed class ModSubscriptionRuntime : IDisposable
     }
 
     public void Dispose()
+        => _ = ShutdownAsync();
+
+    internal Task ShutdownAsync()
     {
-        if (disposed) return;
-        disposed = true;
-        lifetime.Cancel();
-        _ = CloseAsync();
+        lock (statusGate)
+        {
+            if (shutdown is not null) return shutdown;
+            disposed = true;
+            lifetime.Cancel();
+            return shutdown = CloseAsync();
+        }
     }
 
     private async Task CloseAsync()
@@ -185,6 +293,8 @@ internal sealed class ModSubscriptionRuntime : IDisposable
         catch (Exception) { /* Initialization failure is already exposed to the page. */ }
         finally
         {
+            await verificationBrowser.DisposeAsync().ConfigureAwait(false);
+            clearance.Clear();
             (Source as IDisposable)?.Dispose();
             lifetime.Dispose();
         }

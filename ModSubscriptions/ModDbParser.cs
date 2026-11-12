@@ -53,10 +53,8 @@ internal static partial class ModDbParser
         catch (Exception ex) when (ex is ArgumentException or ApplicationException)
         { throw ParseError("The ModDB page could not be parsed."); }
         var root = document.DocumentNode;
-        string title = Text(root.Descendants("title").FirstOrDefault());
-        if (title.Contains("Just a moment", StringComparison.OrdinalIgnoreCase) ||
-            title.Contains("Access denied", StringComparison.OrdinalIgnoreCase) || root.Descendants().Any(n => n.Id == "challenge-form"))
-            throw AnonymousModHttpClient.Error(ModSourceError.AccessDenied, "ModDB restricted anonymous access to this page.");
+        if (ModChallengeDetector.IsChallengeDocument(root))
+            throw ModChallengeDetector.Required(Origin);
         return root;
     }
 

@@ -7,13 +7,16 @@ internal sealed class ModDbSource : IModSource, IDisposable
     private readonly AnonymousModHttpClient http;
     private readonly ModContentCache cache;
     private readonly bool ownsHttp;
+    private readonly ModVerificationState verification;
     public string Provider => "moddb";
     public ModSourceCapabilities Capabilities => ModDbParser.Capabilities;
 
     internal ModDbSource(AnonymousModHttpClient? http = null, ModContentCache? cache = null,
-        Action<ModHttpDiagnostic>? diagnostic = null)
+        Action<ModHttpDiagnostic>? diagnostic = null, ModVerificationState? verification = null,
+        ModBrowserClearance? clearance = null)
     {
-        this.http = http ?? new(new ModHttpOptions { Diagnostic = diagnostic });
+        this.verification = verification ?? new();
+        this.http = http ?? new(new ModHttpOptions { Diagnostic = diagnostic, Verification = this.verification, Clearance = clearance });
         this.cache = cache ?? new();
         ownsHttp = http is null;
     }
@@ -143,6 +146,8 @@ internal sealed class ModDbSource : IModSource, IDisposable
         }
         catch (ModSourceException ex)
         {
+            if (ex.Failure.Kind == ModSourceError.VerificationRequired && ex.Failure.VerificationUri is { } origin)
+                verification.Pause(origin);
             return new(previous is null ? default : previous.Content, previous?.FetchedAt, ex.Failure, IsStale: previous is not null);
         }
     }

@@ -10,10 +10,11 @@ internal sealed record ModDownloadProgress(Guid SubscriptionId, Guid DownloadId,
 // Selection is recorded by SubscriptionStore.Subscribe; only explicitly enqueued task IDs run here.
 internal sealed class ModDownloadService : IAsyncDisposable
 {
-    private sealed class Job(Guid subscriptionId, Guid downloadId, CancellationToken token)
+    private sealed class Job(Guid subscriptionId, Guid downloadId, CancellationToken token, bool onlyPending)
     {
         internal Guid SubscriptionId { get; } = subscriptionId;
         internal Guid DownloadId { get; } = downloadId;
+        internal bool OnlyPending { get; } = onlyPending;
         internal CancellationTokenSource Cancellation { get; } = CancellationTokenSource.CreateLinkedTokenSource(token);
         internal TaskCompletionSource<ModDownload> Completion { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
@@ -30,11 +31,12 @@ internal sealed class ModDownloadService : IAsyncDisposable
     private bool disposed;
 
     internal ModDownloadService(SubscriptionStore store, IModSource source, ModFileTransferClient? transfer = null,
-        IProgress<ModDownloadProgress>? progress = null)
+        IProgress<ModDownloadProgress>? progress = null, ModVerificationState? verification = null,
+        ModBrowserClearance? clearance = null)
     {
         this.store = store;
         this.source = source;
-        this.transfer = transfer ?? new();
+        this.transfer = transfer ?? new(new ModTransferOptions { Verification = verification, Clearance = clearance });
         ownsTransfer = transfer is null;
         this.progress = progress;
         worker = Task.Run(WorkAsync);
@@ -47,6 +49,9 @@ internal sealed class ModDownloadService : IAsyncDisposable
 
     // A repeated enqueue shares its existing task; Retry is an explicit enqueue after completion.
     internal Task<ModDownload> EnqueueAsync(Guid subscriptionId, Guid downloadId, CancellationToken cancellationToken = default)
+        => QueueAsync(subscriptionId, downloadId, cancellationToken, onlyPending: false);
+
+    private Task<ModDownload> QueueAsync(Guid subscriptionId, Guid downloadId, CancellationToken cancellationToken, bool onlyPending)
     {
         lock (sync)
         {
@@ -60,7 +65,7 @@ internal sealed class ModDownloadService : IAsyncDisposable
             if (subscription.State != SubscriptionState.Active || subscription.Source.Provider != source.Provider)
                 throw new InvalidOperationException("The subscription is being removed or has another source provider.");
             _ = subscription.Downloads.Single(item => item.Id == downloadId);
-            var job = new Job(subscriptionId, downloadId, cancellationToken);
+            var job = new Job(subscriptionId, downloadId, cancellationToken, onlyPending);
             if (!jobs.TryAdd(downloadId, job)) throw new InvalidOperationException("The task was already queued.");
             if (!queue.Writer.TryWrite(job))
             {
@@ -80,11 +85,32 @@ internal sealed class ModDownloadService : IAsyncDisposable
         return true;
     }
 
+    internal async Task<bool> CancelAsync(Guid downloadId, CancellationToken token = default)
+    {
+        if (Cancel(downloadId)) return true;
+        return await Task.Run(() =>
+        {
+            var subscription = store.Snapshot().Subscriptions.SingleOrDefault(item =>
+                item.Source.Provider == source.Provider && item.Downloads.Any(download => download.Id == downloadId));
+            if (subscription is null) return false;
+            using var lease = GameOperationLock.Acquire(subscription.GameDirectory);
+            token.ThrowIfCancellationRequested();
+            store.Reload();
+            subscription = GetSubscription(subscription.Id);
+            var download = subscription.Downloads.Single(item => item.Id == downloadId);
+            if (download.State != DownloadState.Pending || download.Error != nameof(ModSourceError.VerificationRequired)) return false;
+            download = download with { State = DownloadState.Cancelled, Error = null, UpdatedAt = DateTimeOffset.UtcNow };
+            store.SaveDownload(subscription.Id, download);
+            progress?.Report(new(subscription.Id, downloadId, download.State, download.ReceivedBytes, download.File.SizeBytes));
+            return true;
+        }, token).ConfigureAwait(false);
+    }
+
     // Recovery is caller initiated, scoped to the selected game; it never invents selected files.
     internal Task<ModDownload[]> ResumePendingAsync(string gameDirectory, CancellationToken cancellationToken = default) =>
         Task.WhenAll(store.GetSubscriptions(gameDirectory).Where(item => item.State == SubscriptionState.Active && item.Source.Provider == source.Provider)
             .SelectMany(subscription => subscription.Downloads.Where(item => item.State is DownloadState.Pending or DownloadState.Downloading)
-                .Select(item => EnqueueAsync(subscription.Id, item.Id, cancellationToken))));
+                .Select(item => QueueAsync(subscription.Id, item.Id, cancellationToken, onlyPending: true))));
 
     private async Task WorkAsync()
     {
@@ -124,6 +150,7 @@ internal sealed class ModDownloadService : IAsyncDisposable
             if (subscription.State != SubscriptionState.Active)
                 throw new InvalidOperationException("The subscription is being removed.");
             download = subscription.Downloads.Single(item => item.Id == job.DownloadId);
+            if (job.OnlyPending && download.State is not (DownloadState.Pending or DownloadState.Downloading)) return download;
             string directory = DownloadDirectory(subscription.GameDirectory, download.Id);
             string artifact = ArtifactPath(subscription.GameDirectory, download.Id);
             string partial = Path.Combine(directory, "download.part");
@@ -211,6 +238,16 @@ internal sealed class ModDownloadService : IAsyncDisposable
             Report(job, download.State, download.ReceivedBytes, download.File.SizeBytes);
             return download;
         }
+        catch (ModSourceException ex) when (ex.Failure.Kind == ModSourceError.VerificationRequired)
+        {
+            // These files were explicitly selected. Keep the durable intent, partial bytes and proof;
+            // a successful human verification resumes them without selecting additional files.
+            download = download with { State = DownloadState.Pending, UpdatedAt = DateTimeOffset.UtcNow,
+                Error = nameof(ModSourceError.VerificationRequired) };
+            if (gameLease is not null) store.SaveDownload(job.SubscriptionId, download);
+            Report(job, download.State, download.ReceivedBytes, download.File.SizeBytes);
+            return download;
+        }
         catch (Exception ex) when (ex is IOException or InvalidDataException or HttpRequestException or OperationCanceledException or UnauthorizedAccessException or InvalidOperationException)
         {
             // Keep private payloads and ownership for retry. Do not persist signed URI-bearing exceptions.
@@ -227,9 +264,10 @@ internal sealed class ModDownloadService : IAsyncDisposable
 
     private static bool IsRetryable(Exception ex, CancellationToken token) => !token.IsCancellationRequested && ex switch
     {
-        ModSourceException sourceError => sourceError.Failure.Kind is ModSourceError.Timeout or ModSourceError.RateLimited ||
+        ModSourceException sourceError => sourceError.Failure.Kind != ModSourceError.VerificationRequired &&
+            (sourceError.Failure.Kind is ModSourceError.Timeout or ModSourceError.RateLimited ||
             sourceError.Failure.StatusCode is System.Net.HttpStatusCode.RequestTimeout or System.Net.HttpStatusCode.InternalServerError or
-                System.Net.HttpStatusCode.BadGateway or System.Net.HttpStatusCode.ServiceUnavailable or System.Net.HttpStatusCode.GatewayTimeout,
+                System.Net.HttpStatusCode.BadGateway or System.Net.HttpStatusCode.ServiceUnavailable or System.Net.HttpStatusCode.GatewayTimeout),
         HttpRequestException or EndOfStreamException or OperationCanceledException => true,
         _ => false
     };

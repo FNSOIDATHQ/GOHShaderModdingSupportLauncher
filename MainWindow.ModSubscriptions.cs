@@ -1,3 +1,4 @@
+using Avalonia.Controls;
 using Avalonia.Threading;
 using GOHShaderModdingSupportLauncher.ModSubscriptions;
 
@@ -6,6 +7,7 @@ namespace GOHShaderModdingSupportLauncher;
 public partial class MainWindow
 {
     private ModSubscriptionRuntime? subscriptionRuntime;
+    private bool subscriptionShutdownStarted, subscriptionShutdownFinished;
     internal ModSubscriptionRuntime SubscriptionRuntime => subscriptionRuntime ??= CreateSubscriptionRuntime();
 
     internal string? SubscriptionGameDirectory => universalVars.localDir is { } mods &&
@@ -15,7 +17,8 @@ public partial class MainWindow
 
     private ModSubscriptionRuntime CreateSubscriptionRuntime()
     {
-        var runtime = new ModSubscriptionRuntime(CreateModInstallationHost(), diagnostic: entry => AppDiagnostics.Log("ModDB HTTP: " + entry));
+        var runtime = new ModSubscriptionRuntime(CreateModInstallationHost(), diagnostic: entry => AppDiagnostics.Log("ModDB HTTP: " + entry),
+            verificationDiagnostic: message => AppDiagnostics.Log("ModDB verification: " + message));
         runtime.Changed += () => Dispatcher.UIThread.Post(() =>
         {
             if (runtime.Ready.IsCompletedSuccessfully)
@@ -34,6 +37,26 @@ public partial class MainWindow
     private void StartSubscriptionRuntime() => _ = SubscriptionRuntime;
     private void DisposeSubscriptionRuntime() => subscriptionRuntime?.Dispose();
     private void ChangeSubscriptionGame() => subscriptionRuntime?.SelectGame(SubscriptionGameDirectory);
+
+    protected override void OnClosing(WindowClosingEventArgs e)
+    {
+        base.OnClosing(e);
+        if (e.Cancel || subscriptionShutdownFinished || subscriptionRuntime is null) return;
+        // Await the owned browser/profile cleanup while the UI dispatcher is still alive.
+        e.Cancel = true;
+        if (subscriptionShutdownStarted) return;
+        subscriptionShutdownStarted = true;
+        IsEnabled = false;
+        if (pages.TryGetValue(PageId.ModSubscriptions, out var page)) ((ModSubscriptionsPage)page).Dispose();
+        _ = FinishSubscriptionCloseAsync();
+    }
+
+    private async Task FinishSubscriptionCloseAsync()
+    {
+        try { await subscriptionRuntime!.ShutdownAsync(); }
+        catch (Exception ex) { AppDiagnostics.Log("Subscription shutdown cleanup: " + ex.GetType().Name); }
+        finally { subscriptionShutdownFinished = true; Close(); }
+    }
 
     internal IModInstallationHost CreateModInstallationHost() => new MainWindowModInstallationHost(this);
 

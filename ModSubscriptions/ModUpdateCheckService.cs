@@ -5,7 +5,8 @@ internal sealed record ModUpdateCheckResult(Guid SubscriptionId, bool Succeeded,
 
 // Only successful complete Files snapshots establish/advance tracking. RSS and cached
 // responses remain browsing hints and can never silently dismiss an unread update.
-internal sealed class ModUpdateCheckService(SubscriptionStore store, Func<string, IModSource?> resolveSource)
+internal sealed class ModUpdateCheckService(SubscriptionStore store, Func<string, IModSource?> resolveSource,
+    ModVerificationState? verification = null)
 {
     internal static readonly TimeSpan CheckInterval = TimeSpan.FromHours(6);
     private readonly SemaphoreSlim checkGate = new(1, 1);
@@ -47,6 +48,9 @@ internal sealed class ModUpdateCheckService(SubscriptionStore store, Func<string
             foreach (var subscription in store.GetSubscriptions(gameDirectory).Where(item => item.State == SubscriptionState.Active))
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                // A human verification is never retried by the scheduler. Leave all snapshots,
+                // notices and successful check timestamps intact until the user resumes it.
+                if (onlyDue && verification?.IsPaused == true) break;
                 var now = DateTimeOffset.UtcNow;
                 if (onlyDue && ((nextAttempts.TryGetValue(subscription.Id, out var next) && next > now) ||
                     (subscription.Files.LastSuccessfulCheck is { } last && last + CheckInterval > now))) continue;
@@ -66,6 +70,7 @@ internal sealed class ModUpdateCheckService(SubscriptionStore store, Func<string
         {
             var latest = store.Snapshot().Subscriptions.SingleOrDefault(item => item.Id == id) ?? subscription;
             nextAttempts[id] = success ? DateTimeOffset.UtcNow + CheckInterval :
+                failure?.Kind == ModSourceError.VerificationRequired ? DateTimeOffset.MinValue :
                 failure?.RetryAfter is { } retry && retry > DateTimeOffset.UtcNow ? retry : DateTimeOffset.UtcNow.AddMinutes(5);
             return new(id, success, GetNotices(latest), latest.Files.LastSuccessfulCheck, failure);
         }
@@ -82,7 +87,11 @@ internal sealed class ModUpdateCheckService(SubscriptionStore store, Func<string
             var response = await source.GetFileSnapshotAsync(mod.PageUrl, ModReadMode.Refresh, token).ConfigureAwait(false);
             token.ThrowIfCancellationRequested();
             if (!response.IsSuccess || response.IsStale)
+            {
+                if (response.Failure?.Kind == ModSourceError.VerificationRequired)
+                    verification?.Pause(response.Failure.VerificationUri ?? mod.PageUrl);
                 return Result(false, response.Failure ?? new(ModSourceError.Offline, "Cached files cannot advance update tracking."));
+            }
             var files = response.Content!.Files;
             // Validate before entering the store callback, including an explicitly empty snapshot.
             if (files is null || files.Any(file => file is null) ||
@@ -93,7 +102,12 @@ internal sealed class ModUpdateCheckService(SubscriptionStore store, Func<string
             return Result(true);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
-        catch (ModSourceException ex) { return Result(false, ex.Failure); }
+        catch (ModSourceException ex)
+        {
+            if (ex.Failure.Kind == ModSourceError.VerificationRequired)
+                verification?.Pause(ex.Failure.VerificationUri ?? mod.PageUrl);
+            return Result(false, ex.Failure);
+        }
         catch (OperationCanceledException) { return Result(false, new(ModSourceError.Timeout, "The file check timed out.")); }
         catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or
             ArgumentException or InvalidOperationException or KeyNotFoundException)

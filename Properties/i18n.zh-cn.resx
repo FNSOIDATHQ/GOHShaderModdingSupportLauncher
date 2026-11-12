@@ -667,4 +667,21 @@
   <data name="MS_Network_Timeout" xml:space="preserve"><value>服务器未在时限内响应</value></data>
   <data name="MS_Network_RedirectRejected" xml:space="preserve"><value>来源重定向到不支持的地址</value></data>
   <data name="MS_NetworkLog" xml:space="preserve"><value>连接详情已写入启动器诊断日志。</value></data>
+  <data name="MS_Error_VerificationRequired" xml:space="preserve"><value>需要完成 Cloudflare 验证</value></data>
+  <data name="MS_VerificationTitle" xml:space="preserve"><value>ModDB 要求完成 Cloudflare 验证</value></data>
+  <data name="MS_VerificationRequired" xml:space="preserve"><value>已暂停对此来源的请求。请打开独立验证窗口，手动完成网站检查。无需登录账户。</value></data>
+  <data name="MS_VerificationOpen" xml:space="preserve"><value>打开验证窗口</value></data>
+  <data name="MS_VerificationRetry" xml:space="preserve"><value>验证访问并重试</value></data>
+  <data name="MS_VerificationCancel" xml:space="preserve"><value>关闭验证会话</value></data>
+  <data name="MS_VerificationOriginal" xml:space="preserve"><value>打开原网页</value></data>
+  <data name="MS_VerificationOpening" xml:space="preserve"><value>正在打开独立浏览器…</value></data>
+  <data name="MS_VerificationBrowserOpen" xml:space="preserve"><value>请在独立浏览器中完成检查，然后点击“验证访问并重试”。仅打开浏览器不会恢复访问。</value></data>
+  <data name="MS_VerificationChecking" xml:space="preserve"><value>正在检查 ModDB 是否已恢复访问…</value></data>
+  <data name="MS_VerificationPassed" xml:space="preserve"><value>ModDB 访问已恢复。需要处理的下载任务可主动重试。</value></data>
+  <data name="MS_VerificationFailed" xml:space="preserve"><value>验证尚未恢复访问。请保留浏览器窗口并完成检查后重试；仍可查看缓存内容。</value></data>
+  <data name="MS_VerificationCancelled" xml:space="preserve"><value>已关闭验证会话。完成验证或主动重试来源前，请求将继续暂停。</value></data>
+  <data name="MS_VerificationUnavailable" xml:space="preserve"><value>无法打开 Microsoft Edge 或 Google Chrome 独立验证窗口。可查看原网站或缓存内容，并稍后重试访问。</value></data>
+  <data name="MS_VerificationPrivacy" xml:space="preserve"><value>此窗口使用独立的临时浏览器资料。请勿登录账户；启动器不会读取个人浏览器资料或导入账户 Cookie。</value></data>
+  <data name="MS_VerificationUnsupported" xml:space="preserve"><value>此来源暂不支持内置验证窗口。可打开原网站处理，并在稍后主动重试访问；其他浏览器中的验证结果不会自动共享给启动器。</value></data>
+  <data name="MS_DownloadVerification" xml:space="preserve"><value>等待网站验证；下载任务仍保留在队列中</value></data>
 </root>
