@@ -659,4 +659,12 @@ Make sure Steam has finished downloading the item.</value>
   <data name="MS_Error_ParseFailed" xml:space="preserve"><value>Source layout could not be parsed</value></data>
   <data name="MS_Error_Offline" xml:space="preserve"><value>No network content available</value></data>
   <data name="MS_FileUnavailable" xml:space="preserve"><value>This noticed file is no longer in the current file list. You can still acknowledge its notice.</value></data>
+  <data name="MS_Network_Dns" xml:space="preserve"><value>DNS name resolution failed</value></data>
+  <data name="MS_Network_Proxy" xml:space="preserve"><value>Proxy connection failed</value></data>
+  <data name="MS_Network_Tls" xml:space="preserve"><value>TLS handshake failed</value></data>
+  <data name="MS_Network_Connection" xml:space="preserve"><value>Network connection failed</value></data>
+  <data name="MS_Network_Response" xml:space="preserve"><value>The server response was interrupted</value></data>
+  <data name="MS_Network_Timeout" xml:space="preserve"><value>The server did not respond in time</value></data>
+  <data name="MS_Network_RedirectRejected" xml:space="preserve"><value>The source redirected to an unsupported address</value></data>
+  <data name="MS_NetworkLog" xml:space="preserve"><value>Connection details are available in the launcher&apos;s diagnostic log.</value></data>
 </root>

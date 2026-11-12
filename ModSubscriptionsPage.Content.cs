@@ -12,7 +12,7 @@ namespace GOHShaderModdingSupportLauncher;
 
 public sealed partial class ModSubscriptionsPage
 {
-    private readonly HttpClient imageClient = new(new HttpClientHandler { UseCookies = false, AllowAutoRedirect = false, AutomaticDecompression = DecompressionMethods.All })
+    private readonly HttpClient imageClient = new(ModAnonymousTransport.Create())
     { Timeout = TimeSpan.FromSeconds(25) };
     private bool snapshotFresh;
 

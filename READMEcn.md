@@ -92,6 +92,8 @@ name = “本地示例”
 
 取消订阅前会展示将删除的受管文件和将保留的文件，收藏继续保留。手动修改、归属无法确认的文件，以及 `mods` 外的安装步骤需要单独处理。安装、替换或删除模组前请关闭游戏和编辑器。
 
+ModDB 请求使用 Windows 原生 WinHTTP 后端和 Windows 用户代理设置，禁用 Cookie 和账户凭据。请求失败时，页面会显示 HTTP 状态码或具体连接错误类别。给 EXE 添加 `--check-moddb` 参数，可以直接测试该 EXE 的联网与解析，不打开界面、不修改订阅或游戏文件。结果与连接详情写入 `%LOCALAPPDATA%\GOHSMSLauncher\Logs\diag.log`（LocalAppData 不可用时使用临时日志目录）；退出码 0 表示已成功读取实时列表。日志不记录带签名的下载地址或凭据。
+
 ### 注意事项
 * 强制改变凹凸贴图质量是一项特殊措施，用于支持我的着色器mod
 * 将 Environment.CurrentDirectory 移至游戏目录总是必要的，这样steam就不会截断我们的启动指令

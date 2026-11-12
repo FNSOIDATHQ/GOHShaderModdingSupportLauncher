@@ -11,7 +11,8 @@ internal static class Program
     {
         bool diagnosticMode = Array.Exists(args, arg =>
             arg.Equals("--validate-native-bundle", StringComparison.OrdinalIgnoreCase) ||
-            arg.Equals("--self-test-ui", StringComparison.OrdinalIgnoreCase));
+            arg.Equals("--self-test-ui", StringComparison.OrdinalIgnoreCase) ||
+            arg.Equals("--check-moddb", StringComparison.OrdinalIgnoreCase));
         AppDiagnostics.Initialize();
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
             AppDiagnostics.ReportFatal("Unhandled exception", e.ExceptionObject);
@@ -19,8 +20,7 @@ internal static class Program
         catch (Exception ex)
         {
             if (diagnosticMode)
-                AppDiagnostics.Log(args.Contains("--validate-native-bundle", StringComparer.OrdinalIgnoreCase)
-                    ? "Native bundle validation failed" : "UI self-test failed", ex);
+                AppDiagnostics.Log("Launcher diagnostic failed", ex);
             else AppDiagnostics.ReportFatal("Application startup / run", ex);
             return 1;
         }
@@ -29,6 +29,8 @@ internal static class Program
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static int RunApplication(string[] args)
     {
+        if (Array.Exists(args, arg => arg.Equals("--check-moddb", StringComparison.OrdinalIgnoreCase)))
+            return ModSourceDiagnostics.RunAsync().GetAwaiter().GetResult();
         NativeBundle.Initialize();
         if (Array.Exists(args, arg => arg.Equals("--validate-native-bundle", StringComparison.OrdinalIgnoreCase)))
             return NativeBundle.IsEmbedded ? 0 : 2;

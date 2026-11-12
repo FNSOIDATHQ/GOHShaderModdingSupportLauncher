@@ -10,9 +10,10 @@ internal sealed class ModDbSource : IModSource, IDisposable
     public string Provider => "moddb";
     public ModSourceCapabilities Capabilities => ModDbParser.Capabilities;
 
-    internal ModDbSource(AnonymousModHttpClient? http = null, ModContentCache? cache = null)
+    internal ModDbSource(AnonymousModHttpClient? http = null, ModContentCache? cache = null,
+        Action<ModHttpDiagnostic>? diagnostic = null)
     {
-        this.http = http ?? new();
+        this.http = http ?? new(new ModHttpOptions { Diagnostic = diagnostic });
         this.cache = cache ?? new();
         ownsHttp = http is null;
     }

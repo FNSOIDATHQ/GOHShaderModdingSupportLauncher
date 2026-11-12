@@ -7,7 +7,7 @@ internal enum ModReadMode { Refresh, CacheOnly }
 internal enum ModBrowseSort { Updated, Newest, Popular, Name }
 
 internal sealed record ModSourceFailure(ModSourceError Kind, string Message,
-    HttpStatusCode? StatusCode = null, DateTimeOffset? RetryAfter = null);
+    HttpStatusCode? StatusCode = null, DateTimeOffset? RetryAfter = null, ModHttpFailureKind? DiagnosticKind = null);
 
 // A failed refresh can carry old content. Callers must check IsSuccess before replacing a snapshot.
 internal sealed record ModSourceResult<T>(T? Content, DateTimeOffset? FetchedAt,

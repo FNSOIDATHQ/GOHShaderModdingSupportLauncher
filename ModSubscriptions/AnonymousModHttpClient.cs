@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
 
@@ -10,6 +11,7 @@ internal sealed record ModHttpOptions
     internal TimeSpan HostInterval { get; init; } = TimeSpan.FromSeconds(1);
     internal int MaxRetries { get; init; } = 2;
     internal int MaxTextBytes { get; init; } = 4 * 1024 * 1024;
+    internal Action<ModHttpDiagnostic>? Diagnostic { get; init; }
 }
 
 // Serializes requests (including response bodies) per host across all production clients.
@@ -32,11 +34,7 @@ internal sealed class AnonymousModHttpClient : IDisposable
     private readonly ModHostLimiter limiter;
 
     internal AnonymousModHttpClient(ModHttpOptions? options = null)
-        : this(new SocketsHttpHandler
-        {
-            UseCookies = false, Credentials = null, PreAuthenticate = false, AllowAutoRedirect = false,
-            AutomaticDecompression = DecompressionMethods.All, ConnectTimeout = TimeSpan.FromSeconds(15)
-        }, options, ModHostLimiter.Shared) { }
+        : this(ModAnonymousTransport.Create(), options, ModHostLimiter.Shared) { }
 
     // Injection is for deterministic local tests; production always uses the credential-free handler above.
     internal AnonymousModHttpClient(HttpMessageHandler handler, ModHttpOptions? options, ModHostLimiter limiter)
@@ -99,13 +97,24 @@ internal sealed class AnonymousModHttpClient : IDisposable
         for (int attempt = 0; ; attempt++)
         {
             token.ThrowIfCancellationRequested();
+            Uri diagnosticUri = uri;
+            long started = Stopwatch.GetTimestamp();
+            ModHttpStage stage = ModHttpStage.Request;
+            void Report(ModHttpDiagnostic diagnostic) => ModHttpDiagnostics.Report(options.Diagnostic, diagnostic);
+            long Elapsed() => (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds;
             try
             {
                 Uri current = uri;
                 for (int redirect = 0; redirect <= 8; redirect++)
                 {
+                    diagnosticUri = current;
                     if (!IsPublicHttps(current) || !allow(current))
-                        throw Error(ModSourceError.AccessDenied, "The source redirected outside its supported anonymous hosts.");
+                    {
+                        Report(new(ModHttpDiagnostics.Host(current), ModHttpStage.Redirect, attempt + 1,
+                            FailureKind: ModHttpFailureKind.RedirectRejected, ElapsedMilliseconds: Elapsed()));
+                        throw new ModSourceException(new(ModSourceError.AccessDenied,
+                            "The source redirected outside its supported anonymous hosts.", DiagnosticKind: ModHttpFailureKind.RedirectRejected));
+                    }
                     var host = limiter.For(current);
                     await host.Gate.WaitAsync(token).ConfigureAwait(false);
                     try
@@ -118,7 +127,11 @@ internal sealed class AnonymousModHttpClient : IDisposable
                         if (probe) request.Headers.Range = new RangeHeaderValue(0, 15);
                         if (current != uri) request.Headers.Referrer = uri;
                         host.NextRequest = DateTimeOffset.UtcNow + options.HostInterval;
+                        stage = ModHttpStage.Request;
+                        Report(new(ModHttpDiagnostics.Host(current), stage, attempt + 1, ElapsedMilliseconds: Elapsed()));
                         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token).ConfigureAwait(false);
+                        stage = ModHttpStage.Headers;
+                        Report(new(ModHttpDiagnostics.Host(current), stage, attempt + 1, (int)response.StatusCode, ElapsedMilliseconds: Elapsed()));
                         if ((int)response.StatusCode is 301 or 302 or 303 or 307 or 308)
                         {
                             if (redirect == 8 || response.Headers.Location is null)
@@ -142,29 +155,54 @@ internal sealed class AnonymousModHttpClient : IDisposable
                                 HttpStatusCode.NotFound or HttpStatusCode.Gone => ModSourceError.NotFound,
                                 _ => ModSourceError.RequestFailed
                             };
-                            throw new ModSourceException(new(kind, $"The source returned HTTP {(int)response.StatusCode}.", response.StatusCode, after));
+                            throw new ModSourceException(new(kind, $"The source returned HTTP {(int)response.StatusCode}.", response.StatusCode, after,
+                                response.StatusCode == HttpStatusCode.ProxyAuthenticationRequired ? ModHttpFailureKind.Proxy : ModHttpFailureKind.Response));
                         }
-                        return await read(response, timeout.Token).ConfigureAwait(false);
+                        stage = ModHttpStage.Body;
+                        T result = await read(response, timeout.Token).ConfigureAwait(false);
+                        Report(new(ModHttpDiagnostics.Host(current), ModHttpStage.Completed, attempt + 1,
+                            (int)response.StatusCode, ElapsedMilliseconds: Elapsed()));
+                        return result;
                     }
                     finally { host.Gate.Release(); }
                 }
             }
-            catch (OperationCanceledException) when (!token.IsCancellationRequested)
+            catch (OperationCanceledException ex) when (!token.IsCancellationRequested)
             {
-                if (attempt >= options.MaxRetries) throw Error(ModSourceError.Timeout, "The anonymous source request timed out.");
+                var diagnostic = ModHttpDiagnostics.FromException(diagnosticUri, stage, attempt + 1, ex, Elapsed());
+                Report(diagnostic);
+                if (attempt >= options.MaxRetries) throw new ModSourceException(new(ModSourceError.Timeout,
+                    ModHttpDiagnostics.FailureMessage(diagnostic), DiagnosticKind: diagnostic.FailureKind));
             }
-            catch (HttpRequestException)
+            catch (HttpRequestException ex)
             {
-                if (attempt >= options.MaxRetries) throw Error(ModSourceError.RequestFailed, "The anonymous source could not be reached.");
+                var diagnostic = ModHttpDiagnostics.FromException(diagnosticUri, stage, attempt + 1, ex, Elapsed());
+                Report(diagnostic);
+                if (attempt >= options.MaxRetries) throw new ModSourceException(new(
+                    diagnostic.FailureKind == ModHttpFailureKind.Timeout ? ModSourceError.Timeout : ModSourceError.RequestFailed,
+                    ModHttpDiagnostics.FailureMessage(diagnostic), ex.StatusCode, DiagnosticKind: diagnostic.FailureKind));
             }
             catch (IOException ex) when (ex is not ModSourceException)
             {
-                if (attempt >= options.MaxRetries) throw Error(ModSourceError.RequestFailed, "The source response was interrupted.");
+                var diagnostic = ModHttpDiagnostics.FromException(diagnosticUri, stage, attempt + 1, ex, Elapsed());
+                Report(diagnostic);
+                if (attempt >= options.MaxRetries) throw new ModSourceException(new(
+                    diagnostic.FailureKind == ModHttpFailureKind.Timeout ? ModSourceError.Timeout : ModSourceError.RequestFailed,
+                    ModHttpDiagnostics.FailureMessage(diagnostic), DiagnosticKind: diagnostic.FailureKind));
             }
-            catch (ModSourceException ex) when (IsRetryable(ex.Failure))
+            catch (OperationCanceledException)
             {
+                Report(new(ModHttpDiagnostics.Host(diagnosticUri), ModHttpStage.Cancelled, attempt + 1, ElapsedMilliseconds: Elapsed()));
+                throw;
+            }
+            catch (ModSourceException ex)
+            {
+                Report(new(ModHttpDiagnostics.Host(diagnosticUri), ModHttpStage.Failed, attempt + 1,
+                    ex.Failure.StatusCode is { } status ? (int)status : null,
+                    ex.Failure.DiagnosticKind ?? ModHttpFailureKind.Response,
+                    ElapsedMilliseconds: Elapsed()));
                 // Long Retry-After values remain on the host limiter; do not tie up a caller for minutes.
-                if (attempt >= options.MaxRetries || ex.Failure.RetryAfter > DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30)) throw;
+                if (!IsRetryable(ex.Failure) || attempt >= options.MaxRetries || ex.Failure.RetryAfter > DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30)) throw;
             }
             await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, attempt)), token).ConfigureAwait(false);
         }

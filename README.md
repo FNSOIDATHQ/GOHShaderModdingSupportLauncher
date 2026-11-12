@@ -92,6 +92,8 @@ The first successful file check establishes a baseline. Later checks report new 
 
 Unsubscribing previews which managed files will be removed and which files will remain. Favorites are retained. Manual changes, files with uncertain ownership and installation steps outside `mods` need separate attention. Close the game and editor before installing, replacing or removing a mod.
 
+ModDB requests use the Windows WinHTTP backend and the Windows user proxy settings, with cookies and account credentials disabled. If a request fails, the page shows the HTTP status or connection error category. Run the EXE with `--check-moddb` to test its own connection and parsing without opening the UI or changing subscriptions or game files. The result and connection details are written to `%LOCALAPPDATA%\GOHSMSLauncher\Logs\diag.log` (or the temporary log directory if LocalAppData is unavailable); exit code 0 means the live list was read successfully. Logs exclude signed download addresses and credentials.
+
 ### Notice
 * Force change bump quality is a special measure used to support my shader mods
 * Move Environment.CurrentDirectory to game directory is always necessary to let steam not truncate our launch commands

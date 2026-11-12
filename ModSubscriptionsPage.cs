@@ -249,9 +249,18 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
     private GameModSubscription? Subscription(RemoteMod? mod = null) => runtime is not null && (mod ?? selected) is { } item && main.SubscriptionGameDirectory is { } game
         ? runtime.Library.Subscriptions.SingleOrDefault(sub => sub.Source == item.Id && sub.GameDirectory.Equals(game, SubscriptionPaths.Comparison)) : null;
 
-    private static string ReadStatus<TContent>(ModSourceResult<TContent> result) => result.IsSuccess && !result.IsStale
-        ? T("Ready") : T(result.Content is null ? "RequestFailed" : "Cached") + " · " +
-            (result.Failure is { } failure ? T("Error_" + failure.Kind) : T("Offline"));
+    private static string ReadStatus<TContent>(ModSourceResult<TContent> result)
+    {
+        if (result.IsSuccess && !result.IsStale) return T("Ready");
+        string message = T(result.Content is null ? "RequestFailed" : "Cached");
+        if (result.Failure is not { } failure) return message + " · " + T("Offline");
+        AppDiagnostics.Log($"ModDB content failure: kind={failure.Kind}, HTTP={(int?)failure.StatusCode}, diagnostic={failure.DiagnosticKind}.");
+        message += " · " + T("Error_" + failure.Kind);
+        if (failure.StatusCode is { } code) message += $" (HTTP {(int)code})";
+        if (failure.DiagnosticKind is { } diagnostic && diagnostic != ModHttpFailureKind.Unknown)
+            message += " · " + T("Network_" + diagnostic);
+        return message + " · " + T("NetworkLog");
+    }
 
     private async Task OpenModAsync(RemoteMod mod)
     {

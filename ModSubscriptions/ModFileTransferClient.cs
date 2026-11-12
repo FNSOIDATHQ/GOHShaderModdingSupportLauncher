@@ -27,11 +27,7 @@ internal sealed class ModFileTransferClient : IDisposable
     private readonly ModHostLimiter limiter;
 
     internal ModFileTransferClient(ModTransferOptions? options = null)
-        : this(new SocketsHttpHandler
-        {
-            UseCookies = false, Credentials = null, PreAuthenticate = false, AllowAutoRedirect = false,
-            AutomaticDecompression = DecompressionMethods.None, ConnectTimeout = TimeSpan.FromSeconds(15)
-        }, options, ModHostLimiter.Shared) { }
+        : this(ModAnonymousTransport.Create(compressedContent: false), options, ModHostLimiter.Shared) { }
 
     internal ModFileTransferClient(HttpMessageHandler handler, ModTransferOptions? options, ModHostLimiter limiter)
     {

@@ -30,12 +30,13 @@ internal sealed class ModSubscriptionRuntime : IDisposable
     internal string? Error { get => Volatile.Read(ref error); private set => Volatile.Write(ref error, value); }
     internal event Action? Changed;
 
-    internal ModSubscriptionRuntime(IModInstallationHost host, SubscriptionStore? store = null, IModSource? source = null)
+    internal ModSubscriptionRuntime(IModInstallationHost host, SubscriptionStore? store = null, IModSource? source = null,
+        Action<ModHttpDiagnostic>? diagnostic = null)
     {
         Ready = Task.Run(() =>
         {
             Store = store ?? new SubscriptionStore();
-            Source = source ?? new ModDbSource();
+            Source = source ?? new ModDbSource(diagnostic: diagnostic);
             Installer = new(Store, host);
             Updates = new(Store, provider => provider == Source.Provider ? Source : null);
             Downloads = new(Store, Source, progress: new RuntimeProgress(this));

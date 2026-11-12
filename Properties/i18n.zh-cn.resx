@@ -659,4 +659,12 @@
   <data name="MS_Error_ParseFailed" xml:space="preserve"><value>无法解析来源页面结构</value></data>
   <data name="MS_Error_Offline" xml:space="preserve"><value>没有可用的网络内容</value></data>
   <data name="MS_FileUnavailable" xml:space="preserve"><value>此文件已不在当前文件列表中；您仍可标记已读或忽略提示。</value></data>
+  <data name="MS_Network_Dns" xml:space="preserve"><value>DNS 域名解析失败</value></data>
+  <data name="MS_Network_Proxy" xml:space="preserve"><value>代理连接失败</value></data>
+  <data name="MS_Network_Tls" xml:space="preserve"><value>TLS 安全连接失败</value></data>
+  <data name="MS_Network_Connection" xml:space="preserve"><value>网络连接失败</value></data>
+  <data name="MS_Network_Response" xml:space="preserve"><value>服务器响应中断</value></data>
+  <data name="MS_Network_Timeout" xml:space="preserve"><value>服务器未在时限内响应</value></data>
+  <data name="MS_Network_RedirectRejected" xml:space="preserve"><value>来源重定向到不支持的地址</value></data>
+  <data name="MS_NetworkLog" xml:space="preserve"><value>连接详情已写入启动器诊断日志。</value></data>
 </root>

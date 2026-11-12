@@ -15,7 +15,7 @@ public partial class MainWindow
 
     private ModSubscriptionRuntime CreateSubscriptionRuntime()
     {
-        var runtime = new ModSubscriptionRuntime(CreateModInstallationHost());
+        var runtime = new ModSubscriptionRuntime(CreateModInstallationHost(), diagnostic: entry => AppDiagnostics.Log("ModDB HTTP: " + entry));
         runtime.Changed += () => Dispatcher.UIThread.Post(() =>
         {
             if (runtime.Ready.IsCompletedSuccessfully)
