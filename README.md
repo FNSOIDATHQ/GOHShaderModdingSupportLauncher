@@ -90,6 +90,10 @@ Choose **GitHub** to search public repositories within your configured topics. T
 
 GitHub details show the README, release notes, README images and selectable public release attachments. The project type is a browsing hint; a mod topic does not prove that an attachment is installable. Tools and files that need building are kept for download and manual use. Repositories without releases can offer source snapshots fixed to a commit SHA; the launcher does not run builds or generators. Complete standard mod packages use the same archive checks and explicit installation confirmation as ModDB packages.
 
+Choose **Mow Portal** to browse its Gates of Hell category, author descriptions, version notes, images and public download links. Search filters the current category page; use **Next** to continue. Public Yandex files can be downloaded anonymously and use the same standard mod installation checks. Other hosts remain visible with original-page links and are not offered for download. Closed shares, disabled downloads and exhausted quotas keep a clear failure state without account login.
+
+Mow Portal checks report **Page or download links changed; confirmation needed** when a page or link changes. This does not prove a new upload or a revised file. Review the author page and choose downloads yourself; acknowledging a notice does not change the installed version.
+
 GitHub checks include all public releases, attachments added to existing releases and attachment revisions. Requests use the anonymous API quota, without a token or login. When that quota is exhausted, the page shows when to retry and keeps the previous file list and notices.
 
 Downloaded archives can be inspected and installed into the selected game's `mods` directory. Confirm the original mod folder and that the archive is a complete package before installation. Patches, installers and unsupported layouts can be downloaded for manual installation; the launcher does not run their scripts or change game files outside `mods`.

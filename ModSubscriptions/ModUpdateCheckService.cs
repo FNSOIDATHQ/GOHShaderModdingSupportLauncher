@@ -16,6 +16,20 @@ internal sealed class ModUpdateCheckService(SubscriptionStore store, Func<string
         .Where(notice => !subscription.Files.AcknowledgedFiles.Any(ack =>
             ack.FileId == notice.File.Id && ack.Revision == notice.File.Revision)).ToArray();
 
+    internal static PageChangeNotice? GetPageNotice(GameModSubscription subscription) =>
+        subscription.Files.PageNotice is { } notice && notice.Revision != subscription.Files.AcknowledgedPageRevision ? notice : null;
+
+    internal void AcknowledgePage(Guid subscriptionId, string revision, FileNoticeState state)
+    {
+        if (!Enum.IsDefined(state)) throw new ArgumentOutOfRangeException(nameof(state));
+        store.ChangeFileTracking(subscriptionId, tracking =>
+        {
+            if (tracking.PageNotice?.Revision != revision || tracking.PageRevision != revision)
+                throw new InvalidOperationException("This page revision is no longer the discovered change.");
+            return tracking with { AcknowledgedPageRevision = revision };
+        });
+    }
+
     internal void Acknowledge(Guid subscriptionId, string fileId, string revision, FileNoticeState state)
     {
         if (!Enum.IsDefined(state)) throw new ArgumentOutOfRangeException(nameof(state));
@@ -50,7 +64,7 @@ internal sealed class ModUpdateCheckService(SubscriptionStore store, Func<string
                 cancellationToken.ThrowIfCancellationRequested();
                 // A human verification is never retried by the scheduler. Leave all snapshots,
                 // notices and successful check timestamps intact until the user resumes it.
-                if (onlyDue && subscription.Source.Provider == "moddb" && verification?.IsPaused == true) continue;
+                if (onlyDue && IsSourcePaused(subscription.Source.Provider)) continue;
                 var now = DateTimeOffset.UtcNow;
                 if (onlyDue && ((nextAttempts.TryGetValue(subscription.Id, out var next) && next > now) ||
                     (subscription.Files.LastSuccessfulCheck is { } last && last + CheckInterval > now))) continue;
@@ -60,6 +74,14 @@ internal sealed class ModUpdateCheckService(SubscriptionStore store, Func<string
         }
         finally { checkGate.Release(); }
     }
+
+    private bool IsSourcePaused(string provider) => verification?.GetPending().Any(request => provider switch
+    {
+        "moddb" => ModDbParser.IsMirrorHost(request.Origin),
+        "mowportal" => MowPortalParser.IsSite(request.Origin) || YandexPublicFileResolver.IsDownloadHost(request.Origin) ||
+            request.Origin.Host == "cloud-api.yandex.net",
+        _ => false
+    }) == true;
 
     private async Task<ModUpdateCheckResult> CheckCoreAsync(Guid id, CancellationToken token)
     {
@@ -80,7 +102,8 @@ internal sealed class ModUpdateCheckService(SubscriptionStore store, Func<string
         var mod = store.FindMod(subscription.Source);
         var source = resolveSource(subscription.Source.Provider);
         if (mod is null || source is null || source.Provider != subscription.Source.Provider ||
-            !source.Capabilities.CanListFiles || source.Capabilities.UpdateEvidence != UpdateEvidence.FileIdentityAndRevision)
+            !source.Capabilities.CanListFiles || source.Capabilities.UpdateEvidence is not
+                (UpdateEvidence.FileIdentityAndRevision or UpdateEvidence.PageOrLinkChange))
             return Result(false, new(ModSourceError.RequestFailed, "This source does not provide complete file update evidence."));
         try
         {
@@ -95,12 +118,16 @@ internal sealed class ModUpdateCheckService(SubscriptionStore store, Func<string
                 return Result(false, response.Failure ?? new(ModSourceError.Offline, "Cached files cannot advance update tracking."));
             }
             var files = response.Content!.Files;
+            bool pageEvidence = source.Capabilities.UpdateEvidence == UpdateEvidence.PageOrLinkChange;
             // Validate before entering the store callback, including an explicitly empty snapshot.
             if (files is null || files.Any(file => file is null) ||
-                files.Select(file => file.Id).Distinct(StringComparer.Ordinal).Count() != files.Length)
+                files.Select(file => file.Id).Distinct(StringComparer.Ordinal).Count() != files.Length ||
+                pageEvidence && string.IsNullOrWhiteSpace(response.Content.PageRevision))
                 return Result(false, new(ModSourceError.ParseFailed, "The complete file snapshot contains invalid or duplicate file identities."));
             var checkedAt = DateTimeOffset.UtcNow;
-            store.ChangeFileTracking(id, previous => Advance(previous, files, checkedAt));
+            store.ChangeFileTracking(id, previous => pageEvidence
+                ? AdvancePage(previous, files, response.Content.PageRevision, checkedAt)
+                : Advance(previous, files, checkedAt));
             return Result(true);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
@@ -116,6 +143,25 @@ internal sealed class ModUpdateCheckService(SubscriptionStore store, Func<string
         {
             return Result(false, new(ex is InvalidDataException ? ModSourceError.ParseFailed : ModSourceError.RequestFailed, ex.Message));
         }
+    }
+
+    private static FileTrackingState AdvancePage(FileTrackingState previous, RemoteModFile[] files,
+        string revision, DateTimeOffset checkedAt)
+    {
+        var known = previous.KnownFiles.ToDictionary(file => file.Id, StringComparer.Ordinal);
+        foreach (var file in files) known[file.Id] = file;
+        // A first successful read establishes the page baseline, including a page
+        // with no download links. Removals and body-only changes still produce one
+        // uncertain page notice; they never claim a file was uploaded or revised.
+        bool first = !previous.HasBaseline || previous.PageRevision.Length == 0;
+        return previous with
+        {
+            HasBaseline = true, KnownFiles = known.Values.ToArray(), Notices = [],
+            LastSuccessfulCheck = checkedAt, PageRevision = revision,
+            AcknowledgedPageRevision = first ? revision : previous.AcknowledgedPageRevision,
+            PageNotice = first ? null : revision != previous.PageRevision
+                ? new(revision, checkedAt) : previous.PageNotice
+        };
     }
 
     private static FileTrackingState Advance(FileTrackingState previous, RemoteModFile[] files, DateTimeOffset checkedAt)

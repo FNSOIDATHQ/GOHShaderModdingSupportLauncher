@@ -571,7 +571,7 @@ Make sure Steam has finished downloading the item.</value>
   <data name="MS_Browse" xml:space="preserve"><value>Browse</value></data>
   <data name="MS_Subscribed" xml:space="preserve"><value>Subscribed</value></data>
   <data name="MS_Favorites" xml:space="preserve"><value>Favorites</value></data>
-  <data name="MS_Updates" xml:space="preserve"><value>New files</value></data>
+  <data name="MS_Updates" xml:space="preserve"><value>Update notices</value></data>
   <data name="MS_Search" xml:space="preserve"><value>Search</value></data>
   <data name="MS_Updated" xml:space="preserve"><value>Recently updated</value></data>
   <data name="MS_Newest" xml:space="preserve"><value>Newest</value></data>
@@ -602,7 +602,7 @@ Make sure Steam has finished downloading the item.</value>
   <data name="MS_LoadImages" xml:space="preserve"><value>Load images</value></data>
   <data name="MS_LoadFiles" xml:space="preserve"><value>Load file list</value></data>
   <data name="MS_CheckFailed" xml:space="preserve"><value>Check failed; previous snapshots and notices are preserved.</value></data>
-  <data name="MS_Checked" xml:space="preserve"><value>Check completed. New and changed files require your selection.</value></data>
+  <data name="MS_Checked" xml:space="preserve"><value>Check completed. Review update notices and select any downloads yourself.</value></data>
   <data name="MS_LastCheck" xml:space="preserve"><value>Last successful check</value></data>
   <data name="MS_Never" xml:space="preserve"><value>Not checked</value></data>
   <data name="MS_RemovalPending" xml:space="preserve"><value>Removal needs recovery; retry recovery before further actions.</value></data>
@@ -702,4 +702,7 @@ Make sure Steam has finished downloading the item.</value>
   <data name="MS_SourceSnapshot" xml:space="preserve"><value>Source snapshot fixed to a commit SHA. It may need a build or generated resources; the launcher does not run builds or generators.</value></data>
   <data name="MS_GitHubDownloadOnly" xml:space="preserve"><value>This file is for download and manual use. It is not offered for standard mod installation.</value></data>
   <data name="MS_RetryAfter" xml:space="preserve"><value>Retry after</value></data>
+  <data name="MS_MowPortalHint" xml:space="preserve"><value>Browse Gates of Hell pages, version notes, images and public download links on Mow Portal. Search filters the current category page; use Next to continue. Only Yandex public files support anonymous downloads here. Other hosts keep their original-page links.</value></data>
+  <data name="MS_PageOrLinkChanged" xml:space="preserve"><value>Page or download links changed; confirmation needed. This does not confirm a newly uploaded or revised file.</value></data>
+  <data name="MS_DownloadUnavailable" xml:space="preserve"><value>Anonymous download is not supported for this link. You can view its public original page; the launcher does not offer account login.</value></data>
 </root>

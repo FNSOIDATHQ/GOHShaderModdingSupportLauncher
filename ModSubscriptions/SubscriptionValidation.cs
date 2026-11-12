@@ -32,7 +32,7 @@ internal static class SubscriptionValidation
 
     private static void File(RemoteModFile file)
     {
-        Require(file is not null && file.Description is not null && file.SizeBytes is not < 0);
+        Require(file is not null && file.Description is not null && file.DownloadUnavailableReason is not null && file.SizeBytes is not < 0);
         Text(file.Id);
         Text(file.Revision);
         Text(file.Name);
@@ -96,7 +96,13 @@ internal static class SubscriptionValidation
             string game = SubscriptionPaths.Normalize(subscription.GameDirectory);
             Require(game == subscription.GameDirectory && subscriptions.Add((subscription.Source, game.ToUpperInvariant())));
             var tracking = subscription.Files;
-            Require(tracking.KnownFiles is not null && tracking.AcknowledgedFiles is not null && tracking.Notices is not null);
+            Require(tracking.KnownFiles is not null && tracking.AcknowledgedFiles is not null && tracking.Notices is not null &&
+                tracking.PageRevision is not null && tracking.AcknowledgedPageRevision is not null);
+            if (tracking.PageNotice is { } pageNotice)
+            {
+                Text(pageNotice.Revision);
+                Require(tracking.HasBaseline && pageNotice.Revision == tracking.PageRevision);
+            }
             var fileIds = new HashSet<string>(StringComparer.Ordinal);
             foreach (var file in tracking.KnownFiles)
             {

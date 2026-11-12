@@ -147,6 +147,11 @@ internal sealed class AnonymousModHttpClient : IDisposable
                         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
                         timeout.CancelAfter(options.Timeout);
                         using var request = new HttpRequestMessage(HttpMethod.Get, current);
+                        if (json)
+                        {
+                            request.Headers.Accept.Clear();
+                            request.Headers.Accept.ParseAdd("application/json");
+                        }
                         if (json && current.IdnHost.Equals("api.github.com", StringComparison.OrdinalIgnoreCase))
                         {
                             request.Headers.Accept.Clear();
@@ -173,6 +178,13 @@ internal sealed class AnonymousModHttpClient : IDisposable
                         }
                         if (!response.IsSuccessStatusCode)
                         {
+                            if (current.Host == "cloud-api.yandex.net" &&
+                                response.Content.Headers.ContentType?.MediaType == "application/json")
+                            {
+                                string? body = await ReadChallengePageAsync(response, timeout.Token).ConfigureAwait(false);
+                                if (ReadYandexFailure(body, response.StatusCode) is { } yandexFailure)
+                                    throw new ModSourceException(yandexFailure);
+                            }
                             if (current.IdnHost.Equals("api.github.com", StringComparison.OrdinalIgnoreCase) &&
                                 response.StatusCode == HttpStatusCode.Forbidden && githubAfter is null &&
                                 response.Content.Headers.ContentType?.MediaType == "application/json")
@@ -254,6 +266,30 @@ internal sealed class AnonymousModHttpClient : IDisposable
     }
 
     private static string GitHubResource(Uri uri) => uri.AbsolutePath.StartsWith("/search/", StringComparison.Ordinal) ? "search" : "core";
+
+    private static ModSourceFailure? ReadYandexFailure(string? body, HttpStatusCode status)
+    {
+        if (body is null) return null;
+        try
+        {
+            using var json = System.Text.Json.JsonDocument.Parse(body);
+            if (json.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object ||
+                !json.RootElement.TryGetProperty("error", out var error) || error.ValueKind != System.Text.Json.JsonValueKind.String) return null;
+            // Never forward the service's message or description: they may contain public keys or URLs.
+            return error.GetString() switch
+            {
+                "DiskResourceDownloadLimitExceededError" or "DiskDownloadLimitExceededError" or "TooManyRequestsError" =>
+                    new(ModSourceError.RateLimited, "The public Yandex file has reached its download quota. Retry later; account access is not supported.",
+                        status, DateTimeOffset.UtcNow.AddHours(1)),
+                "DiskNotFoundError" or "DiskPublicResourceDeactivatedError" =>
+                    new(ModSourceError.NotFound, "The public Yandex share is unavailable or has been closed.", status),
+                "DiskForbiddenError" or "ForbiddenError" or "DiskPublicResourceDownloadForbiddenError" =>
+                    new(ModSourceError.AccessDenied, "The owner has disabled public Yandex downloads. Account access is not supported.", status),
+                _ => null
+            };
+        }
+        catch (System.Text.Json.JsonException) { return null; }
+    }
 
     private void ThrowIfGitHubLimited(Uri uri)
     {

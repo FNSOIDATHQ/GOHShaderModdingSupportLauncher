@@ -26,13 +26,16 @@ internal sealed class ModSubscriptionRuntime : IDisposable
     internal SubscriptionStore Store { get; private set; } = null!;
     internal IModSource Source { get; private set; } = null!;
     internal GitHubModSource GitHub { get; private set; } = null!;
+    internal IModSource MowPortal { get; private set; } = null!;
     internal GitHubOptionsStore GitHubSettings { get; private set; } = null!;
     internal ModDownloadService Downloads { get; private set; } = null!;
     private ModDownloadService githubDownloads = null!;
+    private ModDownloadService mowPortalDownloads = null!;
     internal IModSource? ResolveSource(string provider) => provider == Source.Provider ? Source :
-        provider == GitHub.Provider ? GitHub : null;
+        provider == GitHub.Provider ? GitHub : provider == MowPortal.Provider ? MowPortal : null;
     internal ModDownloadService GetDownloads(string provider) => provider == Source.Provider ? Downloads :
-        provider == GitHub.Provider ? githubDownloads : throw new ArgumentException("Unsupported Mod source.", nameof(provider));
+        provider == GitHub.Provider ? githubDownloads : provider == MowPortal.Provider ? mowPortalDownloads :
+        throw new ArgumentException("Unsupported Mod source.", nameof(provider));
     internal ModInstallService Installer { get; private set; } = null!;
     internal ModUpdateCheckService Updates { get; private set; } = null!;
     internal ModVerificationState Verification { get; } = new();
@@ -44,7 +47,7 @@ internal sealed class ModSubscriptionRuntime : IDisposable
 
     internal ModSubscriptionRuntime(IModInstallationHost host, SubscriptionStore? store = null, IModSource? source = null,
         Action<ModHttpDiagnostic>? diagnostic = null, Action<string>? verificationDiagnostic = null,
-        GitHubModSource? githubSource = null)
+        GitHubModSource? githubSource = null, IModSource? mowPortalSource = null)
     {
         verificationBrowser = new(clearance, verificationDiagnostic);
         Verification.Changed += NotifyChanged;
@@ -54,10 +57,12 @@ internal sealed class ModSubscriptionRuntime : IDisposable
             Source = source ?? new ModDbSource(diagnostic: diagnostic, verification: Verification, clearance: clearance);
             GitHubSettings = new GitHubOptionsStore(Path.Combine(Path.GetDirectoryName(Store.LibraryPath)!, "github-settings.json"));
             GitHub = githubSource ?? new GitHubModSource(settings: GitHubSettings, diagnostic: diagnostic);
+            MowPortal = mowPortalSource ?? new MowPortalModSource(diagnostic: diagnostic, verification: Verification);
             Installer = new(Store, host);
             Updates = new(Store, ResolveSource, Verification);
             Downloads = new(Store, Source, progress: new RuntimeProgress(this), verification: Verification, clearance: clearance);
             githubDownloads = new(Store, GitHub, progress: new RuntimeProgress(this));
+            mowPortalDownloads = new(Store, MowPortal, progress: new RuntimeProgress(this), verification: Verification);
             Volatile.Write(ref library, Store.Snapshot());
         });
         background = RunAsync();
@@ -112,7 +117,7 @@ internal sealed class ModSubscriptionRuntime : IDisposable
             await verificationBrowser.CloseAsync(clearSession: false, cancellationToken: CancellationToken.None).ConfigureAwait(false);
             wake.Writer.TryWrite(0);
             string? game = Volatile.Read(ref gameDirectory);
-            if (game is not null && !Verification.IsPaused) _ = ResumeAsync(game);
+            if (game is not null) _ = ResumeAsync(game);
             NotifyChanged();
             return true;
         }
@@ -148,10 +153,12 @@ internal sealed class ModSubscriptionRuntime : IDisposable
     {
         using var http = new AnonymousModHttpClient(new ModHttpOptions
         { Verification = Verification, Clearance = clearance, MaxRetries = 0 });
-        bool Allow(Uri uri) => ModVerificationState.Origin(uri) == ModVerificationState.Origin(origin);
+        bool Allow(Uri uri) => ModVerificationState.Origin(uri) == ModVerificationState.Origin(origin) ||
+            fileProbe && YandexPublicFileResolver.IsDownloadHost(target) && YandexPublicFileResolver.IsDownloadHost(uri);
         try
         {
             if (fileProbe) await http.ResolveFileAsync(target, Allow, token).ConfigureAwait(false);
+            else if (target.Host == "cloud-api.yandex.net") await http.GetJsonAsync(target, Allow, token).ConfigureAwait(false);
             else await http.GetTextAsync(target, Allow, token).ConfigureAwait(false);
             return true;
         }
@@ -213,7 +220,8 @@ internal sealed class ModSubscriptionRuntime : IDisposable
         try
         {
             await Task.WhenAll(Downloads.ResumePendingAsync(game, lifetime.Token),
-                githubDownloads.ResumePendingAsync(game, lifetime.Token)).ConfigureAwait(false);
+                githubDownloads.ResumePendingAsync(game, lifetime.Token),
+                mowPortalDownloads.ResumePendingAsync(game, lifetime.Token)).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
         catch (Exception ex) { SetGameError(game, ex.Message); }
@@ -305,6 +313,7 @@ internal sealed class ModSubscriptionRuntime : IDisposable
             await Ready.ConfigureAwait(false);
             await Downloads.DisposeAsync().ConfigureAwait(false);
             await githubDownloads.DisposeAsync().ConfigureAwait(false);
+            await mowPortalDownloads.DisposeAsync().ConfigureAwait(false);
         }
         catch (Exception) { /* Initialization failure is already exposed to the page. */ }
         finally
@@ -313,6 +322,7 @@ internal sealed class ModSubscriptionRuntime : IDisposable
             clearance.Clear();
             (Source as IDisposable)?.Dispose();
             GitHub?.Dispose();
+            (MowPortal as IDisposable)?.Dispose();
             lifetime.Dispose();
         }
     }

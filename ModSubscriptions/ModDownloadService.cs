@@ -39,7 +39,12 @@ internal sealed class ModDownloadService : IAsyncDisposable
         this.transfer = transfer ?? new(new ModTransferOptions
         {
             Verification = verification, Clearance = clearance,
-            AllowHost = source is GitHubModSource ? GitHubModSource.IsDownloadHost : ModDbParser.IsMirrorHost
+            AllowHost = source.Provider switch
+            {
+                "github" => GitHubModSource.IsDownloadHost,
+                "mowportal" => YandexPublicFileResolver.IsDownloadHost,
+                _ => ModDbParser.IsMirrorHost
+            }
         });
         ownsTransfer = transfer is null;
         this.progress = progress;
@@ -68,7 +73,9 @@ internal sealed class ModDownloadService : IAsyncDisposable
             var subscription = GetSubscription(subscriptionId);
             if (subscription.State != SubscriptionState.Active || subscription.Source.Provider != source.Provider)
                 throw new InvalidOperationException("The subscription is being removed or has another source provider.");
-            _ = subscription.Downloads.Single(item => item.Id == downloadId);
+            var selected = subscription.Downloads.Single(item => item.Id == downloadId);
+            if (!selected.File.CanDownload)
+                throw new InvalidOperationException("The selected file has no supported anonymous download resolver.");
             var job = new Job(subscriptionId, downloadId, cancellationToken, onlyPending);
             if (!jobs.TryAdd(downloadId, job)) throw new InvalidOperationException("The task was already queued.");
             if (!queue.Writer.TryWrite(job))
@@ -189,6 +196,8 @@ internal sealed class ModDownloadService : IAsyncDisposable
                     var resolved = await source.ResolveDownloadAsync(download.File.PageUrl, token).ConfigureAwait(false);
                     if (!resolved.IsSuccess) throw new ModSourceException(resolved.Failure!);
                     var link = resolved.Content!;
+                    if (!link.File.CanDownload)
+                        throw AnonymousModHttpClient.Error(ModSourceError.AccessDenied, "This link no longer supports anonymous downloads.");
                     if (link.File.Id != download.File.Id || link.File.Revision != download.File.Revision ||
                         (download.File.SizeBytes is { } selectedSize && link.File.SizeBytes != selectedSize) ||
                         (download.File.Md5 is { } selectedMd5 && !selectedMd5.Equals(link.File.Md5, StringComparison.OrdinalIgnoreCase)))
@@ -200,6 +209,7 @@ internal sealed class ModDownloadService : IAsyncDisposable
                         SizeBytes = download.File.SizeBytes ?? link.File.SizeBytes,
                         Md5 = download.File.Md5 ?? link.File.Md5,
                         Description = link.File.Description,
+                        Name = link.File.Name,
                         DownloadOnly = download.File.DownloadOnly || link.File.DownloadOnly,
                         IsSourceSnapshot = download.File.IsSourceSnapshot || link.File.IsSourceSnapshot
                     } };

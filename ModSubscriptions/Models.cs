@@ -65,6 +65,8 @@ internal sealed record RemoteModFile
     public DateTimeOffset? UpdatedAt { get; init; }
     public bool IsSourceSnapshot { get; init; }
     public bool DownloadOnly { get; init; }
+    public bool CanDownload { get; init; } = true;
+    public string DownloadUnavailableReason { get; init; } = "";
     // Temporary mirror URLs and account credentials have no place in this model.
 }
 
@@ -73,6 +75,7 @@ internal enum FileNoticeState { Read, Ignored }
 internal sealed record FileAcknowledgement(string FileId, string Revision, FileNoticeState State);
 internal enum FileUpdateKind { NewFile, ChangedFile }
 internal sealed record FileUpdateNotice(RemoteModFile File, FileUpdateKind Kind);
+internal sealed record PageChangeNotice(string Revision, DateTimeOffset DetectedAt);
 
 internal sealed record FileTrackingState
 {
@@ -85,6 +88,10 @@ internal sealed record FileTrackingState
     // Persist the reason for an unread notice, independently of downloads and installed versions.
     // Optional for libraries written before update tracking was implemented.
     public FileUpdateNotice[] Notices { get; init; } = [];
+    // Page/link evidence cannot establish that a new remote file was uploaded.
+    public string PageRevision { get; init; } = "";
+    public string AcknowledgedPageRevision { get; init; } = "";
+    public PageChangeNotice? PageNotice { get; init; }
     [JsonRequired]
     public DateTimeOffset? LastSuccessfulCheck { get; init; }
 }
@@ -149,7 +156,7 @@ internal sealed record OwnedModFile(string RelativePath, long SizeBytes, string 
 
 internal sealed record SubscriptionLibrary
 {
-    internal const int CurrentSchemaVersion = 4;
+    internal const int CurrentSchemaVersion = 5;
     public required int SchemaVersion { get; init; }
     public required long Revision { get; init; }
     public required RemoteMod[] Mods { get; init; }

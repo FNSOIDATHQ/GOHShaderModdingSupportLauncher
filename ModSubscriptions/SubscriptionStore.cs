@@ -109,7 +109,7 @@ internal sealed class SubscriptionStore
                 !document.RootElement.TryGetProperty("schemaVersion", out var schema) ||
                 schema.ValueKind != JsonValueKind.Number || !schema.TryGetInt32(out int version))
                 throw new InvalidDataException("The subscription schema version is missing or invalid.");
-            if (version is not (1 or 2 or 3 or SubscriptionLibrary.CurrentSchemaVersion)) throw new UnsupportedSubscriptionSchemaException(version);
+            if (version is not (1 or 2 or 3 or 4 or SubscriptionLibrary.CurrentSchemaVersion)) throw new UnsupportedSubscriptionSchemaException(version);
             var parsed = JsonSerializer.Deserialize(bytes, SubscriptionJsonContext.Default.SubscriptionLibrary)
                 ?? throw new InvalidDataException("The subscription library is empty.");
             // Schema 1 predates content fingerprints, and schemas 1/2 predate persisted notice kinds.
@@ -134,6 +134,25 @@ internal sealed class SubscriptionStore
                         { OwnedFileDetails = version == 1 ? installation.OwnedFileDetails ?? [] : installation.OwnedFileDetails }).ToArray()!
                     }).ToArray()
                 };
+            // Schema 5 adds anonymous download availability and independent page evidence.
+            // All older providers supported downloading their file candidates; restore that
+            // policy explicitly because generated init setters do not retain absent defaults.
+            if (version <= 4 && parsed.Subscriptions is not null)
+                parsed = parsed with
+                {
+                    Subscriptions = parsed.Subscriptions.Select(subscription => subscription is null ? null! : subscription with
+                    {
+                        Files = subscription.Files is null ? null! : subscription.Files with
+                        {
+                            PageRevision = "", AcknowledgedPageRevision = "", PageNotice = null,
+                            KnownFiles = subscription.Files.KnownFiles?.Select(LegacyFile).ToArray()!,
+                            Notices = subscription.Files.Notices?.Select(notice => notice is null ? null! :
+                                notice with { File = LegacyFile(notice.File) }).ToArray()!
+                        },
+                        Downloads = subscription.Downloads?.Select(download => download is null ? null! :
+                            download with { File = LegacyFile(download.File) }).ToArray()!
+                    }).ToArray()
+                };
             parsed = parsed with { SchemaVersion = SubscriptionLibrary.CurrentSchemaVersion };
             SubscriptionValidation.Library(parsed);
             return parsed;
@@ -146,6 +165,9 @@ internal sealed class SubscriptionStore
 
     private static byte[] Serialize(SubscriptionLibrary value) =>
         JsonSerializer.SerializeToUtf8Bytes(value, SubscriptionJsonContext.Default.SubscriptionLibrary);
+
+    internal static RemoteModFile LegacyFile(RemoteModFile file) => file is null ? null! : file with
+    { CanDownload = true, DownloadUnavailableReason = "" };
 
     internal SubscriptionLibrary Snapshot()
     {
@@ -220,6 +242,8 @@ internal sealed class SubscriptionStore
     internal GameModSubscription Subscribe(ModSourceId source, string gameDirectory, IReadOnlyCollection<RemoteModFile> selectedFiles)
     {
         if (selectedFiles.Count == 0) throw new ArgumentException("Choose at least one file before subscribing.", nameof(selectedFiles));
+        if (selectedFiles.Any(file => file is null || !file.CanDownload))
+            throw new ArgumentException("Only supported anonymous downloads can be selected.", nameof(selectedFiles));
         if (selectedFiles.Select(file => file.Id).Distinct(StringComparer.Ordinal).Count() != selectedFiles.Count)
             throw new ArgumentException("A file may only be selected once.", nameof(selectedFiles));
         string game = SubscriptionPaths.Normalize(gameDirectory);

@@ -31,7 +31,10 @@ internal sealed record ModFileHints(ModFileHint[] Items)
     // RSS can be truncated and is never an initial baseline or evidence that an old file disappeared.
     public bool IsCompleteSnapshot => false;
 }
-internal sealed record ModFileSnapshot(RemoteModFile[] Files);
+internal sealed record ModFileSnapshot(RemoteModFile[] Files)
+{
+    public string PageRevision { get; init; } = "";
+}
 
 // Short lived, deliberately excluded from every persistence/JSON context.
 internal sealed record ModDownloadLink(RemoteModFile File, Uri DownloadUrl, DateTimeOffset ResolvedAt);

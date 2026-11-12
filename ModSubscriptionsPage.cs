@@ -75,7 +75,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
         var root = new Grid { Margin = new Thickness(12), RowDefinitions = new("Auto,Auto,Auto,Auto,*") };
         var toolbar = new WrapPanel { Orientation = Orientation.Horizontal, ItemSpacing = 6, LineSpacing = 6 };
         view = new ComboBox { Name = "subscriptionView", ItemsSource = new[] { T("Browse"), T("Subscribed"), T("Favorites"), T("Updates") }, SelectedIndex = 0, MinWidth = 135 };
-        source = new ComboBox { Name = "subscriptionSource", ItemsSource = new[] { "ModDB", "GitHub" }, SelectedIndex = sourceIndex, MinWidth = 90 };
+        source = new ComboBox { Name = "subscriptionSource", ItemsSource = new[] { "ModDB", "GitHub", "Mow Portal" }, SelectedIndex = sourceIndex, MinWidth = 90 };
         keyword = new TextBox { Name = "subscriptionSearch", PlaceholderText = T("Search"), MaxLength = 50, Width = 170 };
         sort = new ComboBox { ItemsSource = new[] { T("Updated"), T("Newest"), T("Popular"), T("Name") }, SelectedIndex = 0 };
         UpdateSortOptions();
@@ -86,7 +86,11 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
         toolbar.Children.Add(previous); toolbar.Children.Add(next);
         toolbar.Children.Add(Action(T("Check"), CheckAsync));
         root.Children.Add(toolbar);
-        var github = BuildGitHubOptions(); Grid.SetRow(github, 1); root.Children.Add(github);
+        var options = Column();
+        var github = BuildGitHubOptions(); options.Children.Add(github);
+        var mow = Text(T("MowPortalHint")); mow.Name = "subscriptionMowPortalHint";
+        mow.IsVisible = source.SelectedIndex == 2; options.Children.Add(mow);
+        Grid.SetRow(options, 1); root.Children.Add(options);
         status = Text(T("Ready")); status.Name = "subscriptionStatus";
         status.Margin = new Thickness(0, 8); Grid.SetRow(status, 2); root.Children.Add(status);
         var verification = Column();
@@ -158,6 +162,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
         source.SelectionChanged += (_, _) =>
         {
             github.IsVisible = source.SelectedIndex == 1;
+            mow.IsVisible = source.SelectedIndex == 2;
             UpdateSortOptions();
             if (rebuilding || !active) return;
             browsePage = 1; browseItems = []; hasNext = false;
@@ -277,7 +282,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
         {
             1 => subscribed.Any(sub => sub.Source == mod.Id),
             2 => library.Favorites.Any(favorite => favorite.Source == mod.Id),
-            3 => subscribed.Any(sub => sub.Source == mod.Id && ModUpdateCheckService.GetNotices(sub).Length > 0),
+            3 => subscribed.Any(sub => sub.Source == mod.Id && UpdateCount(sub) > 0),
             _ => false
         })).Where(mod => mod.Title.Contains(keyword.Text ?? "", StringComparison.OrdinalIgnoreCase)).ToArray();
     }
@@ -298,7 +303,9 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
             (Mod.Id.Provider == "github" ? " · " + T("Kind_" + Mod.Kind) : "") +
             (Count > 0 ? " · " + T("Updates") + $" ({Count})" : "");
     }
-    private int NoticeCount(RemoteMod mod) => Subscription(mod) is { } sub ? ModUpdateCheckService.GetNotices(sub).Length : 0;
+    private int NoticeCount(RemoteMod mod) => Subscription(mod) is { } sub ? UpdateCount(sub) : 0;
+    private static int UpdateCount(GameModSubscription subscription) => ModUpdateCheckService.GetNotices(subscription).Length +
+        (ModUpdateCheckService.GetPageNotice(subscription) is null ? 0 : 1);
     private GameModSubscription? Subscription(RemoteMod? mod = null) => runtime is not null && (mod ?? selected) is { } item && main.SubscriptionGameDirectory is { } game
         ? runtime.Library.Subscriptions.SingleOrDefault(sub => sub.Source == item.Id && sub.GameDirectory.Equals(game, SubscriptionPaths.Comparison)) : null;
 
@@ -399,7 +406,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
         favorite.Content = selected is { } mod && runtime.Library.Favorites.Any(f => f.Source == mod.Id) ? T("Unfavorite") : T("Favorite");
         var sub = Subscription();
         tracking.Text = sub is null ? "" : T("LastCheck") + ": " + (sub.Files.LastSuccessfulCheck?.ToLocalTime().ToString("g") ?? T("Never")) +
-            " · " + T("Updates") + $": {ModUpdateCheckService.GetNotices(sub).Length}" +
+            " · " + T("Updates") + $": {UpdateCount(sub)}" +
             (sub.State != SubscriptionState.Active ? " · " + T("RemovalPending") : "");
         if (runtime.Error is { } error) status.Text = T("Failed") + ": " + error;
     }

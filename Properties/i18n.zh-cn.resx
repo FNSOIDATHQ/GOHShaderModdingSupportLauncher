@@ -571,7 +571,7 @@
   <data name="MS_Browse" xml:space="preserve"><value>浏览</value></data>
   <data name="MS_Subscribed" xml:space="preserve"><value>已订阅</value></data>
   <data name="MS_Favorites" xml:space="preserve"><value>收藏</value></data>
-  <data name="MS_Updates" xml:space="preserve"><value>有新文件</value></data>
+  <data name="MS_Updates" xml:space="preserve"><value>更新提示</value></data>
   <data name="MS_Search" xml:space="preserve"><value>搜索</value></data>
   <data name="MS_Updated" xml:space="preserve"><value>最近更新</value></data>
   <data name="MS_Newest" xml:space="preserve"><value>最新发布</value></data>
@@ -602,7 +602,7 @@
   <data name="MS_LoadImages" xml:space="preserve"><value>读取图片</value></data>
   <data name="MS_LoadFiles" xml:space="preserve"><value>读取文件列表</value></data>
   <data name="MS_CheckFailed" xml:space="preserve"><value>检查失败；已保留原文件快照和更新提示。</value></data>
-  <data name="MS_Checked" xml:space="preserve"><value>检查完成。新增与变更文件需要您主动选择下载。</value></data>
+  <data name="MS_Checked" xml:space="preserve"><value>检查完成。请查看更新提示，并主动选择需要下载的文件。</value></data>
   <data name="MS_LastCheck" xml:space="preserve"><value>上次成功检查</value></data>
   <data name="MS_Never" xml:space="preserve"><value>尚未检查</value></data>
   <data name="MS_RemovalPending" xml:space="preserve"><value>清理尚未完成；请重试恢复后继续。</value></data>
@@ -702,4 +702,7 @@
   <data name="MS_SourceSnapshot" xml:space="preserve"><value>源码快照已固定到 commit SHA，可能需要构建或生成资源；启动器不会执行构建或生成器。</value></data>
   <data name="MS_GitHubDownloadOnly" xml:space="preserve"><value>此文件仅供下载后手动使用，不提供标准 Mod 安装。</value></data>
   <data name="MS_RetryAfter" xml:space="preserve"><value>可重试时间</value></data>
+  <data name="MS_MowPortalHint" xml:space="preserve"><value>浏览 Mow Portal 的《地狱之门》页面、版本说明、图片和公开下载链接。搜索只筛选当前分类页，可翻页继续查找。目前仅支持匿名下载 Yandex 公开文件，其他网盘保留原网页入口。</value></data>
+  <data name="MS_PageOrLinkChanged" xml:space="preserve"><value>页面或下载链接发生变化，待确认。这不表示已确认上传新文件或修改了文件内容。</value></data>
+  <data name="MS_DownloadUnavailable" xml:space="preserve"><value>此链接暂不支持匿名下载。可查看公开原网页；启动器不提供账户登录。</value></data>
 </root>

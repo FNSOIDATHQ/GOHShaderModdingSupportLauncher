@@ -171,6 +171,7 @@ public sealed partial class ModSubscriptionsPage
         var chosen = fileChoices.Where(pair => pair.Value.IsChecked == true).Select(pair => (pair.Key.Id, pair.Key.Revision)).ToHashSet();
         files.Children.Clear(); fileChoices.Clear();
         files.Children.Add(Text(T("InstallBoundary")));
+        AddPageNotice(mod, token);
         if (snapshot is null) return;
         if (snapshot.Files.Length == 0) files.Children.Add(Text(T("Empty")));
         var notices = Subscription(mod) is { } subscription ? ModUpdateCheckService.GetNotices(subscription) : [];
@@ -180,14 +181,20 @@ public sealed partial class ModSubscriptionsPage
         {
             var row = Column();
             var notice = notices.SingleOrDefault(item => item.File.Id == file.Id && item.File.Revision == file.Revision);
-            bool available = snapshot.Files.Any(current => current.Id == file.Id && current.Revision == file.Revision);
+            bool present = snapshot.Files.Any(current => current.Id == file.Id && current.Revision == file.Revision);
+            bool available = present && file.CanDownload;
             var choice = new CheckBox { IsEnabled = available, IsChecked = available && chosen.Contains((file.Id, file.Revision)),
                 Content = file.Name + " · " + FormatBytes(file.SizeBytes) + (notice is null ? "" : " · " + T(notice.Kind == FileUpdateKind.NewFile ? "NewFile" : "ChangedFile")) };
             fileChoices.Add(file, choice); row.Children.Add(choice);
             if (file.IsSourceSnapshot) row.Children.Add(Text(T("SourceSnapshot")));
             if (file.DownloadOnly) row.Children.Add(Text(T("GitHubDownloadOnly")));
             AddReadable(row, file.Description);
-            if (!available) row.Children.Add(Text(T("FileUnavailable")));
+            if (!present) row.Children.Add(Text(T("FileUnavailable")));
+            else if (!file.CanDownload)
+            {
+                row.Children.Add(Text(T("DownloadUnavailable")));
+                if (!string.IsNullOrWhiteSpace(file.DownloadUnavailableReason)) row.Children.Add(Text(file.DownloadUnavailableReason));
+            }
             var actions = Row();
             actions.Children.Add(Action(T("Original"), () =>
             {
@@ -214,7 +221,7 @@ public sealed partial class ModSubscriptionsPage
     {
         string? game = main.SubscriptionGameDirectory;
         if (game is null) { status.Text = T("SelectGame"); return; }
-        var chosen = fileChoices.Where(pair => pair.Value.IsChecked == true).Select(pair => pair.Key).ToArray();
+        var chosen = fileChoices.Where(pair => pair.Value.IsEnabled && pair.Value.IsChecked == true && pair.Key.CanDownload).Select(pair => pair.Key).ToArray();
         if (chosen.Length == 0) { status.Text = T("ChooseFiles"); return; }
         await runtime!.EnsureRecoveredAsync(game, token);
         token.ThrowIfCancellationRequested();
@@ -226,7 +233,8 @@ public sealed partial class ModSubscriptionsPage
             var subscribed = runtime.Store.Subscribe(mod.Id, game, chosen);
             if (!subscribed.Files.HasBaseline && baseline is not null)
                 runtime.Store.ChangeFileTracking(subscribed.Id, previous => previous.HasBaseline ? previous : new FileTrackingState
-                { HasBaseline = true, KnownFiles = baseline.Files, LastSuccessfulCheck = DateTimeOffset.UtcNow });
+                { HasBaseline = true, KnownFiles = baseline.Files, PageRevision = baseline.PageRevision,
+                    AcknowledgedPageRevision = baseline.PageRevision, LastSuccessfulCheck = DateTimeOffset.UtcNow });
             return subscribed;
         }, token);
         await runtime.RefreshLibraryAsync(token);

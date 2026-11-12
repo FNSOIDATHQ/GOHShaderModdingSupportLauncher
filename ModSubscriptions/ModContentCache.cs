@@ -29,7 +29,7 @@ internal sealed class ModContentCache(string? directory = null)
             using var stream = new FileStream(PathFor(key), FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
             if (stream.Length > MaxEntryBytes) return null;
             var value = JsonSerializer.Deserialize(stream, type);
-            if (value is not { Version: 1, Content: not null } || value.Key != key) return null;
+            if (value is not { Version: 1 or 2, Content: not null } || value.Key != key) return null;
             // Version-one caches predate GitHub policy metadata. Missing init-only strings
             // deserialize as null, so retain old offline content with the new field's default.
             T content = value.Content switch
@@ -42,6 +42,14 @@ internal sealed class ModContentCache(string? directory = null)
                 }),
                 _ => value.Content
             };
+            if (value.Version == 1)
+                content = content switch
+                {
+                    RemoteModFile file => (T)(object)SubscriptionStore.LegacyFile(file),
+                    ModFileSnapshot snapshot when snapshot.Files is not null => (T)(object)(snapshot with
+                    { Files = snapshot.Files.Select(SubscriptionStore.LegacyFile).ToArray(), PageRevision = "" }),
+                    _ => content
+                };
             return value with { Content = content };
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException) { return null; }
@@ -55,7 +63,7 @@ internal sealed class ModContentCache(string? directory = null)
         {
             byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(new CachedModContent<T>
             {
-                Version = 1, Key = key, FetchedAt = fetchedAt, Content = content
+                Version = 2, Key = key, FetchedAt = fetchedAt, Content = content
             }, type);
             if (bytes.Length > MaxEntryBytes) return "The content is too large for the offline cache.";
             Directory.CreateDirectory(directory);

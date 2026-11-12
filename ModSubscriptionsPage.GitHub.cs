@@ -9,10 +9,10 @@ public sealed partial class ModSubscriptionsPage
     private TextBox githubTopics = null!, githubRepository = null!;
     private ComboBox githubMatch = null!;
     private TextBlock githubSettingsStatus = null!;
-    private string SelectedProvider => source.SelectedIndex == 1 ? "github" : "moddb";
+    private string SelectedProvider => source.SelectedIndex switch { 1 => "github", 2 => "mowportal", _ => "moddb" };
 
     private static string ProviderName(string provider) => provider switch
-    { "moddb" => "ModDB", "github" => "GitHub", _ => provider };
+    { "moddb" => "ModDB", "github" => "GitHub", "mowportal" => "Mow Portal", _ => provider };
 
     private IModSource SourceForProvider(string provider) => runtime!.ResolveSource(provider)
         ?? throw new InvalidOperationException(T("UnsupportedSource"));
@@ -21,8 +21,10 @@ public sealed partial class ModSubscriptionsPage
     {
         int selection = Math.Max(0, sort.SelectedIndex);
         sort.ItemsSource = new object[] { T("Updated"),
-            new ComboBoxItem { Content = T("Newest"), IsEnabled = source.SelectedIndex != 1 }, T("Popular"), T("Name") };
-        sort.SelectedIndex = source.SelectedIndex == 1 && selection == 1 ? 0 : selection;
+            new ComboBoxItem { Content = T("Newest"), IsEnabled = source.SelectedIndex == 0 },
+            new ComboBoxItem { Content = T("Popular"), IsEnabled = source.SelectedIndex != 2 },
+            new ComboBoxItem { Content = T("Name"), IsEnabled = source.SelectedIndex != 2 } };
+        sort.SelectedIndex = source.SelectedIndex == 2 || source.SelectedIndex == 1 && selection == 1 ? 0 : selection;
     }
 
     private Control BuildGitHubOptions()
@@ -111,6 +113,7 @@ public sealed partial class ModSubscriptionsPage
             summary.Children.Add(Text(T("ProjectType") + ": " + T("Kind_" + mod.Kind)));
             summary.Children.Add(Text(T("GitHubInstallHint")));
         }
+        if (mod.Id.Provider == "mowportal") summary.Children.Add(Text(T("MowPortalHint")));
         AddReadable(summary, mod.Summary);
     }
 }
