@@ -9,7 +9,7 @@ namespace GOHShaderModdingSupportLauncher;
 
 public sealed partial class ModSubscriptionsPage
 {
-    private sealed record ReadingContext(string Kind, Uri Url);
+    private sealed record ReadingContext(string Kind, Uri Url, string? GalleryKey = null);
     private sealed record ExpandedImage(ModImage Image, ReadingContext? ReturnContext);
     private Button original = null!, linkBack = null!;
     private WrapPanel detailActions = null!, verificationActions = null!;

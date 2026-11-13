@@ -10,7 +10,7 @@ public sealed partial class ModSubscriptionsPage
     private int linkGeneration;
     private sealed record LinkLocation(ReadingSession? Session, int Source, int View, int Sort, int Page, string Query,
         string AppliedQuery, RemoteMod[] Items, bool HasNext, bool Fresh, bool ListOnly, int Tab, Uri? Article, string? File,
-        ReadingContext? Context, ExpandedImage? Image, Vector Reading, Vector FileReading, Vector Articles, Vector Files, double Gallery, bool FileNavigationOnly);
+        ReadingContext? Context, ExpandedImage? Image, Vector Reading, Vector FileReading, Vector Articles, Vector Files, double Gallery, string? GallerySelection, bool FileNavigationOnly);
     private readonly List<LinkLocation> linkHistory = [];
     private sealed class PreparedLink(ModPageRoute route)
     {
@@ -42,7 +42,8 @@ public sealed partial class ModSubscriptionsPage
         linkHistory.Add(new(session, source.SelectedIndex, view.SelectedIndex, sort.SelectedIndex, browsePage, keyword.Text ?? "",
             appliedKeyword, browseItems, hasNext, listFresh, listOnly, details.SelectedIndex, session?.Article, session?.File,
             session?.Context, details.SelectedIndex == 0 ? session?.DescriptionImage : session?.FileImage,
-            readingScroll.Offset, fileScroll.Offset, articleScroll.Offset, fileNavigationScroll.Offset, galleryScroll?.Offset.X ?? 0, session?.FileNavigationOnly ?? false));
+            readingScroll.Offset, fileScroll.Offset, articleScroll.Offset, fileNavigationScroll.Offset, galleryScroll?.Offset.X ?? 0,
+            session?.GallerySelections.GetValueOrDefault(ReadingKey), session?.FileNavigationOnly ?? false));
         UpdateOriginal();
     }
 
@@ -218,6 +219,8 @@ public sealed partial class ModSubscriptionsPage
         if (session is { } current)
         {
             current.Tab = location.Tab; current.Article = location.Article; current.File = location.File;
+            if (location.GallerySelection is { } key) current.GallerySelections[ReadingKey] = key;
+            current.GalleryPositions[ReadingKey] = location.Gallery;
             current.Context = location.Context; current.FileNavigationOnly = location.FileNavigationOnly;
             current.DescriptionImage = null; current.FileImage = null;
             title.Text = current.Mod.Title;

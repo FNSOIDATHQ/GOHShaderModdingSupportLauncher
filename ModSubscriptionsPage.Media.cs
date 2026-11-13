@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using GOHShaderModdingSupportLauncher.ModSubscriptions;
@@ -89,22 +90,55 @@ public sealed partial class ModSubscriptionsPage
     {
         var owner = session;
         bool attached = true;
+        var thumbnail = image.ThumbnailUrl ?? image.ImageUrl;
+        var preferredPreview = embedded ? thumbnail : ModImagePreview.For(thumbnail, owner?.Mod.Id.Provider ?? "");
+        var preview = preferredPreview;
         var panel = Column();
         panel.Focusable = true;
         BindReadingContext(panel, new("image", reference?.PageUrl ?? image.PageUrl ?? image.ImageUrl));
-        var picture = new Image { Height = embedded ? double.NaN : 160, MinHeight = 160, MaxHeight = embedded ? 600 : 160,
-            MaxWidth = embedded ? 1600 : 360, Stretch = Stretch.Uniform, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch };
+        string key = GalleryKey(image, reference);
+        var caption = image.Caption.Length == 0 ? T("ViewImage") : image.Caption;
+        Avalonia.Automation.AutomationProperties.SetName(panel, caption);
+        var picture = new Image { MinHeight = embedded ? 160 : 0, MaxHeight = embedded ? 600 : 260,
+            MaxWidth = embedded ? 1600 : 520, Stretch = Stretch.Uniform, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch };
         // Image arranges to its drawn size, which can be zero while Source is absent.
         // Observe a stable frame so a released/offscreen image can become visible again.
-        var frame = new Border { Child = picture, MinHeight = 160, Height = embedded ? double.NaN : 160,
-            MaxWidth = embedded ? 1600 : 360, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch };
-        var message = Text(image.Caption, 12);
-        panel.Children.Add(frame); panel.Children.Add(message);
-        var caption = image.Caption.Length == 0 ? T("ViewImage") : image.Caption;
-        var open = Action(T("ViewImage") + " · " + caption, OpenImageAsync, independent: true);
-        BindReadingContext(open, new("image", reference?.PageUrl ?? image.PageUrl ?? image.ImageUrl));
-        open.Content = Text(T("ViewImage")); ToolTip.SetTip(open, caption); panel.Children.Add(open);
-        message.MaxLines = embedded ? 4 : 2; message.TextTrimming = TextTrimming.CharacterEllipsis; ToolTip.SetTip(message, image.Caption);
+        var frame = new Border { Child = picture, MinHeight = embedded ? 160 : 0,
+            BorderThickness = new Thickness(embedded ? 0 : 2), BorderBrush = Brushes.Transparent, Background = Brushes.Transparent,
+            Cursor = new Cursor(StandardCursorType.Hand),
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch };
+        panel.Children.Add(frame);
+        void SizeGallery(Size pixels)
+        {
+            var size = GalleryImageSize(pixels);
+            frame.Width = size.Width + 4; frame.Height = size.Height + 4;
+        }
+        if (!embedded)
+        {
+            panel.Name = "subscriptionGalleryTile"; panel.Tag = key; panel.Spacing = 0;
+            panel.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center;
+            SizeGallery(owner?.ImageSizes.GetValueOrDefault(key, new Size(260, 260)) ?? new Size(260, 260));
+            panel.GotFocus += (_, args) => { if (args.Source == panel && owner == session && attached) SelectGalleryImage(key); };
+            panel.PointerPressed += (_, args) =>
+            {
+                if (!args.GetCurrentPoint(panel).Properties.IsLeftButtonPressed || owner != session || !attached) return;
+                SelectGalleryImage(key); panel.Focus(NavigationMethod.Pointer); args.Handled = true;
+            };
+            panel.KeyDown += async (_, args) => { if (owner == session && attached) await GalleryKeyDownAsync(key, args); };
+        }
+        else
+        {
+            frame.PointerReleased += async (_, args) =>
+            {
+                if (args.InitialPressMouseButton != MouseButton.Left) return;
+                args.Handled = true; await ExecuteAsync(OpenImageAsync);
+            };
+            panel.KeyDown += async (_, args) =>
+            {
+                if (args.Key is not (Key.Enter or Key.Space)) return;
+                args.Handled = true; await ExecuteAsync(OpenImageAsync);
+            };
+        }
         async Task OpenImageAsync()
         {
             var expected = owner;
@@ -119,22 +153,41 @@ public sealed partial class ModSubscriptionsPage
         CancellationTokenSource? tileCancellation = null;
         async Task LoadThumbnail()
         {
-            if (loading || picture.Source is not null && MediaFresh(image.ThumbnailUrl ?? image.ImageUrl) || owner is null || session != owner ||
+            if (loading || picture.Source is not null && MediaFresh(preview) || owner is null || session != owner ||
                 !attached) return;
+            // Reuse a successful fallback while cached; refresh the preferred size once it expires.
+            if (preview != preferredPreview && !MediaFresh(preview)) preview = preferredPreview;
             var expected = owner;
             loading = true;
             var cancellation = tileCancellation = CancellationTokenSource.CreateLinkedTokenSource(DetailToken);
             var token = cancellation.Token;
             Bitmap? bitmap = null;
-            var progress = BeginStatus("thumbnail:" + (image.ThumbnailUrl ?? image.ImageUrl), "Media", caption);
+            var progress = BeginStatus("thumbnail:" + thumbnail, "Media", caption);
             var retry = MediaRetry();
             try
             {
-                bitmap = await FetchBitmapAsync(image.ThumbnailUrl ?? image.ImageUrl, embedded ? 1200 : 360, token);
+                try
+                {
+                    bitmap = await FetchMediaBitmapAsync(preview, embedded ? 1200 : 780,
+                        embedded ? ModMediaOperation.Original : ModMediaOperation.Thumbnail, token);
+                }
+                catch (ModSourceException ex) when (preview != thumbnail && ex.Failure.Kind is
+                    ModSourceError.NotFound or ModSourceError.ParseFailed or ModSourceError.RequestFailed or ModSourceError.Timeout or ModSourceError.Offline)
+                {
+                    // Do not retry another address for verification, access denial or rate limiting.
+                    token.ThrowIfCancellationRequested();
+                    bitmap = await FetchMediaBitmapAsync(thumbnail, 780, ModMediaOperation.Thumbnail, token);
+                    preview = thumbnail;
+                }
                 if (!IsCurrent(expected, token) || !attached) return;
                 var previous = picture.Source as Bitmap;
                 picture.Source = bitmap; bitmap = null;
                 previous?.Dispose();
+                if (!embedded)
+                {
+                    var pixels = new Size(((Bitmap)picture.Source).PixelSize.Width, ((Bitmap)picture.Source).PixelSize.Height);
+                    expected.ImageSizes[key] = pixels; SizeGallery(pixels);
+                }
                 EndStatus(progress, ModPageOperationState.Succeeded);
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested) { EndStatus(progress, ModPageOperationState.Cancelled); }
@@ -156,7 +209,7 @@ public sealed partial class ModSubscriptionsPage
         visibleMediaRefresh.Add(RefreshTile);
         frame.EffectiveViewportChanged += async (_, args) =>
         {
-            visible = new Rect(frame.Bounds.Size).Intersects(args.EffectiveViewport);
+            visible = attached && frame.IsEffectivelyVisible && new Rect(frame.Bounds.Size).Intersects(args.EffectiveViewport);
             if (visible && !disposed) await LoadThumbnail();
             else
             {
@@ -164,6 +217,7 @@ public sealed partial class ModSubscriptionsPage
                 if (picture.Source is Bitmap owned) { picture.Source = null; owned.Dispose(); }
             }
         };
+        panel.AttachedToVisualTree += (_, _) => { attached = true; visibleMediaRefresh.Add(RefreshTile); };
         panel.DetachedFromVisualTree += (_, _) =>
         {
             visible = false; attached = false; visibleMediaRefresh.Remove(RefreshTile);
@@ -173,9 +227,11 @@ public sealed partial class ModSubscriptionsPage
         return panel;
     }
 
-    private async Task<Bitmap> FetchBitmapAsync(Uri url, int width, CancellationToken token)
+    private Task<Bitmap> FetchBitmapAsync(Uri url, int width, CancellationToken token) =>
+        FetchMediaBitmapAsync(url, width, width <= 360 ? ModMediaOperation.Thumbnail : ModMediaOperation.Original, token);
+
+    private async Task<Bitmap> FetchMediaBitmapAsync(Uri url, int width, ModMediaOperation operation, CancellationToken token)
     {
-        var operation = width <= 360 ? ModMediaOperation.Thumbnail : ModMediaOperation.Original;
         string provider = session?.Mod.Id.Provider ?? "moddb";
         if (!ModImageClient.IsAllowed(url, url, provider))
             throw new ModSourceException(new(ModSourceError.AccessDenied, "The image address is not supported.", DiagnosticKind: ModHttpFailureKind.RedirectRejected));
@@ -248,9 +304,9 @@ public sealed partial class ModSubscriptionsPage
         panel.Children.Add(Action(T("BackToReading"), () =>
         {
             readerGeneration++; expandedMediaRefresh = null;
+            SetReadingContext(returnContext);
             if (inFiles) { expected.FileImage = null; fileImageExpanded = false; RenderSelectedFile(); }
             else { expected.DescriptionImage = null; imageExpanded = false; renderedSession = null; RenderReading(); }
-            SetReadingContext(returnContext);
             return Task.CompletedTask;
         }, independent: true));
         var target = inFiles ? fileReader : reading;

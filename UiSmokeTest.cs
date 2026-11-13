@@ -394,6 +394,13 @@ internal static class UiSmokeTest
         }
         catch (ModSourceException ex) when (ex.Failure.DiagnosticKind == ModHttpFailureKind.ImageDecode) { }
         AppDiagnostics.Log("Subscription media self-test passed: thumbnail/full decoding and invalid raster rejection.");
+        var small = new Uri("https://media.moddb.com/cache/images/mods/1/52/51506/crop_120x90/example.png");
+        var preview = ModImagePreview.For(small, "moddb");
+        if (preview.AbsoluteUri != "https://media.moddb.com/cache/images/mods/1/52/51506/thumb_620x2000/example.png" ||
+            ModImagePreview.For(small, "github") != small || ModImagePreview.For(preview, "moddb") != preview ||
+            ModImagePreview.For(new("https://example.org/cache/images/mods/1/52/51506/crop_120x90/example.png"), "moddb").Host != "example.org")
+            throw new InvalidOperationException("Subscription ModDB preview selection changed unsupported media addresses.");
+        AppDiagnostics.Log("ModDB preview self-test passed: larger uncropped previews with source and host isolation.");
     }
 
     private static void CheckSubscriptionDocument(ModSubscriptionsPage page)
@@ -409,6 +416,14 @@ internal static class UiSmokeTest
             !panel.Children[2].GetLogicalDescendants().OfType<HyperlinkButton>().Any())
             throw new InvalidOperationException("Ordered subscription document serialization or rendering failed.");
         AppDiagnostics.Log("Subscription document self-test passed: source-generated JSON, paragraph/image order and inline links.");
+        var inline = panel.Children[1];
+        if (inline.GetLogicalDescendants().OfType<TextBlock>().Any(text => text.Text?.Contains("Caption") == true) ||
+            inline.GetLogicalDescendants().OfType<Button>().Any() ||
+            Avalonia.Automation.AutomationProperties.GetName(inline) != "Caption" || ToolTip.GetTip(inline) is not null ||
+            ModSubscriptionsPage.GalleryImageSize(new Size(800, 1600)) != new Size(130, 260) ||
+            ModSubscriptionsPage.GalleryImageSize(new Size(4000, 1000)) != new Size(520, 130))
+            throw new InvalidOperationException("Subscription image captions or proportional gallery sizing failed.");
+        AppDiagnostics.Log("Subscription gallery self-test passed: accessible image names without generated captions or tile buttons, proportional portrait/wide sizing.");
         var anchored = GitHubParser.ReadmeDocument("## Install guide\n\n[Jump](#install-guide)", new("https://github.com/example/mod"), "main", "README.md");
         string anchorJson = System.Text.Json.JsonSerializer.Serialize(anchored, ModContentJsonContext.Default.ModReadingDocument);
         var anchorCopy = System.Text.Json.JsonSerializer.Deserialize(anchorJson, ModContentJsonContext.Default.ModReadingDocument)!;

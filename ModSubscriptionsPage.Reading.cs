@@ -31,6 +31,8 @@ public sealed partial class ModSubscriptionsPage
         internal readonly ContentState<ModFileSnapshot> Files = new() { Label = "Files" };
         internal readonly Dictionary<string, Vector> Positions = [];
         internal readonly Dictionary<string, double> GalleryPositions = [];
+        internal readonly Dictionary<string, string> GallerySelections = [];
+        internal readonly Dictionary<string, Size> ImageSizes = [];
         internal readonly HashSet<(string, string)> Chosen = [];
         internal readonly Dictionary<string, Vector> FilePositions = [];
         internal string? File;

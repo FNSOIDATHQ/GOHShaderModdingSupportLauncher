@@ -86,10 +86,10 @@ internal static class ModSourceDiagnostics
                 if (!Report("image page", image)) return 1;
                 foreach (bool original in new[] { false, true })
                 {
-                    var url = original ? image.Content!.ImageUrl : image.Content!.ThumbnailUrl ?? image.Content.ImageUrl;
+                    var url = original ? image.Content!.ImageUrl : ModImagePreview.For(gallery.Content.Items[0].ThumbnailUrl, "moddb");
                     var operation = original ? ModMediaOperation.Original : ModMediaOperation.Thumbnail;
                     var payload = await media.GetAsync(url, "moddb", operation, timeout.Token).ConfigureAwait(false);
-                    using var bitmap = ModImageDecoder.Decode(payload, original ? 1600 : 360, operation, timeout.Token, Log);
+                    using var bitmap = ModImageDecoder.Decode(payload, original ? 1600 : 780, operation, timeout.Token, Log);
                     AppDiagnostics.Log($"ModDB decoded image: sample={slug}, media={operation}, pixels={bitmap.PixelSize.Width}x{bitmap.PixelSize.Height}.");
                 }
                 if (gallery.Content.NextPage is { } next)

@@ -128,7 +128,15 @@ public sealed partial class ModSubscriptionsPage
             }
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { }
-        finally { if (generation == refreshGeneration) refreshingNavigation = false; }
+        finally
+        {
+            if (generation == refreshGeneration)
+            {
+                refreshingNavigation = false;
+                // Reconcile selection only after the refreshed gallery page chain is complete.
+                if (expected is not null && IsCurrent(expected, token)) RenderReading();
+            }
+        }
     }
 
     private async Task RefreshNavigationAsync<TItem>(ReadingSession expected, Dictionary<Uri, ContentState<ModSourcePage<TItem>>> pages,
