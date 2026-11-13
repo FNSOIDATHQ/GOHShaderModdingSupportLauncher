@@ -19,8 +19,8 @@ public sealed partial class ModSubscriptionsPage
     private void SaveFileReadingPosition()
     {
         if (session is not { } current || renderedFileSession != current) return;
-        current.FileNavigationPosition = fileNavigationScroll.Offset;
-        if (fileImageExpanded || !fileContent.IsVisible || renderedFileKey is null) return;
+        if (fileNavigationScroll.IsVisible) current.FileNavigationPosition = fileNavigationScroll.Offset;
+        if (fileImageExpanded || !fileContent.IsVisible || !fileReadingSurface.IsVisible || renderedFileKey is null) return;
         current.FilePosition = fileScroll.Offset;
         current.FilePositions[renderedFileKey] = fileScroll.Offset;
     }
@@ -31,7 +31,7 @@ public sealed partial class ModSubscriptionsPage
         int generation = fileGeneration;
         Dispatcher.UIThread.Post(() =>
         {
-            if (disposed || session != expected || generation != fileGeneration || !fileContent.IsVisible || fileImageExpanded) return;
+            if (disposed || session != expected || generation != fileGeneration || !fileContent.IsVisible || !fileReadingSurface.IsVisible || fileImageExpanded) return;
             fileScroll.Offset = position;
         }, DispatcherPriority.Loaded);
     }
@@ -48,7 +48,7 @@ public sealed partial class ModSubscriptionsPage
             if (removed > 0) ReportNotice(string.Format(T("FileChoicesChanged"), removed), key: "fileChoices", attention: true);
         }
         current.Chosen.Clear(); current.Chosen.UnionWith(chosen);
-        var navigationPosition = renderedFileSession == current ? fileNavigationScroll.Offset : current.FileNavigationPosition;
+        var navigationPosition = renderedFileSession == current && fileNavigationScroll.IsVisible ? fileNavigationScroll.Offset : current.FileNavigationPosition;
         files.Children.Clear(); fileChoices.Clear(); fileNotice.Children.Clear();
         AddPageNotice(mod, token);
         var subscription = Subscription(mod);
@@ -80,15 +80,37 @@ public sealed partial class ModSubscriptionsPage
             previousGroup = entry.Group?.Id;
             var row = new Grid { ColumnDefinitions = new("Auto,*") };
             var file = entry.File;
-            string caption = file?.Name ?? entry.Group!.Title;
-            string metadata = file is null ? T("ReleaseWithoutFiles") : FileMetadata(file);
+            var presentation = file is null ? null : ModFilePresentation.From(file, mod.Id.Provider);
+            string caption = presentation?.Title ?? entry.Group!.Title;
+            var label = Column(); label.Spacing = 2;
+            var name = Text(caption); name.Name = "subscriptionFileName";
+            name.TextWrapping = TextWrapping.NoWrap; name.TextTrimming = TextTrimming.CharacterEllipsis; name.MaxLines = 1;
+            label.Children.Add(name);
+            if ((file?.PublishedAt ?? file?.UpdatedAt ?? (file is null ? entry.Group?.PublishedAt : null)) is { } date)
+            {
+                var dateLabel = Text(date.ToLocalTime().ToString("d"), 12); dateLabel.Name = "subscriptionFileDate"; label.Children.Add(dateLabel);
+            }
+            if (file?.SizeBytes is { } size)
+            {
+                var sizeLabel = Text(FormatBytes(size), 12); sizeLabel.Name = "subscriptionFileSize"; label.Children.Add(sizeLabel);
+            }
+            if (presentation?.Host is { } host)
+            {
+                var hostLabel = Text(string.Format(T("FileDownloadHost"), host), 12); hostLabel.Name = "subscriptionFileHost"; label.Children.Add(hostLabel);
+            }
+            if (file is null) label.Children.Add(Text(T("ReleaseWithoutFiles"), 12));
             if (file is not null && notices.FirstOrDefault(item => item.File.Id == file.Id && item.File.Revision == file.Revision) is { } notice)
-                metadata += " · " + T(notice.Kind == FileUpdateKind.NewFile ? "NewFile" : "ChangedFile");
-            var label = Column(); label.Spacing = 2; label.Children.Add(Text(caption)); label.Children.Add(Text(metadata, 12));
-            var button = Action(caption, () => { SelectFile(entry.Key); return Task.CompletedTask; }, independent: true);
+            {
+                var badge = Text(T(notice.Kind == FileUpdateKind.NewFile ? "NewFile" : "ChangedFile"), 12);
+                badge.Name = "subscriptionFileNotice"; badge.FontWeight = FontWeight.SemiBold; label.Children.Add(badge);
+            }
+            var button = new Button();
+            button.Click += (_, _) => SelectFile(entry.Key);
             button.Tag = entry.Key;
             button.Content = label; button.HorizontalAlignment = HorizontalAlignment.Stretch;
-            button.HorizontalContentAlignment = HorizontalAlignment.Left;
+            button.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+            ToolTip.SetTip(button, caption);
+            Avalonia.Automation.AutomationProperties.SetName(button, caption);
             if (entry.Key == current.File) button.FontWeight = FontWeight.Bold;
             if (file is not null)
             {
@@ -96,7 +118,7 @@ public sealed partial class ModSubscriptionsPage
                 var choice = new CheckBox { Name = "subscriptionFileChoice", VerticalAlignment = VerticalAlignment.Top,
                     IsEnabled = available && subscription?.State is not (SubscriptionState.RemovalPending or SubscriptionState.RemovalFailed),
                     IsChecked = available && chosen.Contains((file.Id, file.Revision)) };
-                ToolTip.SetTip(choice, T("SelectForDownload") + " " + file.Name);
+                ToolTip.SetTip(choice, T("SelectForDownload") + " " + caption);
                 choice.IsCheckedChanged += (_, _) =>
                 {
                     if (choice.IsChecked == true) current.Chosen.Add((file.Id, file.Revision));
@@ -108,12 +130,9 @@ public sealed partial class ModSubscriptionsPage
             Grid.SetColumn(button, 1); row.Children.Add(button); files.Children.Add(row);
         }
         if (entries.Count == 0 && snapshot is not null) files.Children.Add(Text(T("Empty")));
-        UpdateFileSelection(); RenderSelectedFile();
+        UpdateFileSelection(); UpdateFileNavigationLayout(); RenderSelectedFile();
         RestorePosition(fileNavigationScroll, navigationPosition);
     }
-
-    private static string FileMetadata(RemoteModFile file) => string.Join(" · ", new[]
-        { (file.PublishedAt ?? file.UpdatedAt)?.ToLocalTime().ToString("d"), FormatBytes(file.SizeBytes) }.Where(value => !string.IsNullOrEmpty(value)));
 
     private void UpdateFileSelection()
     {
@@ -126,9 +145,11 @@ public sealed partial class ModSubscriptionsPage
     private void SelectFile(string key)
     {
         if (session is not { } current || !fileEntries.Any(entry => entry.Key == key)) return;
+        bool restoreFocus = fileNavigationToggle.IsVisible && fileNavigationScroll.IsKeyboardFocusWithin;
         CancelRefresh(); CancelTranslation();
-        SaveFileReadingPosition(); fileImageExpanded = false; current.File = key; readerGeneration++;
+        SaveFileReadingPosition(); fileImageExpanded = false; current.File = key; current.FileNavigationOnly = false; readerGeneration++;
         RenderFiles(current.Mod, DetailToken);
+        if (restoreFocus) fileNavigationToggle.Focus(Avalonia.Input.NavigationMethod.Tab);
     }
 
     private void RenderSelectedFile()
@@ -137,16 +158,15 @@ public sealed partial class ModSubscriptionsPage
         if (fileImageExpanded && renderedFileSession == current && renderedFileKey == current.File) return;
         fileGeneration++; renderedFileSession = current; renderedFileKey = current.File; fileImageExpanded = false;
         fileReader.Children.Clear();
+        pageStatus.Remove("fileDownload"); RenderStatus();
         if (fileEntries.FirstOrDefault(entry => entry.Key == current.File) is not { } entry) { RefreshTasks(); return; }
         var file = entry.File;
         var group = entry.Group;
         var fileDocument = file is null ? new ModReadingDocument() : ReadingDocument(file.Document, file.Description, file.BrowserUrl ?? file.PageUrl);
         var groupDocument = group is null ? new ModReadingDocument() : ReadingDocument(group.Document, group.Description, group.PageUrl);
         if (details.SelectedIndex == 1) PrepareTranslationSource(fileDocument, groupDocument);
-        fileReader.Children.Add(Text(file?.Name ?? group!.Title, 20));
         if (file is not null)
         {
-            fileReader.Children.Add(Text(FileMetadata(file), 12));
             if (file.IsSourceSnapshot) fileReader.Children.Add(Text(T("SourceSnapshot")));
             if (file.DownloadOnly) fileReader.Children.Add(Text(T("GitHubDownloadOnly")));
             if (string.IsNullOrWhiteSpace(file.Description) && (!ModDocumentParser.HasDocument(file.Document) || file.Document!.Blocks.Length == 0))
@@ -157,14 +177,17 @@ public sealed partial class ModSubscriptionsPage
             else if (!file.CanDownload)
             {
                 fileReader.Children.Add(Text(T("DownloadUnavailable")));
-                if (file.DownloadUnavailableReason.Length > 0) fileReader.Children.Add(Text(file.DownloadUnavailableReason));
+                if (!string.IsNullOrWhiteSpace(file.DownloadUnavailableReason))
+                {
+                    var diagnostic = BeginStatus("fileDownload", "Completed", ModFilePresentation.From(file, current.Mod.Id.Provider).Title);
+                    EndStatus(diagnostic, ModPageOperationState.Succeeded, file.DownloadUnavailableReason);
+                }
             }
             AddFileAcknowledgements(current.Mod, file);
         }
         if (group is not null)
         {
-            fileReader.Children.Add(Text(T("SharedVersionNotes") + " · " + group.Title, 16));
-            if (group.PublishedAt is { } date) fileReader.Children.Add(Text(date.ToLocalTime().ToString("g"), 12));
+            fileReader.Children.Add(Text(T("SharedVersionNotes"), 16));
             if (file is null) fileReader.Children.Add(Text(T("ReleaseWithoutFiles")));
             AddDocument(fileReader, groupDocument);
             if (group.InstallationInstructions.Length > 0) fileReader.Children.Add(Text(T("InstallationInOverview")));

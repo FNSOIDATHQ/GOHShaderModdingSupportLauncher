@@ -76,6 +76,19 @@ public sealed partial class ModSubscriptionsPage
     private void RenderStatusDetails()
     {
         statusEntries.Children.Clear();
+        if (Subscription() is { } subscription)
+        {
+            var tracking = Column(); tracking.Spacing = 3;
+            tracking.Children.Add(Text(T("LastCheck") + ": " + (subscription.Files.LastSuccessfulCheck?.ToLocalTime().ToString("g") ?? T("Never")), 12));
+            tracking.Children.Add(Text(T("Updates") + $": {UpdateCount(subscription)}", 12));
+            if (subscription.State != SubscriptionState.Active)
+            {
+                tracking.Children.Add(Text(T("CleanupIncomplete"), 12));
+                foreach (var installation in subscription.Installations.Where(item => !string.IsNullOrEmpty(item.Error)))
+                    tracking.Children.Add(Text(Path.GetFileName(installation.DirectoryPath) + " · " + installation.Error, 12));
+            }
+            statusEntries.Children.Add(tracking);
+        }
         foreach (var item in pageStatus.Operations.OrderByDescending(item => item.State is ModPageOperationState.Failed or ModPageOperationState.Warning)
             .ThenByDescending(item => item.Id))
         {

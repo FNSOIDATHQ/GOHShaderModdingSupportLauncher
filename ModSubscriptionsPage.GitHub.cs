@@ -125,7 +125,6 @@ public sealed partial class ModSubscriptionsPage
             summary.Children.Add(Text(T("ProjectType") + ": " + T("Kind_" + mod.Kind)));
             summary.Children.Add(Text(T("GitHubInstallHint")));
         }
-        if (mod.Id.Provider == "mowportal") summary.Children.Add(Text(T("MowPortalHint")));
         AddDocument(summary, renderedDocument ?? ReadingDocument(mod.Document, mod.Summary, mod.PageUrl));
     }
 }

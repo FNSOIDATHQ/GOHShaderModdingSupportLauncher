@@ -21,7 +21,7 @@ public sealed partial class ModSubscriptionsPage
     private Button downloadSelected = null!;
     private ContentControl operation = null!;
     private TextBlock pageNumber = null!, listNotice = null!, activity = null!;
-    private Button subscribe = null!, unsubscribe = null!, backToList = null!, refresh = null!, modListToggle = null!;
+    private Button unsubscribe = null!, backToList = null!, refresh = null!, modListToggle = null!;
     private bool listOnly = true;
 
     private void BuildView()
@@ -45,6 +45,7 @@ public sealed partial class ModSubscriptionsPage
         searchBar = new Grid { ColumnDefinitions = new("Auto,*,Auto,Auto"), RowDefinitions = new("Auto,Auto"), Margin = new Thickness(0, 8) };
         view = new ComboBox { Name = "subscriptionView", ItemsSource = new[] { T("Browse"), T("Subscribed"), T("Favorites"), T("Updates") }, SelectedIndex = viewIndex, MinWidth = 130 };
         keyword = new TextBox { Name = "subscriptionSearch", PlaceholderText = T("SearchPlaceholder"), MaxLength = 50, HorizontalAlignment = HorizontalAlignment.Stretch, Margin = new Thickness(8, 0) };
+        UpdateSearchScope();
         sort = new ComboBox { Name = "subscriptionSort", MinWidth = 130, SelectedIndex = sortIndex };
         UpdateSortOptions();
         refresh = Action(T("Refresh"), ApplySearchAsync, independent: true); refresh.Name = "subscriptionRefresh";
@@ -92,7 +93,7 @@ public sealed partial class ModSubscriptionsPage
             { args.Handled = true; await OpenModAsync(item.Mod); }
         }, RoutingStrategies.Tunnel);
         body.Children.Add(list);
-        detail = new Grid { Name = "subscriptionDetailPane", RowDefinitions = new("Auto,Auto,*") }; Grid.SetColumn(detail, 2);
+        detail = new Grid { Name = "subscriptionDetailPane", RowDefinitions = new("Auto,*") }; Grid.SetColumn(detail, 2);
         var heading = new Grid { ColumnDefinitions = new("Auto,*"), RowDefinitions = new("Auto,Auto") };
         backToList = Action(T("BackToList"), () => { SaveReadingPosition(); listOnly = true; CancelTranslation(); UpdateResponsiveLayout(); mods.Focus(NavigationMethod.Tab); return Task.CompletedTask; }, independent: true);
         backToList.Name = "subscriptionBackToList"; heading.Children.Add(backToList);
@@ -102,18 +103,16 @@ public sealed partial class ModSubscriptionsPage
         var actions = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
         favorite = Action(T("Favorite"), ToggleFavoriteAsync); favorite.IsEnabled = false; actions.Children.Add(favorite);
         actions.Children.Add(Action(T("Original"), () => { if (selected is { } mod) OpenUrl(mod.PageUrl); return Task.CompletedTask; }, independent: true));
-        subscribe = Action(T("ChooseSubscribe"), OpenFilesAsync, independent: true); subscribe.Name = "subscriptionChooseFiles"; subscribe.IsVisible = false;
         unsubscribe = Action(T("Unsubscribe"), UnsubscribeAsync); unsubscribe.Name = "subscriptionUnsubscribe"; unsubscribe.IsVisible = false;
-        actions.Children.Add(subscribe); actions.Children.Add(unsubscribe); actions.Margin = new Thickness(0, 8, 0, 0);
+        actions.Children.Add(unsubscribe); actions.Margin = new Thickness(0, 8, 0, 0);
         Grid.SetRow(actions, 1); Grid.SetColumnSpan(actions, 2); heading.Children.Add(actions); detail.Children.Add(heading);
-        tracking = Text(""); Grid.SetRow(tracking, 1); detail.Children.Add(tracking);
 
         summary = Column(); articles = Column(); images = Column(); files = Column(); tasks = Column(); recovery = Column();
         var description = new Grid { ColumnDefinitions = new("175,12,*") };
         articleScroll = Scroll(articles); articleScroll.Name = "subscriptionDescriptionNavigation"; description.Children.Add(articleScroll);
         reading = Column(); readingScroll = Scroll(reading); readingScroll.Name = "subscriptionReader";
         descriptionSurface = ReadingSurface(readingScroll); Grid.SetColumn(descriptionSurface, 2); description.Children.Add(descriptionSurface);
-        fileContent = new Grid { RowDefinitions = new("Auto,*,Auto,Auto"), ColumnDefinitions = new("175,12,*") };
+        fileContent = new Grid { RowDefinitions = new("Auto,*,Auto,Auto"), ColumnDefinitions = new("420,12,*") };
         fileNotice = Column(); Grid.SetColumnSpan(fileNotice, 3); fileContent.Children.Add(fileNotice);
         fileNavigationScroll = Scroll(files); fileNavigationScroll.Name = "subscriptionFileNavigation";
         Grid.SetRow(fileNavigationScroll, 1); fileContent.Children.Add(fileNavigationScroll);
@@ -126,6 +125,7 @@ public sealed partial class ModSubscriptionsPage
         downloadSelected = Action(T("SubscribeDownload"), () => selected is { } mod ? SubscribeAsync(mod, DetailToken) : Task.CompletedTask);
         downloadSelected.Name = "subscriptionDownloadSelected";
         fileActions.Children.Add(selectedFileCount); fileActions.Children.Add(downloadSelected);
+        BuildFileNavigationLayout(fileActions);
         Grid.SetRow(fileActions, 2); Grid.SetColumnSpan(fileActions, 3); fileContent.Children.Add(fileActions);
         var recoveryScroll = new ScrollViewer { Content = recovery, MaxHeight = 120 };
         Grid.SetRow(recoveryScroll, 3); Grid.SetColumnSpan(recoveryScroll, 3); fileContent.Children.Add(recoveryScroll);
@@ -143,7 +143,7 @@ public sealed partial class ModSubscriptionsPage
             if (details.SelectedIndex == 1) await ExecuteAsync(() => EnsureFilesAsync());
             else RerenderTranslation();
         };
-        Grid.SetRow(details, 2); detail.Children.Add(details); body.Children.Add(detail);
+        Grid.SetRow(details, 1); detail.Children.Add(details); body.Children.Add(detail);
         Grid.SetRow(body, 5); root.Children.Add(body);
 
         var footer = new Grid { Name = "subscriptionFooter", ColumnDefinitions = new("Auto,*,Auto"), Margin = new Thickness(0, 8, 0, 0) };
@@ -176,6 +176,7 @@ public sealed partial class ModSubscriptionsPage
         {
             if (rebuilding) return;
             rebuilding = true; UpdateSortOptions(); rebuilding = false;
+            UpdateSearchScope();
             github.IsVisible = source.SelectedIndex == 1; mow.IsVisible = source.SelectedIndex == 2;
             browsePage = 1; browseItems = []; hasNext = false;
             OnGameChanged();
@@ -226,6 +227,7 @@ public sealed partial class ModSubscriptionsPage
         Grid.SetColumn(sort, compact ? 1 : 2); Grid.SetColumn(refresh, 3); Grid.SetRow(refresh, compact ? 1 : 0);
         activity.IsVisible = !compact;
         if (statusDetails is not null) statusDetails.MaxHeight = Bounds.Height is > 0 and < 600 ? 80 : 182;
+        UpdateFileNavigationLayout();
     }
 
     private void ToggleModList()

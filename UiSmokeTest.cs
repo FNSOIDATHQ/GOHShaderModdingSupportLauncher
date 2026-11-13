@@ -420,8 +420,18 @@ internal static class UiSmokeTest
             !ModDocumentParser.HasDocument(files.Groups[0].Document) ||
             ((TabItem)page.GetLogicalDescendants().OfType<TabControl>().Single().Items[1]!).Content is not Control fileRoot ||
             !fileRoot.GetLogicalDescendants().OfType<ScrollViewer>().Any(control => control.Name == "subscriptionFileNavigation") ||
-            !fileRoot.GetLogicalDescendants().OfType<Button>().Any(control => control.Name == "subscriptionDownloadSelected"))
+            !fileRoot.GetLogicalDescendants().OfType<Button>().Any(control => control.Name == "subscriptionDownloadSelected") ||
+            !fileRoot.GetLogicalDescendants().OfType<GridSplitter>().Any(control => control.Name == "subscriptionFileSplitter") ||
+            !fileRoot.GetLogicalDescendants().OfType<Button>().Any(control => control.Name == "subscriptionFileNavigationToggle") ||
+            page.GetLogicalDescendants().OfType<Button>().Any(control => control.Name == "subscriptionChooseFiles"))
             throw new InvalidOperationException("Subscription file navigation or shared version serialization failed.");
+        var hosted = files.Files[0] with { Name = "Author title — modsfire.com", BrowserUrl = new("https://modsfire.com/public-file") };
+        var presentation = ModFilePresentation.From(hosted, "mowportal");
+        if (presentation is not { Title: "Author title", Host: "ModsFire" } ||
+            ModFilePresentation.From(hosted, "github").Title != hosted.Name ||
+            ModFilePresentation.From(hosted with { BrowserUrl = new("https://disk.yandex.ru/d/example") }, "mowportal").Title != hosted.Name ||
+            hosted.Name != "Author title — modsfire.com" || hosted.Revision != "unchanged")
+            throw new InvalidOperationException("Download host presentation changed file metadata or stripped an unrelated suffix.");
         AppDiagnostics.Log("Subscription file self-test passed: shared version metadata, stable file identity and independent file navigation.");
         var statuses = new ModPageStatus();
         var scope = new ModPageScope(null, "moddb", null, "overview");

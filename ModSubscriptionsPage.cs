@@ -36,7 +36,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
     private string appliedKeyword = "";
     private TextBox keyword = null!;
     private ListBox mods = null!;
-    private TextBlock status = null!, title = null!, tracking = null!;
+    private TextBlock status = null!, title = null!;
     private StackPanel summary = null!, articles = null!, images = null!, files = null!, tasks = null!;
     private Button favorite = null!, previous = null!, next = null!;
     private Border verificationBanner = null!;
@@ -108,7 +108,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
         summary.Children.Clear(); articles.Children.Clear(); images.Children.Clear(); files.Children.Clear(); tasks.Children.Clear(); reading.Children.Clear(); recovery.Children.Clear();
         fileReader.Children.Clear(); fileNotice.Children.Clear(); fileEntries = []; renderedFileSession = null; fileImageExpanded = false; fileGeneration++;
         UpdateFileSelection();
-        tracking.Text = ""; listOnly = true; RefreshTracking(); UpdateResponsiveLayout();
+        listOnly = true; RefreshTracking(); UpdateResponsiveLayout();
         imageExpanded = false; renderedSession = null; pendingImage = null; expandedMediaRefresh = null;
     }
 
@@ -317,11 +317,8 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
         favorite.IsEnabled = selected is not null;
         favorite.Content = selected is { } mod && runtime.Library.Favorites.Any(f => f.Source == mod.Id) ? T("Unfavorite") : T("Favorite");
         var sub = Subscription();
-        subscribe.IsVisible = selected is not null && sub is null;
         unsubscribe.IsVisible = sub is not null;
         unsubscribe.Content = T(sub?.State is SubscriptionState.RemovalPending or SubscriptionState.RemovalFailed ? "ContinueCleanup" : "Unsubscribe");
-        tracking.Text = selected is null ? "" : sub is null ? T("NotSubscribed") : T(sub.State == SubscriptionState.Active ? "Subscribed" : "CleanupIncomplete") + " · " +
-            T("LastCheck") + ": " + (sub.Files.LastSuccessfulCheck?.ToLocalTime().ToString("g") ?? T("Never")) + " · " + T("Updates") + $": {UpdateCount(sub)}";
         foreach (var pair in fileChoices)
             pair.Value.IsEnabled = sub?.State is not (SubscriptionState.RemovalPending or SubscriptionState.RemovalFailed) &&
                 snapshot?.Files.Any(file => file.Id == pair.Key.Id && file.Revision == pair.Key.Revision && file.CanDownload) == true;

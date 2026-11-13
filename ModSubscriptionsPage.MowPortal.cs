@@ -4,6 +4,12 @@ namespace GOHShaderModdingSupportLauncher;
 
 public sealed partial class ModSubscriptionsPage
 {
+    private void UpdateSearchScope()
+    {
+        keyword.PlaceholderText = T(source.SelectedIndex == 2 ? "MowSearchPlaceholder" : "SearchPlaceholder");
+        Avalonia.Controls.ToolTip.SetTip(keyword, source.SelectedIndex == 2 ? T("MowSearchScope") : null);
+    }
+
     private void AddPageNotice(RemoteMod mod, CancellationToken token)
     {
         if (Subscription(mod) is not { } subscription || ModUpdateCheckService.GetPageNotice(subscription) is not { } notice) return;

@@ -37,6 +37,7 @@ public sealed partial class ModSubscriptionsPage
         internal Uri? Article;
         internal int Tab;
         internal bool ManualRepository;
+        internal bool FileNavigationOnly;
         internal Vector NavigationPosition, FilePosition, FileNavigationPosition;
     }
 
