@@ -2,6 +2,15 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="GOHShaderModdingSupportLauncher.App"
              RequestedThemeVariant="Dark">
+  <Application.Resources>
+    <SolidColorBrush x:Key="ModReadingBackgroundBrush" Color="#242A33" />
+    <SolidColorBrush x:Key="ModReadingForegroundBrush" Color="#EDF0F5" />
+    <SolidColorBrush x:Key="ModReadingLinkBrush" Color="#8CC8FF" />
+    <SolidColorBrush x:Key="ModReadingCodeBrush" Color="#1B2028" />
+    <SolidColorBrush x:Key="ModReadingQuoteBrush" Color="#2B333F" />
+    <SolidColorBrush x:Key="ModReadingBorderBrush" Color="#657990" />
+    <SolidColorBrush x:Key="ModReadingSelectionBrush" Color="#37597D" />
+  </Application.Resources>
   <Application.Styles>
     <FluentTheme />
     <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />

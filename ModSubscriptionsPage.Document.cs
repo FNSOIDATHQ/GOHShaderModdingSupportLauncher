@@ -37,7 +37,7 @@ public sealed partial class ModSubscriptionsPage
             if (block.Kind == ModBlockKind.Code)
             {
                 text.FontFamily = new FontFamily("Consolas,monospace"); text.TextWrapping = TextWrapping.NoWrap;
-                return new Border { Padding = new Thickness(10), Background = new SolidColorBrush(Color.FromArgb(30, 128, 128, 128)),
+                return new Border { Padding = new Thickness(10), Background = ReadingBrush("Code"),
                     Child = new ScrollViewer { Content = text, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled } };
             }
             return text;
@@ -57,7 +57,7 @@ public sealed partial class ModSubscriptionsPage
                     var content = Column(); content.MinWidth = 60; content.MaxWidth = 280;
                     foreach (var child in cell.Children) content.Children.Add(RenderBlock(child));
                     if (cell.Level == 1) content.SetValue(TextElement.FontWeightProperty, FontWeight.SemiBold);
-                    var border = new Border { Padding = new Thickness(8), BorderThickness = new Thickness(0, 0, 1, 1), BorderBrush = Brushes.Gray, Child = content };
+                    var border = new Border { Padding = new Thickness(8), BorderThickness = new Thickness(0, 0, 1, 1), BorderBrush = ReadingBrush("Border"), Child = content };
                     Grid.SetColumn(border, x); Grid.SetRow(border, y); table.Children.Add(border);
                 }
             }
@@ -72,13 +72,14 @@ public sealed partial class ModSubscriptionsPage
             Grid.SetColumn(children, 1); row.Children.Add(children); return row;
         }
         if (block.Kind == ModBlockKind.Quote)
-            return new Border { BorderBrush = Brushes.Gray, BorderThickness = new Thickness(3, 0, 0, 0), Padding = new Thickness(12, 2), Child = children };
+            return new Border { BorderBrush = ReadingBrush("Border"), Background = ReadingBrush("Quote"), BorderThickness = new Thickness(3, 0, 0, 0), Padding = new Thickness(12, 8), Child = children };
         return children;
     }
 
     private SelectableTextBlock DocumentText(ModTextRun[] runs)
     {
-        var text = new SelectableTextBlock { TextWrapping = TextWrapping.Wrap };
+        var text = new SelectableTextBlock { TextWrapping = TextWrapping.Wrap, Foreground = ReadingBrush("Foreground"),
+            SelectionBrush = ReadingBrush("Selection"), SelectionForegroundBrush = Brushes.White };
         if (runs.All(run => run.Link is null && !run.Bold && !run.Italic && !run.Code))
         { text.Text = string.Concat(runs.Select(run => run.Text)).Trim(); return text; }
         foreach (var run in runs)
@@ -86,6 +87,7 @@ public sealed partial class ModSubscriptionsPage
             if (run.Link is { } target && ModDocumentParser.IsLink(target))
             {
                 var label = Text(run.Text); label.FontSize = text.FontSize;
+                label.Foreground = ReadingBrush("Link");
                 label.FontWeight = run.Bold ? FontWeight.Bold : FontWeight.Normal;
                 label.FontStyle = run.Italic ? FontStyle.Italic : FontStyle.Normal;
                 if (run.Code) label.FontFamily = new FontFamily("Consolas,monospace");

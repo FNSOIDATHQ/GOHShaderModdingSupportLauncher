@@ -27,6 +27,26 @@
     <Style Selector="Button.captionButton.closeButton:pointerover">
       <Setter Property="Background" Value="#C42B1C" />
     </Style>
+    <Style Selector="ListBox.sidebarNavigation ListBoxItem">
+      <Setter Property="Padding" Value="10,8" />
+      <Setter Property="MinHeight" Value="44" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="TextBlock.navigationIcon">
+      <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+      <Setter Property="FontSize" Value="18" />
+      <Setter Property="Width" Value="24" />
+      <Setter Property="TextAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.navigationLabel">
+      <Setter Property="Margin" Value="8,0,0,0" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+    <Style Selector="SplitView.compactNavigation TextBlock.navigationLabel">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
   </Window.Styles>
   <Grid x:Name="windowLayout" RowDefinitions="56,*">
     <Grid.Background>
@@ -55,20 +75,50 @@
         </StackPanel>
       </Grid>
     </Border>
-    <SplitView x:Name="mainView" Grid.Row="1" DisplayMode="Inline" IsPaneOpen="True"
-               OpenPaneLength="240" Background="Transparent"
+    <SplitView x:Name="mainView" Grid.Row="1" DisplayMode="CompactInline" IsPaneOpen="True"
+               OpenPaneLength="240" CompactPaneLength="52" Background="Transparent"
                PaneBackground="{StaticResource NavigationChromeBrush}">
       <SplitView.Pane>
-        <Grid RowDefinitions="*,Auto,Auto">
-          <ListBox x:Name="primaryNavigation" Background="Transparent" BorderThickness="0"
+        <Grid RowDefinitions="Auto,*,Auto,Auto">
+          <Button x:Name="navigationToggle" Width="44" Height="36" Margin="4"
+                  Background="Transparent" BorderThickness="0" FontFamily="Segoe MDL2 Assets"
+                  Content="&#xE700;" FontSize="18" HorizontalContentAlignment="Center"
+                  Click="NavigationToggle_Click" />
+          <ListBox x:Name="primaryNavigation" Grid.Row="1" Classes="sidebarNavigation" Padding="0"
+                   Background="Transparent" BorderThickness="0"
                    SelectionChanged="PrimaryNavigation_SelectionChanged">
-            <ListBoxItem Content="{Binding Tab_Launcher, Source={x:Static local:LocalizedStrings.Instance}}" Tag="Launcher" />
-            <ListBoxItem Content="{Binding Tab_ModManager, Source={x:Static local:LocalizedStrings.Instance}}" Tag="ModManager" />
-            <ListBoxItem Content="{Binding Tab_ModSubscriptions, Source={x:Static local:LocalizedStrings.Instance}}" Tag="ModSubscriptions" />
-            <ListBoxItem Content="{Binding Tab_Converter, Source={x:Static local:LocalizedStrings.Instance}}" Tag="Converter" />
-            <ListBoxItem Content="{Binding Tab_Tools, Source={x:Static local:LocalizedStrings.Instance}}" Tag="Tools" />
+            <ListBoxItem Tag="Launcher" ToolTip.Tip="{Binding Tab_Launcher, Source={x:Static local:LocalizedStrings.Instance}}"
+                         AutomationProperties.Name="{Binding Tab_Launcher, Source={x:Static local:LocalizedStrings.Instance}}">
+              <Grid ColumnDefinitions="Auto,*"><TextBlock Classes="navigationIcon" Text="&#xE80F;" />
+                <TextBlock Grid.Column="1" Classes="navigationLabel" Text="{Binding Tab_Launcher, Source={x:Static local:LocalizedStrings.Instance}}" /></Grid>
+            </ListBoxItem>
+            <ListBoxItem Tag="ModManager" ToolTip.Tip="{Binding Tab_ModManager, Source={x:Static local:LocalizedStrings.Instance}}"
+                         AutomationProperties.Name="{Binding Tab_ModManager, Source={x:Static local:LocalizedStrings.Instance}}">
+              <Grid ColumnDefinitions="Auto,*"><TextBlock Classes="navigationIcon" Text="&#xE8F1;" />
+                <TextBlock Grid.Column="1" Classes="navigationLabel" Text="{Binding Tab_ModManager, Source={x:Static local:LocalizedStrings.Instance}}" /></Grid>
+            </ListBoxItem>
+            <ListBoxItem Tag="ModSubscriptions" ToolTip.Tip="{Binding Tab_ModSubscriptions, Source={x:Static local:LocalizedStrings.Instance}}"
+                         AutomationProperties.Name="{Binding Tab_ModSubscriptions, Source={x:Static local:LocalizedStrings.Instance}}">
+              <Grid ColumnDefinitions="Auto,*">
+                <TextBlock Classes="navigationIcon" Text="&#xE896;" />
+                <TextBlock x:Name="subscriptionCompactBadge" IsVisible="False" Text="●" FontSize="10"
+                           Foreground="#FFD080" HorizontalAlignment="Right" VerticalAlignment="Top" />
+                <TextBlock x:Name="subscriptionNavigationLabel" Grid.Column="1" Classes="navigationLabel"
+                           Text="{Binding Tab_ModSubscriptions, Source={x:Static local:LocalizedStrings.Instance}}" />
+              </Grid>
+            </ListBoxItem>
+            <ListBoxItem Tag="Converter" ToolTip.Tip="{Binding Tab_Converter, Source={x:Static local:LocalizedStrings.Instance}}"
+                         AutomationProperties.Name="{Binding Tab_Converter, Source={x:Static local:LocalizedStrings.Instance}}">
+              <Grid ColumnDefinitions="Auto,*"><TextBlock Classes="navigationIcon" Text="&#xE8AB;" />
+                <TextBlock Grid.Column="1" Classes="navigationLabel" Text="{Binding Tab_Converter, Source={x:Static local:LocalizedStrings.Instance}}" /></Grid>
+            </ListBoxItem>
+            <ListBoxItem Tag="Tools" ToolTip.Tip="{Binding Tab_Tools, Source={x:Static local:LocalizedStrings.Instance}}"
+                         AutomationProperties.Name="{Binding Tab_Tools, Source={x:Static local:LocalizedStrings.Instance}}">
+              <Grid ColumnDefinitions="Auto,*"><TextBlock Classes="navigationIcon" Text="&#xE90F;" />
+                <TextBlock Grid.Column="1" Classes="navigationLabel" Text="{Binding Tab_Tools, Source={x:Static local:LocalizedStrings.Instance}}" /></Grid>
+            </ListBoxItem>
           </ListBox>
-          <StackPanel Grid.Row="1" Margin="12,8,12,6" Spacing="4">
+          <StackPanel x:Name="languagePanel" Grid.Row="2" Margin="12,8,12,6" Spacing="4">
             <TextBlock Text="Language / 语言" Foreground="White" />
             <ComboBox x:Name="languageSelector" HorizontalAlignment="Stretch"
                       SelectionChanged="LanguageSelector_SelectionChanged">
@@ -76,11 +126,29 @@
               <ComboBoxItem Content="中文" Tag="zh-CN" />
             </ComboBox>
           </StackPanel>
-          <ListBox x:Name="footerNavigation" Grid.Row="2"
+          <Button x:Name="languageButton" Grid.Row="2" IsVisible="False" IsEnabled="False"
+                  Width="44" Height="40" Margin="4,6" FontFamily="Segoe MDL2 Assets" Content="&#xE774;"
+                  HorizontalContentAlignment="Center" ToolTip.Tip="Language / 语言" AutomationProperties.Name="Language / 语言">
+            <Button.Flyout>
+              <MenuFlyout>
+                <MenuItem Header="English" Tag="en-US" Click="LanguageMenu_Click" />
+                <MenuItem Header="中文" Tag="zh-CN" Click="LanguageMenu_Click" />
+              </MenuFlyout>
+            </Button.Flyout>
+          </Button>
+          <ListBox x:Name="footerNavigation" Grid.Row="3" Classes="sidebarNavigation" Padding="0"
                    Background="Transparent" BorderThickness="0"
                    SelectionChanged="FooterNavigation_SelectionChanged">
-            <ListBoxItem Content="{Binding Tab_Settings, Source={x:Static local:LocalizedStrings.Instance}}" Tag="Settings" />
-            <ListBoxItem Content="{Binding Tab_About, Source={x:Static local:LocalizedStrings.Instance}}" Tag="About" />
+            <ListBoxItem Tag="Settings" ToolTip.Tip="{Binding Tab_Settings, Source={x:Static local:LocalizedStrings.Instance}}"
+                         AutomationProperties.Name="{Binding Tab_Settings, Source={x:Static local:LocalizedStrings.Instance}}">
+              <Grid ColumnDefinitions="Auto,*"><TextBlock Classes="navigationIcon" Text="&#xE713;" />
+                <TextBlock Grid.Column="1" Classes="navigationLabel" Text="{Binding Tab_Settings, Source={x:Static local:LocalizedStrings.Instance}}" /></Grid>
+            </ListBoxItem>
+            <ListBoxItem Tag="About" ToolTip.Tip="{Binding Tab_About, Source={x:Static local:LocalizedStrings.Instance}}"
+                         AutomationProperties.Name="{Binding Tab_About, Source={x:Static local:LocalizedStrings.Instance}}">
+              <Grid ColumnDefinitions="Auto,*"><TextBlock Classes="navigationIcon" Text="&#xE946;" />
+                <TextBlock Grid.Column="1" Classes="navigationLabel" Text="{Binding Tab_About, Source={x:Static local:LocalizedStrings.Instance}}" /></Grid>
+            </ListBoxItem>
           </ListBox>
         </Grid>
       </SplitView.Pane>

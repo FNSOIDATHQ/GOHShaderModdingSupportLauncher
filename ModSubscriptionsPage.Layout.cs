@@ -2,14 +2,17 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.LogicalTree;
 
 namespace GOHShaderModdingSupportLauncher;
 
 public sealed partial class ModSubscriptionsPage
 {
-    private Grid body = null!, detail = null!, searchBar = null!;
+    private Grid body = null!, detail = null!, searchBar = null!, listPane = null!;
+    private Border descriptionSurface = null!, fileReadingSurface = null!;
     private TabControl details = null!;
     private ScrollViewer readingScroll = null!, articleScroll = null!, fileScroll = null!, fileNavigationScroll = null!, operationScroll = null!;
     private StackPanel reading = null!, recovery = null!, fileReader = null!, fileNotice = null!;
@@ -18,7 +21,7 @@ public sealed partial class ModSubscriptionsPage
     private Button downloadSelected = null!;
     private ContentControl operation = null!;
     private TextBlock pageNumber = null!, listNotice = null!, activity = null!;
-    private Button subscribe = null!, unsubscribe = null!, backToList = null!, refresh = null!;
+    private Button subscribe = null!, unsubscribe = null!, backToList = null!, refresh = null!, modListToggle = null!;
     private bool listOnly = true;
 
     private void BuildView()
@@ -72,15 +75,28 @@ public sealed partial class ModSubscriptionsPage
         Grid.SetRow(verificationBanner, 4); root.Children.Add(verificationBanner);
 
         body = new Grid { ColumnDefinitions = new("260,12,*") };
-        var list = new Grid { Name = "subscriptionListPane", RowDefinitions = new("Auto,*") };
+        var list = listPane = new Grid { Name = "subscriptionListPane", RowDefinitions = new("Auto,*") };
         listNotice = Text(""); list.Children.Add(listNotice);
-        mods = new ListBox { Name = "subscriptionMods" }; Grid.SetRow(mods, 1); list.Children.Add(mods);
+        mods = new ListBox { Name = "subscriptionMods", Focusable = true }; Grid.SetRow(mods, 1); list.Children.Add(mods);
         mods.SelectionChanged += async (_, _) => { if (!rebuilding && mods.SelectedItem is ModRow item) await OpenModAsync(item.Mod); };
+        // Returning to the narrow list retains selection, so selecting the same row must work too.
+        mods.Tapped += async (_, args) =>
+        {
+            if (listOnly && args.Source is Control control &&
+                (control is ListBoxItem || control.FindLogicalAncestorOfType<ListBoxItem>() is not null) && mods.SelectedItem is ModRow item)
+                await OpenModAsync(item.Mod);
+        };
+        mods.AddHandler(KeyDownEvent, async (_, args) =>
+        {
+            if (args.Key == Key.Enter && listOnly && mods.SelectedItem is ModRow item)
+            { args.Handled = true; await OpenModAsync(item.Mod); }
+        }, RoutingStrategies.Tunnel);
         body.Children.Add(list);
         detail = new Grid { Name = "subscriptionDetailPane", RowDefinitions = new("Auto,Auto,*") }; Grid.SetColumn(detail, 2);
         var heading = new Grid { ColumnDefinitions = new("Auto,*"), RowDefinitions = new("Auto,Auto") };
-        backToList = Action(T("BackToList"), () => { listOnly = true; CancelTranslation(); UpdateResponsiveLayout(); return Task.CompletedTask; }, independent: true);
+        backToList = Action(T("BackToList"), () => { SaveReadingPosition(); listOnly = true; CancelTranslation(); UpdateResponsiveLayout(); mods.Focus(NavigationMethod.Tab); return Task.CompletedTask; }, independent: true);
         backToList.Name = "subscriptionBackToList"; heading.Children.Add(backToList);
+        Avalonia.Automation.AutomationProperties.SetName(backToList, T("BackToList"));
         title = Text(T("ChooseMod"), 20); title.MaxLines = 2; title.TextTrimming = TextTrimming.CharacterEllipsis;
         title.VerticalAlignment = VerticalAlignment.Center; Grid.SetColumn(title, 1); heading.Children.Add(title);
         var actions = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
@@ -96,7 +112,7 @@ public sealed partial class ModSubscriptionsPage
         var description = new Grid { ColumnDefinitions = new("175,12,*") };
         articleScroll = Scroll(articles); articleScroll.Name = "subscriptionDescriptionNavigation"; description.Children.Add(articleScroll);
         reading = Column(); readingScroll = Scroll(reading); readingScroll.Name = "subscriptionReader";
-        Grid.SetColumn(readingScroll, 2); description.Children.Add(readingScroll);
+        descriptionSurface = ReadingSurface(readingScroll); Grid.SetColumn(descriptionSurface, 2); description.Children.Add(descriptionSurface);
         fileContent = new Grid { RowDefinitions = new("Auto,*,Auto,Auto"), ColumnDefinitions = new("175,12,*") };
         fileNotice = Column(); Grid.SetColumnSpan(fileNotice, 3); fileContent.Children.Add(fileNotice);
         fileNavigationScroll = Scroll(files); fileNavigationScroll.Name = "subscriptionFileNavigation";
@@ -104,7 +120,7 @@ public sealed partial class ModSubscriptionsPage
         fileReader = Column(); fileReader.Name = "subscriptionFileReader";
         var fileBody = Column(); fileBody.Children.Add(fileReader); fileBody.Children.Add(tasks);
         fileScroll = Scroll(fileBody); fileScroll.Name = "subscriptionFileReading";
-        Grid.SetColumn(fileScroll, 2); Grid.SetRow(fileScroll, 1); fileContent.Children.Add(fileScroll);
+        fileReadingSurface = ReadingSurface(fileScroll); Grid.SetColumn(fileReadingSurface, 2); Grid.SetRow(fileReadingSurface, 1); fileContent.Children.Add(fileReadingSurface);
         var fileActions = new WrapPanel { Name = "subscriptionFileActions", ItemSpacing = 8, LineSpacing = 6, Margin = new Thickness(0, 8, 0, 0) };
         selectedFileCount = Text(""); selectedFileCount.VerticalAlignment = VerticalAlignment.Center;
         downloadSelected = Action(T("SubscribeDownload"), () => selected is { } mod ? SubscribeAsync(mod, DetailToken) : Task.CompletedTask);
@@ -131,11 +147,14 @@ public sealed partial class ModSubscriptionsPage
         Grid.SetRow(body, 5); root.Children.Add(body);
 
         var footer = new Grid { Name = "subscriptionFooter", ColumnDefinitions = new("Auto,*,Auto"), Margin = new Thickness(0, 8, 0, 0) };
+        var listActions = Row();
+        modListToggle = new Button { Name = "subscriptionModListToggle", VerticalAlignment = VerticalAlignment.Center };
+        modListToggle.Click += (_, _) => ToggleModList(); listActions.Children.Add(modListToggle);
         var paging = Row(); paging.Name = "subscriptionPagination";
         previous = Action(T("Previous"), async () => { CancelRefresh(); browsePage = Math.Max(1, browsePage - 1); await LoadListAsync(); }, independent: true);
         next = Action(T("Next"), async () => { CancelRefresh(); browsePage++; await LoadListAsync(); }, independent: true);
         pageNumber = Text(""); pageNumber.VerticalAlignment = VerticalAlignment.Center;
-        paging.Children.Add(previous); paging.Children.Add(pageNumber); paging.Children.Add(next); footer.Children.Add(paging);
+        paging.Children.Add(previous); paging.Children.Add(pageNumber); paging.Children.Add(next); listActions.Children.Add(paging); footer.Children.Add(listActions);
         activity = Text(""); activity.VerticalAlignment = VerticalAlignment.Center; activity.Margin = new Thickness(12, 0); Grid.SetColumn(activity, 1); footer.Children.Add(activity);
         status = Text(T("Ready")); status.Name = "subscriptionStatus"; status.TextWrapping = TextWrapping.NoWrap;
         status.TextTrimming = TextTrimming.CharacterEllipsis; status.MaxWidth = 220; status.VerticalAlignment = VerticalAlignment.Center;
@@ -180,20 +199,46 @@ public sealed partial class ModSubscriptionsPage
         Grid.SetRow(translationToolbar, wrapTranslation ? 1 : 0);
         subscriptionHeader.ColumnDefinitions[1].Width = wrapTranslation ? new GridLength(0) : GridLength.Auto;
         translationToolbar.Margin = new Thickness(0, wrapTranslation ? 6 : 0, 0, 0);
-        body.ColumnDefinitions[0].Width = narrow ? new GridLength(1, GridUnitType.Star) : new GridLength(260);
-        body.ColumnDefinitions[1].Width = new GridLength(narrow ? 0 : 12);
+        bool showList = selected is null || (narrow ? listOnly : !main.InterfacePreferences.ModListCollapsed);
+        bool showDetail = !narrow || selected is not null && !listOnly;
+        bool focusList = !showDetail && detail.IsKeyboardFocusWithin;
+        bool focusDetail = !showList && listPane.IsKeyboardFocusWithin;
+        body.ColumnDefinitions[0].Width = narrow ? new GridLength(1, GridUnitType.Star) : new GridLength(showList ? 260 : 0);
+        body.ColumnDefinitions[1].Width = new GridLength(!narrow && showList ? 12 : 0);
         body.ColumnDefinitions[2].Width = narrow ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
-        body.Children[0].IsVisible = !narrow || listOnly;
-        detail.IsVisible = !narrow || !listOnly;
+        listPane.IsVisible = showList;
+        detail.IsVisible = showDetail;
         Grid.SetColumn(detail, narrow ? 0 : 2);
-        backToList.IsVisible = narrow;
+        backToList.IsVisible = narrow && showDetail;
+        modListToggle.IsVisible = !narrow && selected is not null;
+        string toggleText = T(showList ? "CollapseModList" : "ExpandModList");
+        modListToggle.Content = toggleText; ToolTip.SetTip(modListToggle, toggleText);
+        Avalonia.Automation.AutomationProperties.SetName(modListToggle, toggleText);
+        if (focusList) mods.Focus(NavigationMethod.Tab);
+        if (focusDetail) (narrow ? backToList : modListToggle).Focus(NavigationMethod.Tab);
         title.Margin = new Thickness(narrow ? 8 : 0, 0, 0, 0); title.MaxLines = narrow ? 1 : 2;
         bool compact = Bounds.Width is > 0 and < 720;
+        // Short windows need room for the file body as well as the fixed download actions.
+        var readingPadding = new Thickness(16, Bounds.Height is > 0 and < 600 ? 8 : 16);
+        descriptionSurface.Padding = readingPadding; fileReadingSurface.Padding = readingPadding;
         Grid.SetRow(keyword, compact ? 1 : 0); Grid.SetColumn(keyword, compact ? 0 : 1); Grid.SetColumnSpan(keyword, compact ? 3 : 1);
         keyword.Margin = compact ? new Thickness(0, 6, 0, 0) : new Thickness(8, 0);
         Grid.SetColumn(sort, compact ? 1 : 2); Grid.SetColumn(refresh, 3); Grid.SetRow(refresh, compact ? 1 : 0);
         activity.IsVisible = !compact;
         if (statusDetails is not null) statusDetails.MaxHeight = Bounds.Height is > 0 and < 600 ? 80 : 182;
+    }
+
+    private void ToggleModList()
+    {
+        if (selected is null) return;
+        SaveReadingPosition();
+        var readingPosition = readingScroll.Offset;
+        var filePosition = fileScroll.Offset;
+        main.SetModListCollapsed(!main.InterfacePreferences.ModListCollapsed);
+        UpdateResponsiveLayout();
+        RestorePosition(readingScroll, readingPosition);
+        RestoreFilePosition(filePosition);
+        modListToggle.Focus(NavigationMethod.Tab);
     }
 
     private void UpdatePaging()

@@ -119,6 +119,10 @@ namespace GOHShaderModdingSupportLauncher
         internal MainWindow(string settingsPath)
         {
             this.settingsPath = settingsPath;
+            uiPreferencesStore = new UiPreferencesStore(Path.Combine(Path.GetDirectoryName(Path.GetFullPath(settingsPath))!, "ui-preferences.json"));
+            try { InterfacePreferences = uiPreferencesStore.Load(); }
+            catch (Exception ex) when (FileManager.IsFileError(ex) || ex is System.Text.Json.JsonException)
+            { AppDiagnostics.Log("Ignoring invalid/unreadable interface preferences.", ex); }
             LocalizedStrings.Instance.SetCulture(LoadSavedLanguage(settingsPath));
             AppDiagnostics.Log("Loading main window XAML.");
             InitializeComponent();
@@ -134,6 +138,7 @@ namespace GOHShaderModdingSupportLauncher
                 if (change.Property == WindowStateProperty) UpdateWindowChrome();
             };
             UpdateWindowChrome();
+            UpdateNavigationLayout();
             Opened += OnOpened;
         }
 
@@ -220,6 +225,7 @@ namespace GOHShaderModdingSupportLauncher
             {
                 await InitBasicDataAsync();
                 languageSelector.IsEnabled = true;
+                languageButton.IsEnabled = true;
                 SelectNavigationPage(openSettingsOnStartup ? PageId.Settings : PageId.Launcher);
                 AppDiagnostics.Log("Main window rendered.");
                 if (!SuppressSubscriptionActivation) StartSubscriptionRuntime();
@@ -1024,6 +1030,7 @@ namespace GOHShaderModdingSupportLauncher
             var oldWorkshopType = i18n.Main_ModWorkshop;
             LocalizedStrings.Instance.SetCulture(culture);
             UpdateSubscriptionBadge(subscriptionNoticeCount);
+            UpdateNavigationLayout();
             foreach (var mod in universalVars.modDic.Values)
             {
                 if (mod.type == oldLocalType) mod.type = i18n.Main_ModLocal;
@@ -1069,8 +1076,12 @@ namespace GOHShaderModdingSupportLauncher
         internal void UpdateSubscriptionBadge(int count)
         {
             subscriptionNoticeCount = Math.Max(0, count);
-            FindNavigationItem(PageId.ModSubscriptions).Content = LocalizedStrings.Instance.Tab_ModSubscriptions +
-                (subscriptionNoticeCount > 0 ? $" ({subscriptionNoticeCount})" : "");
+            string label = LocalizedStrings.Instance.Tab_ModSubscriptions + (subscriptionNoticeCount > 0 ? $" ({subscriptionNoticeCount})" : "");
+            subscriptionNavigationLabel.Text = label;
+            var item = FindNavigationItem(PageId.ModSubscriptions);
+            ToolTip.SetTip(item, label);
+            Avalonia.Automation.AutomationProperties.SetName(item, label);
+            subscriptionCompactBadge.IsVisible = !mainView.IsPaneOpen && subscriptionNoticeCount > 0;
         }
 
         private void Navigate(PageId pageId)

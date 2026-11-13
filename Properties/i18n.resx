@@ -785,4 +785,8 @@ Make sure Steam has finished downloading the item.</value>
   <data name="MS_TranslationError_RateLimited" xml:space="preserve"><value>Google has temporarily limited translation requests. Retry later.</value></data>
   <data name="MS_TranslationError_InvalidResponse" xml:space="preserve"><value>The translation response was invalid.</value></data>
   <data name="MS_TranslationError_TooLarge" xml:space="preserve"><value>This text exceeds the automatic translation limit.</value></data>
+  <data name="Navigation_Expand" xml:space="preserve"><value>Expand navigation</value></data>
+  <data name="Navigation_Collapse" xml:space="preserve"><value>Collapse navigation</value></data>
+  <data name="MS_ExpandModList" xml:space="preserve"><value>Show mod list</value></data>
+  <data name="MS_CollapseModList" xml:space="preserve"><value>Hide mod list</value></data>
 </root>

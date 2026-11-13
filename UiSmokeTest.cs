@@ -84,7 +84,8 @@ internal static class UiSmokeTest
                 ?? throw new InvalidOperationException("Resize grips are missing.");
             var splitView = window.FindControl<SplitView>("mainView")
                 ?? throw new InvalidOperationException("Navigation sidebar is missing.");
-            if (window.ExtendClientAreaToDecorationsHint || !window.CanResize ||
+            if (splitView.DisplayMode != SplitViewDisplayMode.CompactInline || splitView.OpenPaneLength != 240 || splitView.CompactPaneLength != 52 ||
+                window.ExtendClientAreaToDecorationsHint || !window.CanResize ||
                 window.WindowDecorations != WindowDecorations.None ||
                 resizeGrips.Children.Count != 8 || !resizeGrips.IsVisible ||
                 layout.RowDefinitions[0].Height.Value != 56 ||
@@ -215,6 +216,28 @@ internal static class UiSmokeTest
             primary.SelectedItem = subscriptionsItem;
             subscriptionsPage = host.Content as ModSubscriptionsPage
                 ?? throw new InvalidOperationException("Subscriptions page was not cached.");
+            var navigationToggle = window.FindControl<Button>("navigationToggle")!;
+            navigationToggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            if (splitView.IsPaneOpen || !window.InterfacePreferences.NavigationCollapsed ||
+                !ReferenceEquals(host.Content, subscriptionsPage) ||
+                !window.FindControl<Button>("languageButton")!.IsVisible ||
+                string.IsNullOrWhiteSpace(Avalonia.Automation.AutomationProperties.GetName(navigationToggle)))
+                throw new InvalidOperationException("Collapsing the sidebar lost its route or accessible controls.");
+            var restoredPreferences = new UiPreferencesStore(Path.Combine(fixture, "ui-preferences.json")).Load();
+            if (!restoredPreferences.NavigationCollapsed)
+                throw new InvalidOperationException("Sidebar preference did not persist.");
+            navigationToggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            if (!splitView.IsPaneOpen || window.InterfacePreferences.NavigationCollapsed)
+                throw new InvalidOperationException("Sidebar did not expand again.");
+            // Inspect both tab contents explicitly: the desktop presenter attaches only the active tab.
+            var readingSurfaces = subscriptionsPage.GetLogicalDescendants().OfType<TabControl>().Single()
+                .Items.OfType<TabItem>().Select(item => item.Content).OfType<Control>()
+                .SelectMany(content => content.GetLogicalDescendants()).OfType<Border>()
+                .Where(control => control.Name is "subscriptionReaderSurface" or "subscriptionFileReadingSurface").ToArray();
+            if (readingSurfaces.Length != 2 || readingSurfaces.Any(surface => surface.Padding.Left != 16 || surface.Padding.Right != 16 ||
+                surface.Padding.Top is not (8 or 16) || surface.Padding.Bottom != surface.Padding.Top ||
+                surface.Background is not SolidColorBrush { Color: { R: 36, G: 42, B: 51, A: 255 } }))
+                throw new InvalidOperationException($"Subscription readers did not load their shared opaque surface: found {readingSurfaces.Length}.");
             CheckSubscriptionDocument(subscriptionsPage);
             var subscriptionViews = subscriptionsPage.GetLogicalDescendants().OfType<ComboBox>()
                 .Single(control => control.Name == "subscriptionView");
@@ -252,9 +275,9 @@ internal static class UiSmokeTest
             languageSelector.SelectedIndex = 1;
             Dispatcher.UIThread.RunJobs();
             if (window.Title != i18n.Title || window.Title is null ||
-                ((ListBoxItem)primary.Items[0]!).Content as string != i18n.Tab_Launcher ||
-                ((ListBoxItem)footer.Items[0]!).Content as string != i18n.Tab_Settings ||
-                subscriptionsItem.Content as string != LocalizedStrings.Instance.Tab_ModSubscriptions + " (2)" ||
+                NavigationLabel((ListBoxItem)primary.Items[0]!) != i18n.Tab_Launcher ||
+                NavigationLabel((ListBoxItem)footer.Items[0]!) != i18n.Tab_Settings ||
+                NavigationLabel(subscriptionsItem) != LocalizedStrings.Instance.Tab_ModSubscriptions + " (2)" ||
                 (FileManager.ReadSettings(settingsPath).Length != 17 || FileManager.ReadSettings(settingsPath)[13] != "zh-CN"))
                 throw new InvalidOperationException($"Chinese language did not update or persist: title={window.Title}, expectedTitle={i18n.Title}, nav={((ListBoxItem)primary.Items[0]!).Content}, expectedNav={i18n.Tab_Launcher}, footer={((ListBoxItem)footer.Items[0]!).Content}, expectedFooter={i18n.Tab_Settings}, saved={FileManager.ReadSettings(settingsPath)[13]}.");
             primary.SelectedIndex = 0;
@@ -339,7 +362,7 @@ internal static class UiSmokeTest
                 Environment.CurrentDirectory = originalDirectory;
             }
             subscriptionsPage.Dispose();
-            AppDiagnostics.Log("Desktop UI self-test passed: seven pages with stable navigation and subscription notices, two languages, mod presets, load/unload/reorder and column sorting, left converter tabs, matching translucent title bar and sidebar, fitted background, resource restore, cache cleanup, and profile account selection/persistence.");
+            AppDiagnostics.Log("Desktop UI self-test passed: seven pages with stable collapsible navigation and persisted preferences, shared reading surfaces, subscription notices, two languages, mod presets, load/unload/reorder and column sorting, left converter tabs, matching translucent title bar and sidebar, fitted background, resource restore, cache cleanup, and profile account selection/persistence.");
             return 0;
         }
         finally
@@ -350,6 +373,9 @@ internal static class UiSmokeTest
             Directory.Delete(fixture, recursive: true);
         }
     }
+
+    private static string? NavigationLabel(ListBoxItem item) => item.GetLogicalDescendants().OfType<TextBlock>()
+        .Single(control => control.Classes.Contains("navigationLabel")).Text;
 
     private static void CheckSubscriptionMedia()
     {

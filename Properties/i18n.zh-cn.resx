@@ -785,4 +785,8 @@
   <data name="MS_TranslationError_RateLimited" xml:space="preserve"><value>Google 已临时限制翻译请求，请稍后重试。</value></data>
   <data name="MS_TranslationError_InvalidResponse" xml:space="preserve"><value>翻译响应格式无效。</value></data>
   <data name="MS_TranslationError_TooLarge" xml:space="preserve"><value>当前正文超出自动翻译上限。</value></data>
+  <data name="Navigation_Expand" xml:space="preserve"><value>展开导航栏</value></data>
+  <data name="Navigation_Collapse" xml:space="preserve"><value>收起导航栏</value></data>
+  <data name="MS_ExpandModList" xml:space="preserve"><value>展开 Mod 列表</value></data>
+  <data name="MS_CollapseModList" xml:space="preserve"><value>收起 Mod 列表</value></data>
 </root>

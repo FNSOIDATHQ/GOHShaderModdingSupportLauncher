@@ -282,6 +282,9 @@ public sealed partial class ModSubscriptionsPage
         CancelTranslation();
         imageExpanded = false;
         RenderDescriptionNavigation(); RenderReading();
+        // Reopening a saved article increments the reader generation. Restore in that generation,
+        // since the initial render's queued restore has intentionally become obsolete.
+        if (!savePosition) RestorePosition(readingScroll, current.Positions.GetValueOrDefault(url?.AbsoluteUri ?? "overview"));
         if (url is null) return;
         if (!current.Bodies.TryGetValue(url, out var state)) current.Bodies.Add(url, state = new() { Label = "Articles", Address = url });
         var adapter = SourceForProvider(current.Mod.Id.Provider);
