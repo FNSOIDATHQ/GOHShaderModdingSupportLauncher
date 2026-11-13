@@ -112,6 +112,11 @@ internal sealed class SubscriptionStore
             if (version is not (1 or 2 or 3 or 4 or SubscriptionLibrary.CurrentSchemaVersion)) throw new UnsupportedSubscriptionSchemaException(version);
             var parsed = JsonSerializer.Deserialize(bytes, SubscriptionJsonContext.Default.SubscriptionLibrary)
                 ?? throw new InvalidDataException("The subscription library is empty.");
+            // Shared file notes are additive to schema 5. Generated init setters assign null
+            // when older libraries omit this optional array; retain all existing tracking.
+            if (parsed.Subscriptions is not null)
+                parsed = parsed with { Subscriptions = parsed.Subscriptions.Select(subscription => subscription is null ? null! : subscription with
+                { Files = subscription.Files is null ? null! : subscription.Files with { Groups = subscription.Files.Groups ?? [] } }).ToArray() };
             // Schema 1 predates content fingerprints, and schemas 1/2 predate persisted notice kinds.
             // Missing old fingerprints cannot authorize destructive cleanup. Upgrade on the next save;
             // Schema 4 adds GitHub project/file policy metadata. Source-generated init setters

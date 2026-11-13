@@ -44,63 +44,6 @@ public sealed partial class ModSubscriptionsPage
         await ReadContentAsync(current, current.Files, (mode, ct) => adapter.GetFileSnapshotAsync(mod.PageUrl, mode, ct), RenderFileState, token);
     }
 
-    private void RenderFiles(RemoteMod mod, CancellationToken token)
-    {
-        var chosen = fileChoices.Count > 0 ? fileChoices.Where(pair => pair.Value.IsChecked == true).Select(pair => (pair.Key.Id, pair.Key.Revision)).ToHashSet() : session?.Chosen ?? [];
-        files.Children.Clear(); fileChoices.Clear();
-        files.Children.Add(Text(T("InstallBoundary")));
-        if (session is { } current)
-        {
-            files.Children.Add(Text(ContentStatus(current.Files), 12));
-            files.Children.Add(Action(T("RefreshContent"), async () => { current.Files.Attempted = false; await EnsureFilesAsync(); }, independent: true));
-        }
-        AddPageNotice(mod, token);
-        if (snapshot is null) return;
-        if (snapshot.Files.Length == 0) files.Children.Add(Text(T("Empty")));
-        var notices = Subscription(mod) is { } subscription ? ModUpdateCheckService.GetNotices(subscription) : [];
-        var displayed = snapshot.Files.Concat(notices.Select(item => item.File)
-            .Where(file => !snapshot.Files.Any(current => current.Id == file.Id))).ToArray();
-        foreach (var file in displayed)
-        {
-            var row = Column();
-            var notice = notices.SingleOrDefault(item => item.File.Id == file.Id && item.File.Revision == file.Revision);
-            bool present = snapshot.Files.Any(current => current.Id == file.Id && current.Revision == file.Revision);
-            bool available = present && file.CanDownload;
-            var choice = new CheckBox { IsEnabled = available && Subscription(mod)?.State is not (SubscriptionState.RemovalPending or SubscriptionState.RemovalFailed), IsChecked = available && chosen.Contains((file.Id, file.Revision)),
-                Content = Text(file.Name + " · " + FormatBytes(file.SizeBytes) + (notice is null ? "" : " · " + T(notice.Kind == FileUpdateKind.NewFile ? "NewFile" : "ChangedFile"))) };
-            fileChoices.Add(file, choice); row.Children.Add(choice);
-            if (file.IsSourceSnapshot) row.Children.Add(Text(T("SourceSnapshot")));
-            if (file.DownloadOnly) row.Children.Add(Text(T("GitHubDownloadOnly")));
-            AddReadable(row, file.Description);
-            if (!present) row.Children.Add(Text(T("FileUnavailable")));
-            else if (!file.CanDownload)
-            {
-                row.Children.Add(Text(T("DownloadUnavailable")));
-                if (!string.IsNullOrWhiteSpace(file.DownloadUnavailableReason)) row.Children.Add(Text(file.DownloadUnavailableReason));
-            }
-            var actions = Row();
-            actions.Children.Add(Action(T("Original"), () =>
-            {
-                OpenUrl(file.BrowserUrl ?? (mod.Id.Provider == "github" ? new Uri(mod.PageUrl.AbsoluteUri.TrimEnd('/') + "/releases") : file.PageUrl));
-                return Task.CompletedTask;
-            }));
-            if (notice is not null)
-            {
-                foreach (var state in new[] { FileNoticeState.Read, FileNoticeState.Ignored })
-                    actions.Children.Add(Action(T(state == FileNoticeState.Read ? "MarkRead" : "Ignore"), async () =>
-                    {
-                        if (Subscription(mod) is not { } current) return;
-                        await Task.Run(() => runtime!.Updates.Acknowledge(current.Id, file.Id, file.Revision, state), token);
-                        await runtime!.RefreshLibraryAsync(token);
-                        token.ThrowIfCancellationRequested(); runtime!.NotifyChanged(); RefreshTracking(); RenderFiles(mod, token);
-                    }));
-            }
-            row.Children.Add(actions); files.Children.Add(row);
-        }
-        if (Subscription(mod)?.State is not (SubscriptionState.RemovalPending or SubscriptionState.RemovalFailed))
-            files.Children.Add(Action(T("SubscribeDownload"), () => SubscribeAsync(mod, token)));
-    }
-
     private async Task SubscribeAsync(RemoteMod mod, CancellationToken token)
     {
         if (session is not { } expected || expected.Mod.Id != mod.Id || !IsCurrent(expected, token)) return;
@@ -116,10 +59,11 @@ public sealed partial class ModSubscriptionsPage
         {
             runtime.Store.SaveMod(mod);
             var subscribed = runtime.Store.Subscribe(mod.Id, game, chosen);
-            if (!subscribed.Files.HasBaseline && baseline is not null)
-                runtime.Store.ChangeFileTracking(subscribed.Id, previous => previous.HasBaseline ? previous : new FileTrackingState
+            if (baseline is not null)
+                runtime.Store.ChangeFileTracking(subscribed.Id, previous => (previous.HasBaseline ? previous : new FileTrackingState
                 { HasBaseline = true, KnownFiles = baseline.Files, PageRevision = baseline.PageRevision,
-                    AcknowledgedPageRevision = baseline.PageRevision, LastSuccessfulCheck = DateTimeOffset.UtcNow });
+                    AcknowledgedPageRevision = baseline.PageRevision, LastSuccessfulCheck = DateTimeOffset.UtcNow }) with
+                { Groups = ModUpdateCheckService.MergeGroups(previous.Groups, baseline.Groups) });
             return subscribed;
         }, token);
         await runtime.RefreshLibraryAsync(token);
@@ -148,9 +92,11 @@ public sealed partial class ModSubscriptionsPage
         int running = runtime.Library.Subscriptions.Where(item => item.GameDirectory.Equals(game, SubscriptionPaths.Comparison))
             .Sum(item => item.Downloads.Count(download => download.State is DownloadState.Pending or DownloadState.Downloading));
         activity.Text = running > 0 ? string.Format(T("ActiveDownloads"), running) : "";
-        if (Subscription() is not { Downloads.Length: > 0 } sub) return;
+        if (Subscription() is not { Downloads.Length: > 0 } sub || session?.File is not { } key) return;
+        var downloads = sub.Downloads.Where(download => "file:" + download.File.Id == key).ToArray();
+        if (downloads.Length == 0) return;
         tasks.Children.Add(Text(T("Downloads"), 16));
-        foreach (var download in sub.Downloads)
+        foreach (var download in downloads)
         {
             var progress = runtime.Progress.TryGetValue(download.Id, out var current) && download.State is DownloadState.Pending or DownloadState.Downloading ? current : null;
             var state = progress?.State ?? download.State;

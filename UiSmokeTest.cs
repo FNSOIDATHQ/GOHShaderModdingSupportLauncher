@@ -383,5 +383,19 @@ internal static class UiSmokeTest
             !panel.Children[2].GetLogicalDescendants().OfType<HyperlinkButton>().Any())
             throw new InvalidOperationException("Ordered subscription document serialization or rendering failed.");
         AppDiagnostics.Log("Subscription document self-test passed: source-generated JSON, paragraph/image order and inline links.");
+        var group = new ModFileGroup { Id = "release-1", Title = "Version 1", PageUrl = new("https://github.com/example/mod/releases/tag/v1"),
+            Description = "Shared notes", Document = restored };
+        var snapshot = new ModFileSnapshot([new() { Id = "asset:1", Revision = "unchanged", Name = "mod.zip",
+            PageUrl = new("https://api.github.com/repositories/1/releases/assets/1"), GroupId = group.Id }]) { Groups = [group] };
+        var cached = new CachedModContent<ModFileSnapshot> { Version = 4, Key = "self-test", FetchedAt = DateTimeOffset.UtcNow, Content = snapshot };
+        string fileJson = System.Text.Json.JsonSerializer.Serialize(cached, ModContentJsonContext.Default.CachedModContentModFileSnapshot);
+        var files = System.Text.Json.JsonSerializer.Deserialize(fileJson, ModContentJsonContext.Default.CachedModContentModFileSnapshot)!.Content;
+        if (files.Groups.Single().Id != files.Files.Single().GroupId || files.Files[0].Revision != "unchanged" ||
+            !ModDocumentParser.HasDocument(files.Groups[0].Document) ||
+            ((TabItem)page.GetLogicalDescendants().OfType<TabControl>().Single().Items[1]!).Content is not Control fileRoot ||
+            !fileRoot.GetLogicalDescendants().OfType<ScrollViewer>().Any(control => control.Name == "subscriptionFileNavigation") ||
+            !fileRoot.GetLogicalDescendants().OfType<Button>().Any(control => control.Name == "subscriptionDownloadSelected"))
+            throw new InvalidOperationException("Subscription file navigation or shared version serialization failed.");
+        AppDiagnostics.Log("Subscription file self-test passed: shared version metadata, stable file identity and independent file navigation.");
     }
 }

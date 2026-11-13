@@ -38,17 +38,18 @@ internal sealed class MowPortalModSource : IModSource, IDisposable
     public Task<ModSourceResult<RemoteMod>> GetModAsync(Uri modPage, ModReadMode mode = ModReadMode.Refresh, CancellationToken cancellationToken = default) =>
         ReadPageAsync(MowPortalParser.ModPage(modPage), MowPortalParser.Mod, ModContentJsonContext.Default.CachedModContentRemoteMod, mode, cancellationToken);
 
-    public async Task<ModSourceResult<ModSourcePage<ModArticle>>> GetArticlesAsync(Uri page, ModReadMode mode = ModReadMode.Refresh, CancellationToken cancellationToken = default)
+    public Task<ModSourceResult<ModSourcePage<ModArticle>>> GetArticlesAsync(Uri page, ModReadMode mode = ModReadMode.Refresh, CancellationToken cancellationToken = default)
     {
-        var mod = await GetModAsync(page, mode, cancellationToken).ConfigureAwait(false);
-        return new(mod.Content is { } content ? new(content.Articles, null) : null, mod.FetchedAt, mod.Failure, mod.IsStale, mod.CacheWarning);
+        cancellationToken.ThrowIfCancellationRequested();
+        _ = MowPortalParser.ModPage(page);
+        return Task.FromResult(new ModSourceResult<ModSourcePage<ModArticle>>(new([], null), DateTimeOffset.UtcNow));
     }
 
-    public async Task<ModSourceResult<ModArticle>> GetArticleAsync(Uri page, ModReadMode mode = ModReadMode.Refresh, CancellationToken cancellationToken = default)
+    public Task<ModSourceResult<ModArticle>> GetArticleAsync(Uri page, ModReadMode mode = ModReadMode.Refresh, CancellationToken cancellationToken = default)
     {
-        if (page.Fragment != "#version-notes") throw new ArgumentException("Invalid Mow Portal version notes URL.", nameof(page));
-        var mod = await GetModAsync(page, mode, cancellationToken).ConfigureAwait(false);
-        return new(mod.Content?.Articles.FirstOrDefault(), mod.FetchedAt, mod.Failure, mod.IsStale, mod.CacheWarning);
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(new ModSourceResult<ModArticle>(null, null,
+            new(ModSourceError.NotFound, "Version notes are available with their files.")));
     }
 
     public async Task<ModSourceResult<ModSourcePage<ModImageReference>>> GetImagesAsync(Uri page, ModReadMode mode = ModReadMode.Refresh, CancellationToken cancellationToken = default)

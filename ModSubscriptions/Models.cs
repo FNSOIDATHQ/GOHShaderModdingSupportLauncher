@@ -61,6 +61,8 @@ internal sealed record RemoteModFile
     public required string Name { get; init; }
     public Uri? BrowserUrl { get; init; }
     public string Description { get; init; } = "";
+    public ModReadingDocument? Document { get; init; }
+    public string? GroupId { get; init; }
     public long? SizeBytes { get; init; }
     public string? Md5 { get; init; }
     public DateTimeOffset? PublishedAt { get; init; }
@@ -70,6 +72,18 @@ internal sealed record RemoteModFile
     public bool CanDownload { get; init; } = true;
     public string DownloadUnavailableReason { get; init; } = "";
     // Temporary mirror URLs and account credentials have no place in this model.
+}
+
+// Shared author notes belong to a release/version, independently of downloadable attachments.
+internal sealed record ModFileGroup
+{
+    public required string Id { get; init; }
+    public required string Title { get; init; }
+    public required Uri PageUrl { get; init; }
+    public string Description { get; init; } = "";
+    public ModReadingDocument? Document { get; init; }
+    public DateTimeOffset? PublishedAt { get; init; }
+    public string InstallationInstructions { get; init; } = "";
 }
 
 internal sealed record ModFavorite(ModSourceId Source, DateTimeOffset AddedAt);
@@ -85,6 +99,7 @@ internal sealed record FileTrackingState
     public bool HasBaseline { get; init; }
     [JsonRequired]
     public RemoteModFile[] KnownFiles { get; init; } = [];
+    public ModFileGroup[] Groups { get; init; } = [];
     [JsonRequired]
     public FileAcknowledgement[] AcknowledgedFiles { get; init; } = [];
     // Persist the reason for an unread notice, independently of downloads and installed versions.

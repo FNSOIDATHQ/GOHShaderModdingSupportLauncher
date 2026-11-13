@@ -614,7 +614,7 @@
   <data name="MS_MoreImages" xml:space="preserve"><value>更多图片</value></data>
   <data name="MS_InvalidImage" xml:space="preserve"><value>仅支持公开 HTTPS 图片地址。</value></data>
   <data name="MS_ImageTooLarge" xml:space="preserve"><value>图片超过 20 MiB 显示上限。</value></data>
-  <data name="MS_InstallBoundary" xml:space="preserve"><value>请先阅读作者说明。选择文件下载后，可分别检查压缩包。标准安装仅将完整 Mod 文件夹放入所选游戏的 mods 目录；不会执行脚本或安装器。</value></data>
+  <data name="MS_InstallReviewBoundary" xml:space="preserve"><value>安装前请确认完整 Mod 包及实际目录。仅管理所选游戏的 mods 目录；额外步骤请遵循作者说明。</value></data>
   <data name="MS_NewFile" xml:space="preserve"><value>新增文件</value></data>
   <data name="MS_ChangedFile" xml:space="preserve"><value>文件已变更</value></data>
   <data name="MS_MarkRead" xml:space="preserve"><value>标为已读</value></data>
@@ -747,4 +747,11 @@
   <data name="MS_ConfirmRecovery" xml:space="preserve"><value>确认恢复所列操作</value></data>
   <data name="MS_PaginationLimit" xml:space="preserve"><value>已达到分页读取上限；更多内容请打开原文。</value></data>
   <data name="MS_CachedStatus" xml:space="preserve"><value>缓存内容</value></data>
+  <data name="MS_SelectForDownload" xml:space="preserve"><value>选择下载：</value></data>
+  <data name="MS_SelectedFileCount" xml:space="preserve"><value>已选择 {0} 个文件</value></data>
+  <data name="MS_NoFileDescription" xml:space="preserve"><value>作者未提供此文件的单独说明。</value></data>
+  <data name="MS_SharedVersionNotes" xml:space="preserve"><value>共享版本说明</value></data>
+  <data name="MS_ReleaseWithoutFiles" xml:space="preserve"><value>版本说明（无附件）</value></data>
+  <data name="MS_InstallationInOverview" xml:space="preserve"><value>通用安装说明见概览。</value></data>
+  <data name="MS_FileChoicesChanged" xml:space="preserve"><value>有 {0} 项勾选已清除，相关文件已变更或不再可用。</value></data>
 </root>

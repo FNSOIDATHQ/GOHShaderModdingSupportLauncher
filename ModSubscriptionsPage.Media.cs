@@ -155,12 +155,21 @@ public sealed partial class ModSubscriptionsPage
     private async Task ShowImageAsync(ModImage image, CancellationToken token)
     {
         if (session is not { } expected) return;
+        bool inFiles = details.SelectedIndex == 1;
         SaveReadingPosition();
-        imageExpanded = true;
+        if (inFiles) fileImageExpanded = true; else imageExpanded = true;
         int generation = ++readerGeneration;
         var panel = Column(); var message = Text(T("Working")); panel.Children.Add(message);
-        panel.Children.Add(Action(T("BackToReading"), () => { readerGeneration++; imageExpanded = false; renderedSession = null; RenderReading(); return Task.CompletedTask; }, independent: true));
-        reading.Children.Clear(); reading.Children.Add(panel); readingScroll.Offset = default;
+        panel.Children.Add(Action(T("BackToReading"), () =>
+        {
+            readerGeneration++;
+            if (inFiles) { fileImageExpanded = false; RenderSelectedFile(); }
+            else { imageExpanded = false; renderedSession = null; RenderReading(); }
+            return Task.CompletedTask;
+        }, independent: true));
+        var target = inFiles ? fileReader : reading;
+        var scroll = inFiles ? fileScroll : readingScroll;
+        target.Children.Clear(); target.Children.Add(panel); scroll.Offset = default;
         Bitmap? bitmap = null;
         try
         {

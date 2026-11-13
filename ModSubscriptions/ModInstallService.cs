@@ -53,7 +53,10 @@ internal sealed class ModInstallService(SubscriptionStore store, IModInstallatio
         var subscription = Subscription(subscriptionId);
         using var lease = GameOperationLock.Acquire(subscription.GameDirectory);
         var download = ReadyDownload(subscription, downloadId);
-        return archives.Inspect(download.LocalPath!, download.File, token);
+        var inspection = archives.Inspect(download.LocalPath!, download.File, token);
+        var group = subscription.Files.Groups.FirstOrDefault(item => item.Id == download.File.GroupId);
+        return inspection with { AuthorInstructions = string.Join("\n\n", new[]
+            { inspection.AuthorInstructions, group?.Description ?? "", group?.InstallationInstructions ?? "" }.Where(text => text.Length > 0)) };
     }
 
     internal ModInstallation Install(ModInstallRequest request, CancellationToken token = default)

@@ -6,4 +6,5 @@ namespace GOHShaderModdingSupportLauncher.ModSubscriptions;
     WriteIndented = true, UseStringEnumConverter = true,
     UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow)]
 [JsonSerializable(typeof(SubscriptionLibrary))]
+[JsonSerializable(typeof(ModFileGroup))]
 internal partial class SubscriptionJsonContext : JsonSerializerContext { }

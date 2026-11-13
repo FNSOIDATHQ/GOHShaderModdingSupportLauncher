@@ -125,9 +125,11 @@ internal sealed class ModUpdateCheckService(SubscriptionStore store, Func<string
                 pageEvidence && string.IsNullOrWhiteSpace(response.Content.PageRevision))
                 return Result(false, new(ModSourceError.ParseFailed, "The complete file snapshot contains invalid or duplicate file identities."));
             var checkedAt = DateTimeOffset.UtcNow;
-            store.ChangeFileTracking(id, previous => pageEvidence
+            SubscriptionValidation.FileGroups(response.Content.Groups);
+            store.ChangeFileTracking(id, previous => (pageEvidence
                 ? AdvancePage(previous, files, response.Content.PageRevision, checkedAt)
-                : Advance(previous, files, checkedAt));
+                : Advance(previous, files, checkedAt)) with
+                { Groups = MergeGroups(previous.Groups, response.Content.Groups) });
             return Result(true);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
@@ -144,6 +146,9 @@ internal sealed class ModUpdateCheckService(SubscriptionStore store, Func<string
             return Result(false, new(ex is InvalidDataException ? ModSourceError.ParseFailed : ModSourceError.RequestFailed, ex.Message));
         }
     }
+
+    internal static ModFileGroup[] MergeGroups(ModFileGroup[] previous, ModFileGroup[] current) =>
+        current.Concat(previous).DistinctBy(group => group.Id).ToArray();
 
     private static FileTrackingState AdvancePage(FileTrackingState previous, RemoteModFile[] files,
         string revision, DateTimeOffset checkedAt)

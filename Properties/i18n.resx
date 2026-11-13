@@ -614,7 +614,7 @@ Make sure Steam has finished downloading the item.</value>
   <data name="MS_MoreImages" xml:space="preserve"><value>More images</value></data>
   <data name="MS_InvalidImage" xml:space="preserve"><value>Only public HTTPS image addresses are supported.</value></data>
   <data name="MS_ImageTooLarge" xml:space="preserve"><value>The image exceeds the 20 MiB display limit.</value></data>
-  <data name="MS_InstallBoundary" xml:space="preserve"><value>Read the author&apos;s instructions first. Select files to download, then inspect each package. Standard installation places only complete Mod folders into the selected game&apos;s mods directory; scripts and installers are never executed.</value></data>
+  <data name="MS_InstallReviewBoundary" xml:space="preserve"><value>Confirm a complete Mod package and its actual folder before installation. Only the selected game&apos;s mods directory is managed; follow the author&apos;s instructions for extra steps.</value></data>
   <data name="MS_NewFile" xml:space="preserve"><value>New file</value></data>
   <data name="MS_ChangedFile" xml:space="preserve"><value>File changed</value></data>
   <data name="MS_MarkRead" xml:space="preserve"><value>Mark read</value></data>
@@ -747,4 +747,11 @@ Make sure Steam has finished downloading the item.</value>
   <data name="MS_ConfirmRecovery" xml:space="preserve"><value>Confirm recovery of listed operations</value></data>
   <data name="MS_PaginationLimit" xml:space="preserve"><value>Pagination limit reached. Open the original page for more.</value></data>
   <data name="MS_CachedStatus" xml:space="preserve"><value>Cached</value></data>
+  <data name="MS_SelectForDownload" xml:space="preserve"><value>Select for download:</value></data>
+  <data name="MS_SelectedFileCount" xml:space="preserve"><value>{0} files selected</value></data>
+  <data name="MS_NoFileDescription" xml:space="preserve"><value>The author did not provide a separate description for this file.</value></data>
+  <data name="MS_SharedVersionNotes" xml:space="preserve"><value>Shared version notes</value></data>
+  <data name="MS_ReleaseWithoutFiles" xml:space="preserve"><value>Version notes (no attachments)</value></data>
+  <data name="MS_InstallationInOverview" xml:space="preserve"><value>General installation instructions are in the overview.</value></data>
+  <data name="MS_FileChoicesChanged" xml:space="preserve"><value>{0} selections cleared because the files changed or are no longer available.</value></data>
 </root>

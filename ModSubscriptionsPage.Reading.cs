@@ -29,9 +29,11 @@ public sealed partial class ModSubscriptionsPage
         internal readonly Dictionary<string, Vector> Positions = [];
         internal readonly Dictionary<string, double> GalleryPositions = [];
         internal readonly HashSet<(string, string)> Chosen = [];
+        internal readonly Dictionary<string, Vector> FilePositions = [];
+        internal string? File;
         internal Uri? Article;
         internal int Tab;
-        internal Vector NavigationPosition, FilePosition;
+        internal Vector NavigationPosition, FilePosition, FileNavigationPosition;
     }
 
     private readonly Dictionary<(string Game, ModSourceId Mod), ReadingSession> sessions = [];
@@ -57,7 +59,8 @@ public sealed partial class ModSubscriptionsPage
         if (session is null) return;
         if (!imageExpanded) session.Positions[session.Article?.AbsoluteUri ?? "overview"] = readingScroll.Offset;
         if (!imageExpanded && renderedSession == session && galleryScroll is not null) session.GalleryPositions[ReadingKey] = galleryScroll.Offset.X;
-        session.NavigationPosition = articleScroll.Offset; session.FilePosition = fileScroll.Offset;
+        session.NavigationPosition = articleScroll.Offset;
+        SaveFileReadingPosition();
         session.Chosen.Clear();
         foreach (var item in fileChoices.Where(item => item.Value.IsChecked == true)) session.Chosen.Add((item.Key.Id, item.Key.Revision));
     }
@@ -96,8 +99,10 @@ public sealed partial class ModSubscriptionsPage
         pageNotice.IsVisible = false;
         selected = mod; snapshot = null; snapshotFresh = false; fileChoices.Clear();
         imageExpanded = false; renderedSession = null;
+        fileImageExpanded = false; renderedFileSession = null; fileEntries = []; fileGeneration++;
         var current = ReadingState(mod);
         session = current;
+        if (!SourceForProvider(mod.Id.Provider).Capabilities.CanReadArticles) current.Article = null;
         if (!refresh && current.Overview.Result is null)
         { current.Mod = mod; current.Overview.Result = new(mod, DateTimeOffset.UtcNow); current.Overview.Attempted = true; }
         selected = current.Mod; title.Text = current.Mod.Title;
@@ -105,11 +110,13 @@ public sealed partial class ModSubscriptionsPage
         rebuilding = true; details.SelectedIndex = current.Tab; rebuilding = false;
         RenderDescriptionNavigation(); RenderReading(); RenderFileState();
         RestorePosition(articleScroll, current.NavigationPosition); RestorePosition(fileScroll, current.FilePosition);
+        RestorePosition(fileNavigationScroll, current.FileNavigationPosition);
         try
         {
             await EnsureOverviewAsync(current, token);
             if (!IsCurrent(current, token)) return;
-            var work = new List<Task> { LoadArticlesAsync(current.Mod.PageUrl, token) };
+            var work = new List<Task>();
+            if (SourceForProvider(current.Mod.Id.Provider).Capabilities.CanReadArticles) work.Add(LoadArticlesAsync(current.Mod.PageUrl, token));
             // GitHub and Mow Portal already return all embedded media with the overview.
             if (current.Mod.Id.Provider == "moddb") work.Add(LoadImagesAsync(current.Mod.PageUrl, token));
             if (current.Tab == 1) work.Add(EnsureFilesAsync());
@@ -214,6 +221,7 @@ public sealed partial class ModSubscriptionsPage
     private async Task LoadArticlesAsync(Uri page, CancellationToken token)
     {
         if (session is not { } current) return;
+        if (!SourceForProvider(current.Mod.Id.Provider).Capabilities.CanReadArticles) return;
         if (current.ArticlePages.Count >= 100 && !current.ArticlePages.ContainsKey(page)) return;
         if (!current.ArticlePages.TryGetValue(page, out var state)) current.ArticlePages.Add(page, state = new());
         var adapter = SourceForProvider(current.Mod.Id.Provider);
@@ -234,8 +242,8 @@ public sealed partial class ModSubscriptionsPage
             articles.Children.Add(button);
         }
         AddEntry(T("Summary"), null);
-        var entries = current.ArticlePages.Values.SelectMany(page => page.Result?.Content?.Items ?? [])
-            .Concat(current.Mod.Articles).DistinctBy(item => item.Id).ToArray();
+        var entries = SourceForProvider(current.Mod.Id.Provider).Capabilities.CanReadArticles ? current.ArticlePages.Values.SelectMany(page => page.Result?.Content?.Items ?? [])
+            .Concat(current.Mod.Articles).DistinctBy(item => item.Id).ToArray() : [];
         foreach (var article in entries) AddEntry(article.Title, article.PageUrl);
         foreach (var pair in current.ArticlePages)
         {

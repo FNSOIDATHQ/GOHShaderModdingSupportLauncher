@@ -12,7 +12,7 @@ internal static class MowPortalParser
     internal const string GamePath = "/call_to_arms_gates_of_hell/";
     internal static ModSourceCapabilities Capabilities => new()
     {
-        CanBrowse = true, CanReadArticles = true, CanReadImages = true,
+        CanBrowse = true, CanReadArticles = false, CanReadImages = true,
         CanListFiles = true, CanDownloadAnonymously = true, UpdateEvidence = UpdateEvidence.PageOrLinkChange
     };
 
@@ -81,15 +81,10 @@ internal static class MowPortalParser
                 ? media with { Caption = RedactDeliveryLinks(media.Caption) } : null, PublicLink, RedactDeliveryLinks);
         var overviewDocument = new ModReadingDocument { Blocks = [.. ModDocumentParser.Legacy(versions, page).Blocks,
             .. document.Blocks, .. ModDocumentParser.Legacy(install, page).Blocks] };
-        var notes = new ModArticle
-        {
-            Id = "version-notes", PageUrl = new(page.AbsoluteUri + "#version-notes"),
-            Title = versions.Length > 0 ? string.Join(" · ", versions.Split('\n')) : title, Body = body, Document = document
-        };
         return new()
         {
             Id = Identity(page), PageUrl = page, Title = title, Summary = summary, Document = overviewDocument,
-            Capabilities = Capabilities, Kind = RemoteProjectKind.Mod, Articles = [notes], Images = Images(article, page)
+            Capabilities = Capabilities, Kind = RemoteProjectKind.Mod, Images = Images(article, page)
         };
     }
 
@@ -121,7 +116,7 @@ internal static class MowPortalParser
                 Id = id, Revision = Fingerprint(stableLink + "\n" + name),
                 PageUrl = new(page.AbsoluteUri + "#download-" + id),
                 BrowserUrl = PublicLink(link) ? link : page, Name = name,
-                Description = Text(anchor) + "\n\n" + authorNotes + (available ? "" : "\nAnonymous downloading from this host is not supported. Open the original page."),
+                Description = Text(anchor), GroupId = "current-version",
                 CanDownload = available, DownloadUnavailableReason = available ? "" : "Anonymous downloading from this host has not been verified."
             });
         }
@@ -129,7 +124,19 @@ internal static class MowPortalParser
         string revision = Fingerprint(evidence);
         // This is selection evidence, not proof that a hosted file changed. A changed author page
         // must allow the user to choose a fresh download without reusing an old completed task.
-        return new(files.Values.Select(file => file with { Revision = Fingerprint(revision + "\n" + file.Revision) }).ToArray()) { PageRevision = revision };
+        string version = Versions(article);
+        string notes = string.Join("\n\n", new[] { version, downloads is null ? "" : Readable(downloads) }.Where(text => text.Length > 0));
+        var document = downloads is null ? ModDocumentParser.Legacy(notes, page) : new ModReadingDocument
+        {
+            Blocks = [.. ModDocumentParser.Legacy(version, page).Blocks, .. ModDocumentParser.Html(downloads, page,
+                image => ModDocumentParser.Image(image, page, uri => IsImage(uri) ? uri : null), PublicLink, RedactDeliveryLinks).Blocks]
+        };
+        return new(files.Values.Select(file => file with { Revision = Fingerprint(revision + "\n" + file.Revision) }).ToArray())
+        {
+            PageRevision = revision,
+            Groups = [new() { Id = "current-version", Title = version.Length > 0 ? string.Join(" · ", version.Split('\n')) : title,
+                PageUrl = page, Description = notes, Document = document, InstallationInstructions = InstallationNotes(article) }]
+        };
     }
 
     private static bool PublicLink(Uri link) => AnonymousModHttpClient.IsPublicHttps(link) && link.Fragment.Length == 0 &&

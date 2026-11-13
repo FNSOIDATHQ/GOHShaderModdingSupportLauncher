@@ -94,6 +94,8 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
         CloseOperation();
         title.Text = T("ChooseMod");
         summary.Children.Clear(); articles.Children.Clear(); images.Children.Clear(); files.Children.Clear(); tasks.Children.Clear(); reading.Children.Clear(); recovery.Children.Clear();
+        fileReader.Children.Clear(); fileNotice.Children.Clear(); fileEntries = []; renderedFileSession = null; fileImageExpanded = false; fileGeneration++;
+        UpdateFileSelection();
         tracking.Text = ""; listOnly = true; RefreshTracking(); UpdateResponsiveLayout();
         if (active) _ = RefreshAfterGameChangeAsync();
     }
@@ -305,6 +307,10 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
         unsubscribe.Content = T(sub?.State is SubscriptionState.RemovalPending or SubscriptionState.RemovalFailed ? "ContinueCleanup" : "Unsubscribe");
         tracking.Text = selected is null ? "" : sub is null ? T("NotSubscribed") : T(sub.State == SubscriptionState.Active ? "Subscribed" : "CleanupIncomplete") + " · " +
             T("LastCheck") + ": " + (sub.Files.LastSuccessfulCheck?.ToLocalTime().ToString("g") ?? T("Never")) + " · " + T("Updates") + $": {UpdateCount(sub)}";
+        foreach (var pair in fileChoices)
+            pair.Value.IsEnabled = sub?.State is not (SubscriptionState.RemovalPending or SubscriptionState.RemovalFailed) &&
+                snapshot?.Files.Any(file => file.Id == pair.Key.Id && file.Revision == pair.Key.Revision && file.CanDownload) == true;
+        UpdateFileSelection();
         if (runtime.Error is { } error) { pageNotice.Text = T("Failed") + ": " + error; pageNotice.IsVisible = true; }
     }
 

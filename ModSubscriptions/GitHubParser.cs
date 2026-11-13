@@ -10,7 +10,7 @@ internal static class GitHubParser
     internal static readonly Uri ApiOrigin = new("https://api.github.com");
     internal static readonly ModSourceCapabilities Capabilities = new()
     {
-        CanBrowse = true, CanReadArticles = true, CanReadImages = true, CanListFiles = true,
+        CanBrowse = true, CanReadArticles = false, CanReadImages = true, CanListFiles = true,
         CanDownloadAnonymously = true, UpdateEvidence = UpdateEvidence.FileIdentityAndRevision
     };
 
@@ -94,7 +94,7 @@ internal static class GitHubParser
         return uri.Query.Length > 0 && uri.Query != "?raw=true" ? null : uri;
     }
     internal static bool IsImageHost(Uri uri) => AnonymousModHttpClient.IsPublicHttps(uri) && uri.Host is "github.com" or "raw.githubusercontent.com" or "user-images.githubusercontent.com";
-    internal static ModArticle Article(JsonElement release)
+    internal static ModFileGroup Release(JsonElement release)
     {
         string id = Id(release);
         string title = Text(release, "name");
@@ -106,7 +106,7 @@ internal static class GitHubParser
         return new()
         {
             Id = id, PageUrl = page, Title = title,
-            Body = body, Document = document, Images = ModDocumentParser.Images(document).DistinctBy(image => image.ImageUrl).ToArray(), PublishedAt = Date(release, "published_at")
+            Description = body, Document = document, PublishedAt = Date(release, "published_at")
         };
     }
     internal static RemoteModFile Asset(JsonElement asset, string repositoryId, RemoteProjectKind kind = RemoteProjectKind.Unknown)

@@ -11,13 +11,15 @@ public sealed partial class ModSubscriptionsPage
     private void CloseOperation()
     {
         if (operation is null) return;
-        operation.Content = null; operation.IsVisible = false; fileContent.IsVisible = true;
+        operation.Content = null; operation.IsVisible = false; operationScroll.IsVisible = false; fileContent.IsVisible = true;
+        if (session is { } current) RestorePosition(fileScroll, current.FilePosition);
     }
 
     private void ShowOperation(Control content)
     {
+        SaveFileReadingPosition();
         details.SelectedIndex = 1;
-        operation.Content = content; operation.IsVisible = true; fileContent.IsVisible = false; fileScroll.Offset = default;
+        operation.Content = content; operation.IsVisible = true; operationScroll.IsVisible = true; fileContent.IsVisible = false; operationScroll.Offset = default;
     }
 
     private StackPanel OperationPanel(string caption)
@@ -36,7 +38,7 @@ public sealed partial class ModSubscriptionsPage
         var inspection = await Task.Run(() => runtime!.Installer.Inspect(sub.Id, download.Id, token), token);
         if (!IsCurrent(expected, token) || !SameGame(sub.GameDirectory)) return;
         var panel = OperationPanel(T("InspectInstall"));
-        panel.Children.Add(Text(T("InstallBoundary"))); AddReadable(panel, inspection.AuthorInstructions);
+        panel.Children.Add(Text(T("InstallReviewBoundary"))); AddReadable(panel, inspection.AuthorInstructions);
         panel.Children.Add(Text(T("GameScope") + " " + sub.GameDirectory));
         if (inspection.ManualInstallReason is not null || inspection.Candidates.Length == 0)
         {

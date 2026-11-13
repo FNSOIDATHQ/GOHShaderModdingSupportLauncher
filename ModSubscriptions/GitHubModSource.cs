@@ -95,24 +95,18 @@ internal sealed class GitHubModSource : IModSource, IDisposable
             return mod;
         }, ModContentJsonContext.Default.CachedModContentRemoteMod, mode, token);
 
-    public Task<ModSourceResult<ModSourcePage<ModArticle>>> GetArticlesAsync(Uri page, ModReadMode mode = ModReadMode.Refresh, CancellationToken cancellationToken = default) =>
-        ReadAsync("github:articles:" + GitHubParser.RepoPage(page).AbsoluteUri, async token =>
-        {
-            var releases = await ReleasesAsync(page, token).ConfigureAwait(false);
-            return new ModSourcePage<ModArticle>(releases.Select(GitHubParser.Article).ToArray(), null);
-        }, ModContentJsonContext.Default.CachedModContentModSourcePageModArticle, mode, cancellationToken);
+    public Task<ModSourceResult<ModSourcePage<ModArticle>>> GetArticlesAsync(Uri page, ModReadMode mode = ModReadMode.Refresh, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        _ = GitHubParser.RepoPage(page);
+        return Task.FromResult(new ModSourceResult<ModSourcePage<ModArticle>>(new([], null), DateTimeOffset.UtcNow));
+    }
 
     public Task<ModSourceResult<ModArticle>> GetArticleAsync(Uri page, ModReadMode mode = ModReadMode.Refresh, CancellationToken cancellationToken = default)
     {
-        if (!AnonymousModHttpClient.IsPublicHttps(page) || page.Host != "github.com") throw new ArgumentException("Invalid GitHub release URL.", nameof(page));
-        var parts = page.AbsolutePath.Trim('/').Split('/');
-        if (parts.Length < 5 || parts[2] != "releases" || parts[3] != "tag") throw new ArgumentException("Invalid GitHub release URL.", nameof(page));
-        Uri repo = GitHubParser.RepoPage(new("https://github.com/" + parts[0] + "/" + parts[1]));
-        return ReadAsync("github:article:" + page.AbsoluteUri, async token =>
-        {
-            using var json = await JsonAsync(RepoApi(repo, "/releases/tags/" + string.Join('/', parts.Skip(4))), token).ConfigureAwait(false);
-            return GitHubParser.Article(json.RootElement);
-        }, ModContentJsonContext.Default.CachedModContentModArticle, mode, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(new ModSourceResult<ModArticle>(null, null,
+            new(ModSourceError.NotFound, "Release notes are available with their files.")));
     }
 
     public async Task<ModSourceResult<ModSourcePage<ModImageReference>>> GetImagesAsync(Uri page, ModReadMode mode = ModReadMode.Refresh, CancellationToken cancellationToken = default)
@@ -168,15 +162,18 @@ internal sealed class GitHubModSource : IModSource, IDisposable
         repo ??= await RepositoryAsync(RepoApi(page, ""), token).ConfigureAwait(false);
         var releases = await ReleasesAsync(repo.PageUrl, token).ConfigureAwait(false);
         var files = new Dictionary<string, RemoteModFile>(StringComparer.Ordinal);
+        var groups = new List<ModFileGroup>();
         foreach (var release in releases)
         {
             string releaseId = GitHubParser.Id(release);
+            groups.Add(GitHubParser.Release(release));
             // The nested assets array can be truncated. Always enumerate the asset endpoint's pages.
             var assets = await PagesAsync(RepoApi(repo.PageUrl, "/releases/" + releaseId + "/assets"), token).ConfigureAwait(false);
             foreach (var asset in assets)
             {
                 if (GitHubParser.Text(asset, "state") != "uploaded") throw Parse("A release asset is still uploading. Retry the complete check later.");
-                var file = GitHubParser.Asset(asset, repo.Id.RemoteId, repo.Kind) with { BrowserUrl = new(GitHubParser.Required(release, "html_url")) };
+                var file = GitHubParser.Asset(asset, repo.Id.RemoteId, repo.Kind) with
+                { BrowserUrl = new(GitHubParser.Required(release, "html_url")), GroupId = releaseId };
                 if (!files.TryAdd(file.Id, file)) throw Parse("The release assets changed during pagination. Retry the complete check.");
             }
         }
@@ -186,7 +183,7 @@ internal sealed class GitHubModSource : IModSource, IDisposable
             var file = GitHubParser.Snapshot(repo.Id.RemoteId, GitHubParser.Required(commit.RootElement, "sha"), repo.Title);
             files.Add(file.Id, file);
         }
-        return new(files.Values.ToArray());
+        return new(files.Values.ToArray()) { Groups = groups.ToArray() };
     }
 
     public async Task<ModSourceResult<ModFileHints>> ReadFileHintsAsync(Uri modPage, ModReadMode mode = ModReadMode.Refresh, CancellationToken cancellationToken = default)

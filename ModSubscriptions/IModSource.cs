@@ -34,6 +34,7 @@ internal sealed record ModFileHints(ModFileHint[] Items)
 internal sealed record ModFileSnapshot(RemoteModFile[] Files)
 {
     public string PageRevision { get; init; } = "";
+    public ModFileGroup[] Groups { get; init; } = [];
 }
 
 // Short lived, deliberately excluded from every persistence/JSON context.

@@ -20,6 +20,6 @@ public sealed partial class ModSubscriptionsPage
                 runtime.NotifyChanged(); RefreshTracking(); RenderFiles(mod, token);
             }));
         panel.Children.Add(actions);
-        files.Children.Add(panel);
+        fileNotice.Children.Add(panel);
     }
 }

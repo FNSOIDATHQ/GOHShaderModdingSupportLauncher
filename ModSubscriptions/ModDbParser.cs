@@ -249,7 +249,9 @@ internal static partial class ModDbParser
         {
             Id = start.Groups[1].Value, Revision = revision, PageUrl = RequirePage(page, "downloads", detail: true),
             Name = name, SizeBytes = size, Md5 = checksum, PublishedAt = added, UpdatedAt = updated,
-            Description = (Readable(description, page) + "\n\n" + (instructions is null ? "" : Readable(instructions, page))).Trim()
+            Description = (Readable(description, page) + "\n\n" + (instructions is null ? "" : Readable(instructions, page))).Trim(),
+            Document = new() { Blocks = [.. ReadingDocument(description, page).Blocks,
+                .. instructions is null ? [] : ReadingDocument(instructions, page).Blocks] }
         };
     }
 

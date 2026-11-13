@@ -38,7 +38,20 @@ internal static class SubscriptionValidation
         Text(file.Name);
         Url(file.PageUrl);
         if (file.BrowserUrl is not null) Url(file.BrowserUrl);
+        if (file.GroupId is not null) Text(file.GroupId);
         Require(file.Md5 is null || (file.Md5.Length == 32 && file.Md5.All(Uri.IsHexDigit)));
+    }
+
+    internal static void FileGroups(ModFileGroup[] groups)
+    {
+        Require(groups is not null);
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var group in groups)
+        {
+            Require(group is not null && group.Description is not null && group.InstallationInstructions is not null);
+            Text(group.Id); Text(group.Title); Url(group.PageUrl);
+            Require(ids.Add(group.Id));
+        }
     }
 
     internal static void Library(SubscriptionLibrary library)
@@ -96,6 +109,7 @@ internal static class SubscriptionValidation
             string game = SubscriptionPaths.Normalize(subscription.GameDirectory);
             Require(game == subscription.GameDirectory && subscriptions.Add((subscription.Source, game.ToUpperInvariant())));
             var tracking = subscription.Files;
+            FileGroups(tracking.Groups);
             Require(tracking.KnownFiles is not null && tracking.AcknowledgedFiles is not null && tracking.Notices is not null &&
                 tracking.PageRevision is not null && tracking.AcknowledgedPageRevision is not null);
             if (tracking.PageNotice is { } pageNotice)
