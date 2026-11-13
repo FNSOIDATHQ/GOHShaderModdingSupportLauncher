@@ -52,8 +52,10 @@ public sealed partial class ModSubscriptionsPage
         if (!changed && refreshTask is { IsCompleted: false } && refreshingKey == key && refreshCancellation?.IsCancellationRequested == false)
             return refreshTask;
         CancelRefresh();
+        if (!changed) PrepareTranslationRetry();
         if (changed)
         {
+            CancelTranslation();
             // Search supersedes reads that were started before the new query.
             detailCancellation?.Cancel(); detailCancellation?.Dispose(); readerCancellation?.Cancel();
             detailCancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);

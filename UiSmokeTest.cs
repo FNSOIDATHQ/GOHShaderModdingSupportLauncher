@@ -416,5 +416,16 @@ internal static class UiSmokeTest
             !page.GetLogicalDescendants().OfType<Border>().Any(border => border.Name == "subscriptionStatusDetails"))
             throw new InvalidOperationException("Subscription refresh scope or inline status details failed.");
         AppDiagnostics.Log("Subscription refresh self-test passed: one entry, inline status details and obsolete completion rejection.");
+        var preferences = new ModTranslationSettings();
+        string translationJson = System.Text.Json.JsonSerializer.Serialize(preferences, ModTranslationJsonContext.Default.ModTranslationSettings);
+        var translationPreferences = System.Text.Json.JsonSerializer.Deserialize(translationJson, ModTranslationJsonContext.Default.ModTranslationSettings);
+        var chunks = ModDocumentTranslator.Chunks(new string('a', 899) + "🙂" + new string('b', 905)).ToArray();
+        if (translationPreferences is not { Enabled: false, Language: "", ShowOriginal: false } ||
+            string.Concat(chunks) != new string('a', 899) + "🙂" + new string('b', 905) || chunks.Any(chunk => char.IsHighSurrogate(chunk[^1])) ||
+            !page.GetLogicalDescendants().OfType<CheckBox>().Any(control => control.Name == "subscriptionTranslate" && control.IsChecked != true) ||
+            !page.GetLogicalDescendants().OfType<ComboBox>().Any(control => control.Name == "subscriptionTranslationLanguage" && control.SelectedIndex == 0) ||
+            !page.GetLogicalDescendants().OfType<ComboBox>().Any(control => control.Name == "subscriptionTranslationDisplay" && !control.IsEnabled))
+            throw new InvalidOperationException("Subscription translation controls, defaults, Unicode chunks or source-generated preferences failed.");
+        AppDiagnostics.Log("Subscription translation self-test passed: default-off controls, UI language target, Unicode chunks and source-generated preferences without network access.");
     }
 }

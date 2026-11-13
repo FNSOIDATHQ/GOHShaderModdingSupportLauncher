@@ -767,4 +767,22 @@
   <data name="MS_StatusState_Cancelled" xml:space="preserve"><value>已取消</value></data>
   <data name="MS_RefreshAfterOperation" xml:space="preserve"><value>请先完成或取消当前确认，返回文件页后再刷新。</value></data>
   <data name="MS_SelectionOutsideResults" xml:space="preserve"><value>所选 Mod 已不在刷新后的结果中，请从列表中重新选择。</value></data>
+  <data name="MS_AutoTranslate" xml:space="preserve"><value>Google 自动翻译</value></data>
+  <data name="MS_TranslationFollowUI" xml:space="preserve"><value>跟随界面语言</value></data>
+  <data name="MS_TranslatedText" xml:space="preserve"><value>译文</value></data>
+  <data name="MS_OriginalText" xml:space="preserve"><value>原文</value></data>
+  <data name="MS_TranslationHint" xml:space="preserve"><value>实验性匿名 Google 翻译。只发送当前公开正文，不发送本地目录、订阅库、日志或验证信息。机器翻译可能有误，可切换“原文”阅读作者说明。</value></data>
+  <data name="MS_TranslationSettingsInvalid" xml:space="preserve"><value>无法读取翻译设置，自动翻译已关闭。</value></data>
+  <data name="MS_TranslationSettingsFailed" xml:space="preserve"><value>无法保存翻译设置。</value></data>
+  <data name="MS_TranslationDocument" xml:space="preserve"><value>当前正文翻译</value></data>
+  <data name="MS_StatusPhase_Translation" xml:space="preserve"><value>Google 翻译</value></data>
+  <data name="MS_TranslationProgress" xml:space="preserve"><value>正在翻译 {0}/{1} 段文字</value></data>
+  <data name="MS_TranslationCompleted" xml:space="preserve"><value>Google 翻译完成</value></data>
+  <data name="MS_TranslationFallback" xml:space="preserve"><value>{0} 段文字保留原文</value></data>
+  <data name="MS_TranslationError_Unavailable" xml:space="preserve"><value>翻译服务暂不可用。</value></data>
+  <data name="MS_TranslationError_Offline" xml:space="preserve"><value>无法连接翻译服务。</value></data>
+  <data name="MS_TranslationError_Timeout" xml:space="preserve"><value>翻译请求超时。</value></data>
+  <data name="MS_TranslationError_RateLimited" xml:space="preserve"><value>Google 已临时限制翻译请求，请稍后重试。</value></data>
+  <data name="MS_TranslationError_InvalidResponse" xml:space="preserve"><value>翻译响应格式无效。</value></data>
+  <data name="MS_TranslationError_TooLarge" xml:space="preserve"><value>当前正文超出自动翻译上限。</value></data>
 </root>

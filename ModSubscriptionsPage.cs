@@ -84,7 +84,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
         runtime.Changed += RuntimeChanged;
         runtime.Verification.Changed += RuntimeChanged;
         timer.Start();
-        _ = RunAsync(async () => { await runtime.Ready; LoadGitHubOptions(); RefreshVerification(); await LoadListAsync(); });
+        _ = RunAsync(async () => { await runtime.Ready; await LoadTranslationOptionsAsync(); LoadGitHubOptions(); RefreshVerification(); await LoadListAsync(); });
     }
 
     public void OnGameChanged()
@@ -96,6 +96,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
 
     private void ClearDetail()
     {
+        CancelTranslation();
         SaveReadingPosition();
         detailCancellation?.Cancel(); listCancellation?.Cancel();
         readerCancellation?.Cancel();
@@ -117,7 +118,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
     {
         if (args.PropertyName != nameof(LocalizedStrings.Tab_ModSubscriptions)) return;
         var previousMod = selected;
-        CancelRefresh(); ResetStatus();
+        CancelRefresh(); CancelTranslation(); ResetStatus();
         SaveReadingPosition(); detailCancellation?.Cancel(); listCancellation?.Cancel(); selected = null; snapshot = null; session = null; CloseOperation();
         verificationRetryAction = null;
         verificationNotice = null;
@@ -337,7 +338,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
     public void Dispose()
     {
         if (disposed) return;
-        CancelRefresh();
+        CancelRefresh(); CancelTranslation();
         disposed = true; timer.Stop(); lifetime.Cancel(); detailCancellation?.Cancel(); verificationCancellation?.Cancel();
         LocalizedStrings.Instance.PropertyChanged -= LanguageChanged;
         if (runtime is not null)
@@ -345,6 +346,6 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
             runtime.Changed -= RuntimeChanged;
             runtime.Verification.Changed -= RuntimeChanged;
         }
-        DisposeMedia(); imageClient.Dispose();
+        DisposeMedia(); imageClient.Dispose(); (textTranslator as IDisposable)?.Dispose();
     }
 }

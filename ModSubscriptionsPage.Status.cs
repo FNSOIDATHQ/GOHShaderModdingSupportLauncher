@@ -63,7 +63,9 @@ public sealed partial class ModSubscriptionsPage
         var entries = pageStatus.Operations.ToArray();
         int running = entries.Count(item => item.State == ModPageOperationState.Running);
         int issues = entries.Count(item => item.State is ModPageOperationState.Failed or ModPageOperationState.Warning);
-        status.Text = running > 0 ? string.Format(T(issues > 0 ? "StatusRunningIssues" : "StatusRunning"), running, issues)
+        var translation = entries.SingleOrDefault(item => item.State == ModPageOperationState.Running && item.Phase == "Translation" && running == 1 && issues == 0);
+        status.Text = translation is { Message.Length: > 0 } ? translation.Message
+            : running > 0 ? string.Format(T(issues > 0 ? "StatusRunningIssues" : "StatusRunning"), running, issues)
             : issues > 0 ? string.Format(T("StatusIssues"), issues)
             : entries.LastOrDefault(item => item.Key == "action" && item.State == ModPageOperationState.Succeeded)?.Message
                 ?? (entries.Any(item => item.State == ModPageOperationState.Succeeded) ? T("StatusCompleted") : T("Ready"));

@@ -29,11 +29,12 @@ public sealed partial class ModSubscriptionsPage
         int sortIndex = Math.Max(0, sort?.SelectedIndex ?? 0);
         string query = keyword?.Text ?? "";
         var root = new Grid { Margin = new Thickness(12), RowDefinitions = new("Auto,Auto,Auto,Auto,Auto,*,Auto") };
-        var header = new Grid { ColumnDefinitions = new("*,Auto"), Margin = new Thickness(0, 0, 0, 8) };
+        var header = subscriptionHeader = new Grid { ColumnDefinitions = new("*,Auto,*"), RowDefinitions = new("Auto,Auto"), Margin = new Thickness(0, 0, 0, 8) };
         header.Children.Add(Text(LocalizedStrings.Instance.Tab_ModSubscriptions, 22));
+        var translation = BuildTranslationToolbar(); Grid.SetColumn(translation, 1); header.Children.Add(translation);
         var check = Action(T("Check"), CheckAsync);
         check.Name = "subscriptionCheck";
-        ToolTip.SetTip(check, T("CheckScope")); Grid.SetColumn(check, 1); header.Children.Add(check);
+        ToolTip.SetTip(check, T("CheckScope")); Grid.SetColumn(check, 2); check.HorizontalAlignment = HorizontalAlignment.Right; header.Children.Add(check);
         root.Children.Add(header);
 
         source = new TabStrip { Name = "subscriptionSource", ItemsSource = new[] { "ModDB", "GitHub", "Mow Portal" }, SelectedIndex = sourceIndex };
@@ -78,7 +79,7 @@ public sealed partial class ModSubscriptionsPage
         body.Children.Add(list);
         detail = new Grid { Name = "subscriptionDetailPane", RowDefinitions = new("Auto,Auto,*") }; Grid.SetColumn(detail, 2);
         var heading = new Grid { ColumnDefinitions = new("Auto,*"), RowDefinitions = new("Auto,Auto") };
-        backToList = Action(T("BackToList"), () => { listOnly = true; UpdateResponsiveLayout(); return Task.CompletedTask; }, independent: true);
+        backToList = Action(T("BackToList"), () => { listOnly = true; CancelTranslation(); UpdateResponsiveLayout(); return Task.CompletedTask; }, independent: true);
         backToList.Name = "subscriptionBackToList"; heading.Children.Add(backToList);
         title = Text(T("ChooseMod"), 20); title.MaxLines = 2; title.TextTrimming = TextTrimming.CharacterEllipsis;
         title.VerticalAlignment = VerticalAlignment.Center; Grid.SetColumn(title, 1); heading.Children.Add(title);
@@ -122,8 +123,9 @@ public sealed partial class ModSubscriptionsPage
             if (args.Source != details || rebuilding || session is null) return;
             SaveReadingPosition();
             session.Tab = details.SelectedIndex;
-            CancelRefresh();
+            CancelRefresh(); CancelTranslation();
             if (details.SelectedIndex == 1) await ExecuteAsync(() => EnsureFilesAsync());
+            else RerenderTranslation();
         };
         Grid.SetRow(details, 2); detail.Children.Add(details); body.Children.Add(detail);
         Grid.SetRow(body, 5); root.Children.Add(body);
@@ -173,6 +175,11 @@ public sealed partial class ModSubscriptionsPage
     {
         if (body is null) return;
         bool narrow = Bounds.Width is > 0 and < 900;
+        bool wrapTranslation = Bounds.Width is > 0 and < 1120;
+        Grid.SetColumn(translationToolbar, wrapTranslation ? 0 : 1); Grid.SetColumnSpan(translationToolbar, wrapTranslation ? 3 : 1);
+        Grid.SetRow(translationToolbar, wrapTranslation ? 1 : 0);
+        subscriptionHeader.ColumnDefinitions[1].Width = wrapTranslation ? new GridLength(0) : GridLength.Auto;
+        translationToolbar.Margin = new Thickness(0, wrapTranslation ? 6 : 0, 0, 0);
         body.ColumnDefinitions[0].Width = narrow ? new GridLength(1, GridUnitType.Star) : new GridLength(260);
         body.ColumnDefinitions[1].Width = new GridLength(narrow ? 0 : 12);
         body.ColumnDefinitions[2].Width = narrow ? new GridLength(0) : new GridLength(1, GridUnitType.Star);

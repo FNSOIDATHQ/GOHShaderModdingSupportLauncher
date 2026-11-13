@@ -13,6 +13,8 @@ public sealed partial class ModSubscriptionsPage
         if (operation is null) return;
         operation.Content = null; operation.IsVisible = false; operationScroll.IsVisible = false; fileContent.IsVisible = true;
         if (session is { } current) RestorePosition(fileScroll, current.FilePosition);
+        if (translationPreferences.Enabled && session is { } expected) Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        { if (session == expected) RerenderTranslation(); });
     }
 
     private void ShowOperation(Control content)
@@ -20,6 +22,7 @@ public sealed partial class ModSubscriptionsPage
         SaveFileReadingPosition();
         details.SelectedIndex = 1;
         operation.Content = content; operation.IsVisible = true; operationScroll.IsVisible = true; fileContent.IsVisible = false; operationScroll.Offset = default;
+        CancelTranslation();
     }
 
     private StackPanel OperationPanel(string caption)

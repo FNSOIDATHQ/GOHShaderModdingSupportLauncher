@@ -767,4 +767,22 @@ Make sure Steam has finished downloading the item.</value>
   <data name="MS_StatusState_Cancelled" xml:space="preserve"><value>Cancelled</value></data>
   <data name="MS_RefreshAfterOperation" xml:space="preserve"><value>Return to the files after completing or cancelling the current confirmation, then refresh.</value></data>
   <data name="MS_SelectionOutsideResults" xml:space="preserve"><value>The selected mod is outside the refreshed results. Choose a mod from the list.</value></data>
+  <data name="MS_AutoTranslate" xml:space="preserve"><value>Google auto-translate</value></data>
+  <data name="MS_TranslationFollowUI" xml:space="preserve"><value>UI language</value></data>
+  <data name="MS_TranslatedText" xml:space="preserve"><value>Translated</value></data>
+  <data name="MS_OriginalText" xml:space="preserve"><value>Original</value></data>
+  <data name="MS_TranslationHint" xml:space="preserve"><value>Experimental anonymous Google translation. Only the current public text is sent. Local folders, subscriptions, logs and verification data stay on your computer. Translations may be inaccurate; use Original to read the author's text.</value></data>
+  <data name="MS_TranslationSettingsInvalid" xml:space="preserve"><value>Translation preferences could not be read. Automatic translation is off.</value></data>
+  <data name="MS_TranslationSettingsFailed" xml:space="preserve"><value>Translation preferences could not be saved.</value></data>
+  <data name="MS_TranslationDocument" xml:space="preserve"><value>Current text translation</value></data>
+  <data name="MS_StatusPhase_Translation" xml:space="preserve"><value>Google translation</value></data>
+  <data name="MS_TranslationProgress" xml:space="preserve"><value>Translating {0}/{1} text parts</value></data>
+  <data name="MS_TranslationCompleted" xml:space="preserve"><value>Google translation complete</value></data>
+  <data name="MS_TranslationFallback" xml:space="preserve"><value>{0} text parts kept in the original language</value></data>
+  <data name="MS_TranslationError_Unavailable" xml:space="preserve"><value>The translation service is unavailable.</value></data>
+  <data name="MS_TranslationError_Offline" xml:space="preserve"><value>The translation service could not be reached.</value></data>
+  <data name="MS_TranslationError_Timeout" xml:space="preserve"><value>The translation request timed out.</value></data>
+  <data name="MS_TranslationError_RateLimited" xml:space="preserve"><value>Google has temporarily limited translation requests. Retry later.</value></data>
+  <data name="MS_TranslationError_InvalidResponse" xml:space="preserve"><value>The translation response was invalid.</value></data>
+  <data name="MS_TranslationError_TooLarge" xml:space="preserve"><value>This text exceeds the automatic translation limit.</value></data>
 </root>

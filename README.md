@@ -84,6 +84,8 @@ name = "Local example"
 
 ### Mod subscriptions
 
+The centered **Google auto-translate** toolbar translates the current overview, article or file notes when enabled. It starts off, follows the UI language by default, and remembers your preferences. Choose a target language and switch between **Original** and **Translated** without requesting the same cached text again. Only the current public text is sent to Google; local folders, subscriptions, logs and verification data stay on your computer. Text is sent in bounded batches, and successful text fragments are reused across pages and partial retries. This experimental anonymous service may be unavailable or rate limited. Brief interruptions use bounded retries; longer server cooldowns keep the original text, with progress and retry in the lower-right status details. Code, links, filenames, versions, image positions and download choices are preserved; translations never replace author metadata or update evidence.
+
 Open **Mod subscriptions** to browse Gates of Hell mods on ModDB without an account. The page shows the author's summary, articles, images and files, and keeps favorites separate from subscriptions. Select the files you want before subscribing; downloads are never selected automatically.
 
 **Mod subscriptions** sits immediately after **Mod manager** in the sidebar. Choose a source at the top, enter a search and press Enter or **Refresh**; unchanged searches refresh the current page. Paging stays at the lower left and status at the lower right. **Check subscriptions** checks all sources for the selected game. Expand the GitHub configuration to edit topics or add a repository.
@@ -130,6 +132,8 @@ Images follow a limited number of HTTPS redirects to supported media hosts. Fail
 * Settings are saved under LocalAppData, with compatibility for existing settings.conf beside the EXE.
 * Game Launch process optional comes with the -showmodinfo parameter, which is an enhancement I found that let game shows detailed mod information
 * Automatic update does not check for the availability of new version, so please delete the backup EXE file yourself after verified updated version.
+
+Use `--check-google-translation` to test the EXE's own anonymous WinHTTP translation with public short and multi-chunk samples, protected values, cache and cancellation. It does not open the UI or change game files. Exit code 0 means all live checks passed; results are written to the same diagnostic log. Translation preferences are stored separately in `translation-settings.json`; the bounded translation cache stays in memory.
 
 ## Development Guide
 

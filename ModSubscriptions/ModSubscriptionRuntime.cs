@@ -28,6 +28,7 @@ internal sealed class ModSubscriptionRuntime : IDisposable
     internal GitHubModSource GitHub { get; private set; } = null!;
     internal IModSource MowPortal { get; private set; } = null!;
     internal GitHubOptionsStore GitHubSettings { get; private set; } = null!;
+    internal ModTranslationOptionsStore TranslationSettings { get; private set; } = null!;
     internal ModDownloadService Downloads { get; private set; } = null!;
     private ModDownloadService githubDownloads = null!;
     private ModDownloadService mowPortalDownloads = null!;
@@ -56,6 +57,7 @@ internal sealed class ModSubscriptionRuntime : IDisposable
             Store = store ?? new SubscriptionStore();
             Source = source ?? new ModDbSource(diagnostic: diagnostic, verification: Verification, clearance: clearance);
             GitHubSettings = new GitHubOptionsStore(Path.Combine(Path.GetDirectoryName(Store.LibraryPath)!, "github-settings.json"));
+            TranslationSettings = new(Path.Combine(Path.GetDirectoryName(Store.LibraryPath)!, "translation-settings.json"));
             GitHub = githubSource ?? new GitHubModSource(settings: GitHubSettings, diagnostic: diagnostic);
             MowPortal = mowPortalSource ?? new MowPortalModSource(diagnostic: diagnostic, verification: Verification);
             Installer = new(Store, host);

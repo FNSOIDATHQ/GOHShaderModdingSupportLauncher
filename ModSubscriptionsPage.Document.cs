@@ -15,6 +15,7 @@ public sealed partial class ModSubscriptionsPage
 
     internal void AddDocument(StackPanel panel, ModReadingDocument document)
     {
+        document = DisplayDocument(panel, document);
         foreach (var block in document.Blocks) panel.Children.Add(RenderBlock(block));
         if (document.Blocks.Length == 0) panel.Children.Add(Text(T("Empty")));
     }

@@ -126,7 +126,7 @@ public sealed partial class ModSubscriptionsPage
     private void SelectFile(string key)
     {
         if (session is not { } current || !fileEntries.Any(entry => entry.Key == key)) return;
-        CancelRefresh();
+        CancelRefresh(); CancelTranslation();
         SaveFileReadingPosition(); fileImageExpanded = false; current.File = key; readerGeneration++;
         RenderFiles(current.Mod, DetailToken);
     }
@@ -140,6 +140,9 @@ public sealed partial class ModSubscriptionsPage
         if (fileEntries.FirstOrDefault(entry => entry.Key == current.File) is not { } entry) { RefreshTasks(); return; }
         var file = entry.File;
         var group = entry.Group;
+        var fileDocument = file is null ? new ModReadingDocument() : ReadingDocument(file.Document, file.Description, file.BrowserUrl ?? file.PageUrl);
+        var groupDocument = group is null ? new ModReadingDocument() : ReadingDocument(group.Document, group.Description, group.PageUrl);
+        if (details.SelectedIndex == 1) PrepareTranslationSource(fileDocument, groupDocument);
         fileReader.Children.Add(Text(file?.Name ?? group!.Title, 20));
         if (file is not null)
         {
@@ -148,7 +151,7 @@ public sealed partial class ModSubscriptionsPage
             if (file.DownloadOnly) fileReader.Children.Add(Text(T("GitHubDownloadOnly")));
             if (string.IsNullOrWhiteSpace(file.Description) && (!ModDocumentParser.HasDocument(file.Document) || file.Document!.Blocks.Length == 0))
                 fileReader.Children.Add(Text(T("NoFileDescription")));
-            else AddDocument(fileReader, ReadingDocument(file.Document, file.Description, file.BrowserUrl ?? file.PageUrl));
+            else AddDocument(fileReader, fileDocument);
             bool present = snapshot?.Files.Any(item => item.Id == file.Id && item.Revision == file.Revision) == true;
             if (!present) fileReader.Children.Add(Text(T("FileUnavailable")));
             else if (!file.CanDownload)
@@ -163,7 +166,7 @@ public sealed partial class ModSubscriptionsPage
             fileReader.Children.Add(Text(T("SharedVersionNotes") + " · " + group.Title, 16));
             if (group.PublishedAt is { } date) fileReader.Children.Add(Text(date.ToLocalTime().ToString("g"), 12));
             if (file is null) fileReader.Children.Add(Text(T("ReleaseWithoutFiles")));
-            AddDocument(fileReader, ReadingDocument(group.Document, group.Description, group.PageUrl));
+            AddDocument(fileReader, groupDocument);
             if (group.InstallationInstructions.Length > 0) fileReader.Children.Add(Text(T("InstallationInOverview")));
         }
         var original = file?.BrowserUrl ?? group?.PageUrl ?? file?.PageUrl;

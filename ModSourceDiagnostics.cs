@@ -7,6 +7,39 @@ namespace GOHShaderModdingSupportLauncher;
 // It never creates subscriptions, downloads archives or touches a game directory.
 internal static class ModSourceDiagnostics
 {
+    internal static async Task<int> RunTranslationAsync()
+    {
+        AppDiagnostics.Log("Google translation check: anonymous production WinHTTP, public sample text only; no game files or subscription changes.");
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        using var translator = new GoogleModTextTranslator();
+        try
+        {
+            string shortText = await translator.TranslateAsync("Mod installation instructions.", "zh-CN", timeout.Token).ConfigureAwait(false);
+            if (!shortText.Any(c => c is >= '\u4e00' and <= '\u9fff')) throw new ModTranslationException(ModTranslationError.InvalidResponse);
+            string text = string.Concat(Enumerable.Repeat("Read the installation instructions before downloading this public modification. Extract the complete archive into the game mods folder and keep a backup. ", 20)) +
+                "Download mod.zip v1.2.3 from https://example.org/guide.";
+            var code = new ModContentBlock { Kind = ModBlockKind.Code, Runs = [new() { Text = "mod.zip v1.2.3", Code = true }] };
+            var document = new ModReadingDocument { Blocks = [new() { Runs = [new() { Text = text }] }, code] };
+            var engine = new ModDocumentTranslator(translator);
+            var result = await engine.TranslateAsync(document, "zh-CN", cancellationToken: timeout.Token).ConfigureAwait(false);
+            if (result.FailedParts > 0) throw new ModTranslationException(result.Error ?? ModTranslationError.Unavailable, result.RetryAfter);
+            string translated = result.Document.Blocks[0].Runs[0].Text;
+            if (translated.Count(c => c is >= '\u4e00' and <= '\u9fff') < 100 || !translated.Contains("mod.zip v1.2.3", StringComparison.Ordinal) ||
+                !translated.Contains("https://example.org/guide.", StringComparison.Ordinal) || result.Document.Blocks[1] != code || document.Blocks[0].Runs[0].Text != text ||
+                !engine.TryGet(engine.Key(document, "zh-CN"), out var cached) || !ReferenceEquals(cached, result))
+                throw new ModTranslationException(ModTranslationError.InvalidResponse);
+            using var cancelled = new CancellationTokenSource(); cancelled.Cancel();
+            try { await translator.TranslateAsync("Cancelled public sample", "en", cancelled.Token).ConfigureAwait(false); return 1; }
+            catch (OperationCanceledException) when (cancelled.IsCancellationRequested) { }
+            AppDiagnostics.Log($"Google translation check passed: short text; {text.Length} public characters in {ModDocumentTranslator.Chunks(text).Count()} chunks; protected values, code, originals, cache and cancellation; HTTP requests={translator.RequestCount}, cached pieces={translator.CacheHits}.");
+            return 0;
+        }
+        catch (ModTranslationException ex)
+        { AppDiagnostics.Log($"Google translation check failed: kind={ex.Error}, retryAfter={ex.RetryAfter:O}."); return 1; }
+        catch (OperationCanceledException) { AppDiagnostics.Log("Google translation check failed: total time limit reached."); return 1; }
+        catch (Exception ex) { AppDiagnostics.Log($"Google translation check failed: {ex.GetType().Name}, HResult=0x{ex.HResult:X8}."); return 1; }
+    }
+
     internal static async Task<int> RunAsync()
     {
         AppDiagnostics.Log("ModDB connectivity check: " + RuntimeInformation.FrameworkDescription +

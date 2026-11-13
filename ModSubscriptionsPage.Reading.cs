@@ -93,7 +93,7 @@ public sealed partial class ModSubscriptionsPage
 
     private async Task OpenModCoreAsync(RemoteMod mod, bool refresh)
     {
-        CancelRefresh(); ResetStatus();
+        CancelRefresh(); CancelTranslation(); ResetStatus();
         SaveReadingPosition();
         detailCancellation?.Cancel(); detailCancellation?.Dispose(); readerCancellation?.Cancel();
         detailCancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
@@ -279,6 +279,7 @@ public sealed partial class ModSubscriptionsPage
         readerCancellation = CancellationTokenSource.CreateLinkedTokenSource(DetailToken);
         var token = readerCancellation.Token;
         current.Article = url; readerGeneration++;
+        CancelTranslation();
         imageExpanded = false;
         RenderDescriptionNavigation(); RenderReading();
         if (url is null) return;
@@ -311,6 +312,7 @@ public sealed partial class ModSubscriptionsPage
             if (state.Result?.Content is { } article && rebuild)
             {
                 renderedDocument = ReadingDocument(article.Document, article.Body, article.PageUrl);
+                if (details.SelectedIndex == 0) PrepareTranslationSource(renderedDocument);
                 reading.Children.Add(Text(article.Title, 20)); reading.Children.Add(galleryHost!);
                 AddDocument(reading, renderedDocument);
                 reading.Children.Add(Action(T("Original"), () => { OpenUrl(article.PageUrl); return Task.CompletedTask; }, independent: true));
@@ -324,8 +326,10 @@ public sealed partial class ModSubscriptionsPage
             {
                 summary.Children.Clear();
                 renderedDocument = ReadingDocument(current.Mod.Document, current.Mod.Summary, current.Mod.PageUrl);
+                var installation = ModDocumentParser.Legacy(current.Mod.InstallationHint, current.Mod.PageUrl);
+                if (details.SelectedIndex == 0) PrepareTranslationSource(renderedDocument, installation);
                 ShowSummary(current.Mod);
-                if (current.Mod.InstallationHint.Length > 0) AddReadable(summary, current.Mod.InstallationHint);
+                if (current.Mod.InstallationHint.Length > 0) AddDocument(summary, installation);
                 reading.Children.Add(galleryHost!); reading.Children.Add(summary);
             }
             RenderGallery(current, renderedDocument!, current.Mod.Images, overview: true);

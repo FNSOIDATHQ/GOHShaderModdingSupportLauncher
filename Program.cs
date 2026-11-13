@@ -13,6 +13,7 @@ internal static class Program
             arg.Equals("--validate-native-bundle", StringComparison.OrdinalIgnoreCase) ||
             arg.Equals("--self-test-ui", StringComparison.OrdinalIgnoreCase) ||
             arg.Equals("--check-moddb", StringComparison.OrdinalIgnoreCase) ||
+            arg.Equals("--check-google-translation", StringComparison.OrdinalIgnoreCase) ||
             arg.Equals("--check-moddb-images", StringComparison.OrdinalIgnoreCase));
         AppDiagnostics.Initialize();
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
@@ -30,6 +31,8 @@ internal static class Program
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static int RunApplication(string[] args)
     {
+        if (Array.Exists(args, arg => arg.Equals("--check-google-translation", StringComparison.OrdinalIgnoreCase)))
+            return ModSourceDiagnostics.RunTranslationAsync().GetAwaiter().GetResult();
         if (Array.Exists(args, arg => arg.Equals("--check-moddb", StringComparison.OrdinalIgnoreCase)))
             return ModSourceDiagnostics.RunAsync().GetAwaiter().GetResult();
         NativeBundle.Initialize();
