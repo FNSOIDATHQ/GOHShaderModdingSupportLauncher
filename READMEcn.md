@@ -114,6 +114,8 @@ ModDB 请求使用 Windows 原生 WinHTTP 后端和 Windows 用户代理设置�
 
 其他请求失败时，页面会显示 HTTP 状态码或具体连接错误类别。给 EXE 添加 `--check-moddb` 参数，可以直接测试该 EXE 的联网与解析，不打开界面、不修改订阅或游戏文件。结果与连接详情写入 `%LOCALAPPDATA%\GOHSMSLauncher\Logs\diag.log`（LocalAppData 不可用时使用临时日志目录）；退出码 0 表示已成功读取实时列表。日志不记录带签名的下载地址、验证 Cookie 或凭据。
 
+图片支持在允许的媒体主机之间进行有限次数的 HTTPS 重定向。读取失败会显示 HTTP、内容或解码错误，并可重试；单图限制为 20 MiB，解码前还会检查像素尺寸，防止过大的内存分配。使用 `--check-moddb-images --software-rendering`，可以检查 Replays Unlocked 与 Hotmod 图库，完整下载各自首张缩略图和原图，并由 EXE 自身的渲染器验证解码。此诊断使用同一日志，全部图片检查通过才返回 0；不会打开验证浏览器或修改游戏文件。
+
 ### 注意事项
 * 强制改变凹凸贴图质量是一项特殊措施，用于支持我的着色器mod
 * 将 Environment.CurrentDirectory 移至游戏目录总是必要的，这样steam就不会截断我们的启动指令

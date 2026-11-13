@@ -5,15 +5,17 @@ using System.Security.Authentication;
 
 namespace GOHShaderModdingSupportLauncher.ModSubscriptions;
 
-internal enum ModHttpFailureKind { Unknown, Dns, Proxy, Tls, Connection, Response, Timeout, RedirectRejected }
-internal enum ModHttpStage { Request, Headers, Redirect, Body, Completed, Failed, Cancelled }
+internal enum ModHttpFailureKind { Unknown, Dns, Proxy, Tls, Connection, Response, Timeout, RedirectRejected, ImageContent, ImageTooLarge, ImageDecode, ImageDimensions }
+internal enum ModHttpStage { Request, Headers, Redirect, Body, Completed, Failed, Cancelled, Parse, Decode }
+internal enum ModMediaOperation { Gallery, ImagePage, Thumbnail, Original }
 
 // Deliberately contains no URI path/query, request headers, body, or exception message.
 // This object is safe to forward to the launcher's ordinary diagnostic log.
 internal sealed record ModHttpDiagnostic(string Host, ModHttpStage Stage, int Attempt,
     int? StatusCode = null, ModHttpFailureKind? FailureKind = null, string? ExceptionType = null,
     HttpRequestError? RequestError = null, SocketError? SocketError = null, int? HResult = null,
-    long? ElapsedMilliseconds = null, int? NativeErrorCode = null)
+    long? ElapsedMilliseconds = null, int? NativeErrorCode = null, ModMediaOperation? Media = null,
+    string? ContentType = null, long? Bytes = null, int? PixelWidth = null, int? PixelHeight = null)
 {
     public override string ToString() => $"ModHTTP host={Host} stage={Stage} attempt={Attempt}" +
         (StatusCode is { } status ? $" status={status}" : "") +
@@ -23,7 +25,11 @@ internal sealed record ModHttpDiagnostic(string Host, ModHttpStage Stage, int At
         (SocketError is { } socket ? $" socketError={socket}" : "") +
         (HResult is { } code ? $" hresult=0x{code:X8}" : "") +
         (NativeErrorCode is { } native ? $" nativeError={native}" : "") +
-        (ElapsedMilliseconds is { } elapsed ? $" elapsedMs={elapsed}" : "");
+        (ElapsedMilliseconds is { } elapsed ? $" elapsedMs={elapsed}" : "") +
+        (Media is { } media ? $" media={media}" : "") +
+        (ContentType is { } mime ? " mime=" + new string(mime.Take(96).Where(c => char.IsAsciiLetterOrDigit(c) || c is '/' or '-' or '+' or '.').ToArray()) : "") +
+        (Bytes is { } bytes ? $" bytes={bytes}" : "") +
+        (PixelWidth is { } width && PixelHeight is { } height ? $" pixels={width}x{height}" : "");
 }
 
 internal static class ModHttpDiagnostics

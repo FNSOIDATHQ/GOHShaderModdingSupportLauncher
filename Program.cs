@@ -12,7 +12,8 @@ internal static class Program
         bool diagnosticMode = Array.Exists(args, arg =>
             arg.Equals("--validate-native-bundle", StringComparison.OrdinalIgnoreCase) ||
             arg.Equals("--self-test-ui", StringComparison.OrdinalIgnoreCase) ||
-            arg.Equals("--check-moddb", StringComparison.OrdinalIgnoreCase));
+            arg.Equals("--check-moddb", StringComparison.OrdinalIgnoreCase) ||
+            arg.Equals("--check-moddb-images", StringComparison.OrdinalIgnoreCase));
         AppDiagnostics.Initialize();
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
             AppDiagnostics.ReportFatal("Unhandled exception", e.ExceptionObject);
@@ -47,6 +48,11 @@ internal static class Program
         {
             builder.SetupWithoutStarting();
             return UiSmokeTest.Run();
+        }
+        if (Array.Exists(args, arg => arg.Equals("--check-moddb-images", StringComparison.OrdinalIgnoreCase)))
+        {
+            builder.SetupWithoutStarting();
+            return ModSourceDiagnostics.RunImagesAsync().GetAwaiter().GetResult();
         }
         return builder.StartWithClassicDesktopLifetime(args);
     }

@@ -8,6 +8,7 @@ internal sealed class ModDbSource : IModSource, IDisposable
     private readonly ModContentCache cache;
     private readonly bool ownsHttp;
     private readonly ModVerificationState verification;
+    private readonly Action<ModHttpDiagnostic>? diagnostic;
     public string Provider => "moddb";
     public ModSourceCapabilities Capabilities => ModDbParser.Capabilities;
 
@@ -16,6 +17,7 @@ internal sealed class ModDbSource : IModSource, IDisposable
         ModBrowserClearance? clearance = null)
     {
         this.verification = verification ?? new();
+        this.diagnostic = diagnostic;
         this.http = http ?? new(new ModHttpOptions { Diagnostic = diagnostic, Verification = this.verification, Clearance = clearance });
         this.cache = cache ?? new();
         ownsHttp = http is null;
@@ -122,9 +124,23 @@ internal sealed class ModDbSource : IModSource, IDisposable
         ModReadMode mode, CancellationToken token) => ReadAsync("page:" + url.AbsoluteUri, async ct =>
         {
             string html = await http.GetTextAsync(url, ModDbParser.IsSite, ct).ConfigureAwait(false);
-            try { return parse(html, url); }
-            catch (Exception ex) when (ex is ArgumentException or FormatException or InvalidOperationException)
-            { throw AnonymousModHttpClient.Error(ModSourceError.ParseFailed, "The ModDB content structure or field format changed."); }
+            ModMediaOperation? media = typeof(T) == typeof(ModSourcePage<ModImageReference>) ? ModMediaOperation.Gallery :
+                typeof(T) == typeof(ModImage) ? ModMediaOperation.ImagePage : null;
+            try
+            {
+                var content = parse(html, url);
+                if (media is not null) ModHttpDiagnostics.Report(diagnostic,
+                    new(ModHttpDiagnostics.Host(url), ModHttpStage.Parse, 1, Media: media));
+                return content;
+            }
+            catch (Exception ex) when (ex is ModSourceException or ArgumentException or FormatException or InvalidOperationException)
+            {
+                if (media is not null) ModHttpDiagnostics.Report(diagnostic,
+                    new(ModHttpDiagnostics.Host(url), ModHttpStage.Parse, 1, FailureKind: ModHttpFailureKind.Response,
+                        ExceptionType: ex.GetType().Name, Media: media));
+                if (ex is ModSourceException) throw;
+                throw AnonymousModHttpClient.Error(ModSourceError.ParseFailed, "The ModDB content structure or field format changed.");
+            }
         }, type, mode, token);
 
     private async Task<ModSourceResult<T>> ReadAsync<T>(string key, Func<CancellationToken, Task<T>> fetch,

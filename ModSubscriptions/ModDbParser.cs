@@ -174,7 +174,13 @@ internal static partial class ModDbParser
         if (items.Length == 0 && !empty && !VisibleEmpty(root, "images")) throw ParseError("The image gallery has no readable entries.");
         Unique(items.Select(item => item.Id));
         var next = box.Descendants("a").FirstOrDefault(n => n.Id == "nextmedia");
-        Uri? nextPage = next is null ? null : RequirePage(Page(Attr(next, "href")), "images", detail: true);
+        // ModDB keeps a disabled nextmedia anchor (href="#") on non-empty last pages.
+        // It is navigation chrome, not a content address; keep the images on that page.
+        string address = next is null ? "" : Attr(next, "href").Trim();
+        bool disabled = next is not null && next.AncestorsAndSelf().TakeWhile(node => node != box)
+            .Any(node => Class(node, "nextoff") || Attr(node, "aria-disabled").Equals("true", StringComparison.OrdinalIgnoreCase));
+        Uri? nextPage = disabled || address.Length == 0 || address == "#" ? null :
+            RequirePage(Page(address), "images", detail: true);
         if (nextPage is not null && (ModPage(nextPage) != ModPage(page) || nextPage == page))
             throw ParseError("The image gallery has an invalid next page.");
         return new(items, nextPage);

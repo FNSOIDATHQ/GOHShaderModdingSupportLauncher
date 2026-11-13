@@ -17,7 +17,8 @@ public sealed partial class ModSubscriptionsPage
 
     private static HttpClient CreateImageClient()
     {
-        var client = new HttpClient(ModAnonymousTransport.Create()) { Timeout = TimeSpan.FromSeconds(25) };
+        // The media service applies one timeout to headers, redirects and the complete body.
+        var client = new HttpClient(ModAnonymousTransport.Create()) { Timeout = Timeout.InfiniteTimeSpan };
         string version = typeof(ModSubscriptionsPage).Assembly.GetName().Version?.ToString(3) ?? "1.0";
         client.DefaultRequestHeaders.UserAgent.ParseAdd($"GOHSMSLauncher/{version} (+https://github.com/FNSOIDATHQ/GOHShaderModdingSupportLauncher)");
         return client;

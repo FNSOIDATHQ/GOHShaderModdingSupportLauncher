@@ -114,6 +114,8 @@ The verification window uses a separate temporary browser profile. The launcher 
 
 Other request failures show the HTTP status or connection error category. Run the EXE with `--check-moddb` to test its own connection and parsing without opening the UI or changing subscriptions or game files. The result and connection details are written to `%LOCALAPPDATA%\GOHSMSLauncher\Logs\diag.log` (or the temporary log directory if LocalAppData is unavailable); exit code 0 means the live list was read successfully. Logs exclude signed download addresses, verification cookies and credentials.
 
+Images follow a limited number of HTTPS redirects to supported media hosts. Failed images show the HTTP, content or decoding error and can be retried; individual images are limited to 20 MiB and checked for excessive pixel dimensions before decoding. Run `--check-moddb-images --software-rendering` to check the Replays Unlocked and Hotmod galleries, download their first thumbnail and original in full, and test decoding with the EXE's own renderer. This diagnostic writes to the same log and returns 0 only when all image checks pass; it does not open a verification browser or modify game files.
+
 ### Notice
 * Force change bump quality is a special measure used to support my shader mods
 * Move Environment.CurrentDirectory to game directory is always necessary to let steam not truncate our launch commands

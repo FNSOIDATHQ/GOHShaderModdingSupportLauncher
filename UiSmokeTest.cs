@@ -6,6 +6,7 @@ using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Threading;
 using GOHShaderModdingSupportLauncher.Properties;
+using GOHShaderModdingSupportLauncher.ModSubscriptions;
 using System.ComponentModel;
 using System.Globalization;
 
@@ -28,6 +29,7 @@ internal static class UiSmokeTest
         {
             if (Application.Current?.Styles.Count != 2)
                 throw new InvalidOperationException("Avalonia theme or DataGrid styles did not load.");
+            CheckSubscriptionMedia();
             var mods = Directory.CreateDirectory(Path.Combine(fixture, "mods"));
             foreach (var name in new[] { "alpha", "beta", "zeta", "gamma" })
             {
@@ -346,5 +348,24 @@ internal static class UiSmokeTest
                 throw new InvalidOperationException("UI fixture path escaped the temporary directory.");
             Directory.Delete(fixture, recursive: true);
         }
+    }
+
+    private static void CheckSubscriptionMedia()
+    {
+        using var asset = Avalonia.Platform.AssetLoader.Open(new("avares://GOHShaderModdingSupportLauncher/img/logo.png"));
+        using var bytes = new MemoryStream(); asset.CopyTo(bytes);
+        var payload = new ModImagePayload(bytes.ToArray(), new("https://media.moddb.com/self-check.png"), "image/png");
+        using var thumbnail = ModImageDecoder.Decode(payload, 360, ModMediaOperation.Thumbnail, CancellationToken.None);
+        using var full = ModImageDecoder.Decode(payload, 1600, ModMediaOperation.Original, CancellationToken.None);
+        if (thumbnail.PixelSize.Width <= 0 || thumbnail.PixelSize.Width > 360 || full.PixelSize.Width <= 0)
+            throw new InvalidOperationException("Subscription image decoding failed.");
+        try
+        {
+            using var invalid = ModImageDecoder.Decode(payload with { Bytes = [1, 2, 3] }, 360,
+                ModMediaOperation.Thumbnail, CancellationToken.None);
+            throw new InvalidOperationException("Invalid image content was accepted.");
+        }
+        catch (ModSourceException ex) when (ex.Failure.DiagnosticKind == ModHttpFailureKind.ImageDecode) { }
+        AppDiagnostics.Log("Subscription media self-test passed: thumbnail/full decoding and invalid raster rejection.");
     }
 }
