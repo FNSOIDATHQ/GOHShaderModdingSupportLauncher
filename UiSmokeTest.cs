@@ -215,6 +215,7 @@ internal static class UiSmokeTest
             primary.SelectedItem = subscriptionsItem;
             subscriptionsPage = host.Content as ModSubscriptionsPage
                 ?? throw new InvalidOperationException("Subscriptions page was not cached.");
+            CheckSubscriptionDocument(subscriptionsPage);
             var subscriptionViews = subscriptionsPage.GetLogicalDescendants().OfType<ComboBox>()
                 .Single(control => control.Name == "subscriptionView");
             var subscriptionTabs = subscriptionsPage.GetLogicalDescendants().OfType<TabControl>()
@@ -367,5 +368,20 @@ internal static class UiSmokeTest
         }
         catch (ModSourceException ex) when (ex.Failure.DiagnosticKind == ModHttpFailureKind.ImageDecode) { }
         AppDiagnostics.Log("Subscription media self-test passed: thumbnail/full decoding and invalid raster rejection.");
+    }
+
+    private static void CheckSubscriptionDocument(ModSubscriptionsPage page)
+    {
+        var document = GitHubParser.ReadmeDocument("Before\n\n![Caption](https://raw.githubusercontent.com/example/mod/main/picture.png)\n\nAfter [guide](https://example.org/guide)",
+            new("https://github.com/example/mod"), "main", "README.md");
+        string json = System.Text.Json.JsonSerializer.Serialize(document, ModContentJsonContext.Default.ModReadingDocument);
+        var restored = System.Text.Json.JsonSerializer.Deserialize(json, ModContentJsonContext.Default.ModReadingDocument)!;
+        var panel = new StackPanel(); page.AddDocument(panel, restored);
+        if (!ModDocumentParser.HasDocument(restored) || restored.Blocks is not [{ Kind: ModBlockKind.Paragraph }, { Kind: ModBlockKind.Image }, { Kind: ModBlockKind.Paragraph }] ||
+            panel.Children.Count != 3 || panel.Children[0] is not SelectableTextBlock ||
+            !panel.Children[1].GetLogicalDescendants().OfType<Image>().Any() ||
+            !panel.Children[2].GetLogicalDescendants().OfType<HyperlinkButton>().Any())
+            throw new InvalidOperationException("Ordered subscription document serialization or rendering failed.");
+        AppDiagnostics.Log("Subscription document self-test passed: source-generated JSON, paragraph/image order and inline links.");
     }
 }

@@ -29,7 +29,7 @@ internal sealed class ModContentCache(string? directory = null)
             using var stream = new FileStream(PathFor(key), FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
             if (stream.Length > MaxEntryBytes) return null;
             var value = JsonSerializer.Deserialize(stream, type);
-            if (value is not { Version: 1 or 2, Content: not null } || value.Key != key) return null;
+            if (value is not { Version: 1 or 2 or 3, Content: not null } || value.Key != key) return null;
             // Version-one caches predate GitHub policy metadata. Missing init-only strings
             // deserialize as null, so retain old offline content with the new field's default.
             T content = value.Content switch
@@ -63,7 +63,7 @@ internal sealed class ModContentCache(string? directory = null)
         {
             byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(new CachedModContent<T>
             {
-                Version = 2, Key = key, FetchedAt = fetchedAt, Content = content
+                Version = 3, Key = key, FetchedAt = fetchedAt, Content = content
             }, type);
             if (bytes.Length > MaxEntryBytes) return "The content is too large for the offline cache.";
             Directory.CreateDirectory(directory);
@@ -102,4 +102,5 @@ internal sealed class ModContentCache(string? directory = null)
 [JsonSerializable(typeof(CachedModContent<RemoteModFile>))]
 [JsonSerializable(typeof(CachedModContent<ModFileHints>))]
 [JsonSerializable(typeof(CachedModContent<ModFileSnapshot>))]
+[JsonSerializable(typeof(ModReadingDocument))]
 internal partial class ModContentJsonContext : JsonSerializerContext { }

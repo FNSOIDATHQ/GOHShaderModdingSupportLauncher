@@ -2,8 +2,6 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
-using HtmlAgilityPack;
 
 namespace GOHShaderModdingSupportLauncher.ModSubscriptions;
 
@@ -76,27 +74,24 @@ internal static class GitHubParser
         return Encoding.UTF8.GetString(bytes);
     }
     internal static ModImage[] Images(string markdown, Uri repository, string branch, string readmePath)
+        => ModDocumentParser.Images(ReadmeDocument(markdown, repository, branch, readmePath)).DistinctBy(image => image.ImageUrl).Take(100).ToArray();
+
+    internal static ModReadingDocument ReadmeDocument(string markdown, Uri repository, string branch, string readmePath)
     {
-        var values = new List<(string Url, string Caption)>();
-        foreach (Match match in Regex.Matches(markdown, @"!\[([^\]\r\n]*)\]\(<?([^\s)>]+)>?(?:\s+[^)]*)?\)", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)))
-            values.Add((match.Groups[2].Value, match.Groups[1].Value));
-        var document = new HtmlDocument(); document.LoadHtml(markdown);
-        foreach (var img in document.DocumentNode.SelectNodes("//img[@src]") ?? Enumerable.Empty<HtmlNode>())
-            values.Add((HtmlEntity.DeEntitize(img.GetAttributeValue("src", "")), HtmlEntity.DeEntitize(img.GetAttributeValue("alt", ""))));
         string directory = readmePath.Contains('/') ? readmePath[..(readmePath.LastIndexOf('/') + 1)] : "";
         var relativeBase = new Uri("https://raw.githubusercontent.com/" + RepoName(repository) + "/" + Uri.EscapeDataString(branch) + "/" + directory);
-        var images = new Dictionary<string, ModImage>(StringComparer.Ordinal);
-        foreach (var value in values)
+        var linkBase = new Uri(repository.AbsoluteUri + "/blob/" + Uri.EscapeDataString(branch) + "/" + readmePath);
+        return ModDocumentParser.Markdown(markdown, linkBase, image => ModDocumentParser.Image(image, relativeBase, NormalizeImage));
+    }
+
+    private static Uri? NormalizeImage(Uri uri)
+    {
+        if (!IsImageHost(uri)) return null;
+        if (uri.Host == "github.com" && uri.AbsolutePath.Contains("/blob/", StringComparison.Ordinal))
         {
-            if (!Uri.TryCreate(relativeBase, value.Url, out var uri) || !IsImageHost(uri)) continue;
-            if (uri.Host == "github.com" && uri.AbsolutePath.Contains("/blob/", StringComparison.Ordinal))
-                uri = new Uri("https://raw.githubusercontent.com" + uri.AbsolutePath.Replace("/blob/", "/", StringComparison.Ordinal));
-            if (uri.Query.Length > 0 && uri.Query != "?raw=true") continue;
-            string id = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(uri.AbsoluteUri)));
-            images.TryAdd(id, new() { Id = id, ImageUrl = uri, ThumbnailUrl = uri, Caption = value.Caption });
-            if (images.Count >= 100) break;
+            uri = new Uri("https://raw.githubusercontent.com" + uri.AbsolutePath.Replace("/blob/", "/", StringComparison.Ordinal) + uri.Query);
         }
-        return images.Values.ToArray();
+        return uri.Query.Length > 0 && uri.Query != "?raw=true" ? null : uri;
     }
     internal static bool IsImageHost(Uri uri) => AnonymousModHttpClient.IsPublicHttps(uri) && uri.Host is "github.com" or "raw.githubusercontent.com" or "user-images.githubusercontent.com";
     internal static ModArticle Article(JsonElement release)
@@ -105,10 +100,13 @@ internal static class GitHubParser
         string title = Text(release, "name");
         if (string.IsNullOrWhiteSpace(title)) title = Text(release, "tag_name");
         if (string.IsNullOrWhiteSpace(title)) title = id;
+        var page = new Uri(Required(release, "html_url"));
+        string body = Text(release, "body");
+        var document = ModDocumentParser.Markdown(body, page, image => ModDocumentParser.Image(image, page, NormalizeImage));
         return new()
         {
-            Id = id, PageUrl = new(Required(release, "html_url")), Title = title,
-            Body = Text(release, "body"), PublishedAt = Date(release, "published_at")
+            Id = id, PageUrl = page, Title = title,
+            Body = body, Document = document, Images = ModDocumentParser.Images(document).DistinctBy(image => image.ImageUrl).ToArray(), PublishedAt = Date(release, "published_at")
         };
     }
     internal static RemoteModFile Asset(JsonElement asset, string repositoryId, RemoteProjectKind kind = RemoteProjectKind.Unknown)

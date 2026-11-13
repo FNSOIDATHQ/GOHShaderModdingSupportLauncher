@@ -103,11 +103,13 @@ internal static partial class ModDbParser
             .Select(value => ModIdentity().Match(value)).FirstOrDefault(match => match.Success)
             ?? throw ParseError("The stable ModDB Mod ID is missing.");
         var description = RequiredId(root, "profiledescription");
+        var document = ReadingDocument(description, page);
         return new()
         {
             Id = new("moddb", report.Groups[1].Value), PageUrl = ModPage(page),
             Title = RequiredText(root.Descendants("h2").FirstOrDefault()?.Descendants("a").FirstOrDefault()),
-            Summary = Readable(description, page), Images = EmbeddedImages(description, page), Capabilities = Capabilities
+            Summary = Readable(description, page), Document = document,
+            Images = ModDocumentParser.Images(document).DistinctBy(image => image.ImageUrl).ToArray(), Capabilities = Capabilities
         };
     }
 
@@ -145,11 +147,15 @@ internal static partial class ModDbParser
         var root = ScopedDocument(html, page);
         var box = RequiredId(root, "readarticle");
         var body = RequiredId(box, "articlecontent");
+        var document = ReadingDocument(body, page);
+        string text = Readable(body, page);
+        if (text.Length == 0 && !ModDocumentParser.Images(document).Any()) throw ParseError("The article has no readable content.");
         return new()
         {
             Id = page.AbsolutePath, PageUrl = ArticlePage(page),
             Title = RequiredText(box.Descendants().FirstOrDefault(n => Attr(n, "itemprop") == "headline")),
-            Body = RequiredTextContent(Readable(body, page)), PublishedAt = Time(box), Images = EmbeddedImages(body, page)
+            Body = text, Document = document, PublishedAt = Time(box),
+            Images = ModDocumentParser.Images(document).DistinctBy(image => image.ImageUrl).ToArray()
         };
     }
 
@@ -310,14 +316,9 @@ internal static partial class ModDbParser
         return new UriBuilder(url) { Query = page.Query.TrimStart('?') }.Uri;
     }
 
-    private static ModImage[] EmbeddedImages(HtmlNode body, Uri page) => body.Descendants("img").Select(image =>
-    {
-        // Authors also embed images from other public sites. Keep metadata without fetching these URLs here.
-        string address = Attr(image, "src");
-        if (string.IsNullOrWhiteSpace(address) || !Uri.TryCreate(page, address, out var url) || url.Scheme is not ("https" or "http") || url.UserInfo.Length != 0)
-            return null;
-        return new ModImage { Id = url.AbsoluteUri, ImageUrl = url, Caption = Attr(image, "alt") };
-    }).OfType<ModImage>().DistinctBy(image => image.Id).ToArray();
+    private static ModReadingDocument ReadingDocument(HtmlNode body, Uri page) => ModDocumentParser.Html(body, page,
+        image => ModDocumentParser.Image(image, page, uri => ModDocumentParser.IsLink(uri) ? uri : null),
+        target => !target.AbsolutePath.StartsWith("/downloads/mirror/", StringComparison.Ordinal));
 
     private static string ImageIdentity(HtmlNode row, string category)
     {

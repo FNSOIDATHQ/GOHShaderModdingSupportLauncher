@@ -608,6 +608,10 @@
   <data name="MS_RemovalPending" xml:space="preserve"><value>清理尚未完成；请重试恢复后继续。</value></data>
   <data name="MS_Empty" xml:space="preserve"><value>暂无内容</value></data>
   <data name="MS_ViewImage" xml:space="preserve"><value>放大图片</value></data>
+  <data name="MS_Gallery" xml:space="preserve"><value>图片画廊</value></data>
+  <data name="MS_GalleryPrevious" xml:space="preserve"><value>向左浏览画廊</value></data>
+  <data name="MS_GalleryNext" xml:space="preserve"><value>向右浏览画廊</value></data>
+  <data name="MS_MoreImages" xml:space="preserve"><value>更多图片</value></data>
   <data name="MS_InvalidImage" xml:space="preserve"><value>仅支持公开 HTTPS 图片地址。</value></data>
   <data name="MS_ImageTooLarge" xml:space="preserve"><value>图片超过 20 MiB 显示上限。</value></data>
   <data name="MS_InstallBoundary" xml:space="preserve"><value>请先阅读作者说明。选择文件下载后，可分别检查压缩包。标准安装仅将完整 Mod 文件夹放入所选游戏的 mods 目录；不会执行脚本或安装器。</value></data>

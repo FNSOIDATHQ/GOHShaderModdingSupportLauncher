@@ -25,6 +25,7 @@ internal sealed record ModArticle
     public string Body { get; init; } = "";
     public DateTimeOffset? PublishedAt { get; init; }
     public ModImage[] Images { get; init; } = [];
+    public ModReadingDocument? Document { get; init; }
 }
 
 internal sealed record ModImage
@@ -43,6 +44,7 @@ internal sealed record RemoteMod
     public required Uri PageUrl { get; init; }
     public required string Title { get; init; }
     public string Summary { get; init; } = "";
+    public ModReadingDocument? Document { get; init; }
     public ModSourceCapabilities Capabilities { get; init; } = new();
     public ModArticle[] Articles { get; init; } = [];
     public ModImage[] Images { get; init; } = [];

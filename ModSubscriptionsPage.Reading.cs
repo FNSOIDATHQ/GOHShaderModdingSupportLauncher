@@ -27,6 +27,7 @@ public sealed partial class ModSubscriptionsPage
         internal readonly Dictionary<Uri, ContentState<ModSourcePage<ModImageReference>>> ImagePages = [];
         internal readonly ContentState<ModFileSnapshot> Files = new();
         internal readonly Dictionary<string, Vector> Positions = [];
+        internal readonly Dictionary<string, double> GalleryPositions = [];
         internal readonly HashSet<(string, string)> Chosen = [];
         internal Uri? Article;
         internal int Tab;
@@ -41,6 +42,10 @@ public sealed partial class ModSubscriptionsPage
     private bool imageExpanded;
     private ReadingSession? renderedSession;
     private Uri? renderedArticle;
+    private object? renderedBody;
+    private ModReadingDocument? renderedDocument;
+    private TextBlock? readerNotice;
+    private Button? readerRetry;
 
     private bool IsCurrent(ReadingSession expected, CancellationToken token) =>
         !disposed && !token.IsCancellationRequested && ReferenceEquals(session, expected) && selected?.Id == expected.Mod.Id;
@@ -51,6 +56,7 @@ public sealed partial class ModSubscriptionsPage
     {
         if (session is null) return;
         if (!imageExpanded) session.Positions[session.Article?.AbsoluteUri ?? "overview"] = readingScroll.Offset;
+        if (!imageExpanded && renderedSession == session && galleryScroll is not null) session.GalleryPositions[ReadingKey] = galleryScroll.Offset.X;
         session.NavigationPosition = articleScroll.Offset; session.FilePosition = fileScroll.Offset;
         session.Chosen.Clear();
         foreach (var item in fileChoices.Where(item => item.Value.IsChecked == true)) session.Chosen.Add((item.Key.Id, item.Key.Revision));
@@ -62,7 +68,7 @@ public sealed partial class ModSubscriptionsPage
         int generation = readerGeneration;
         Dispatcher.UIThread.Post(() =>
         {
-            if (disposed || session != expected || scroll == readingScroll && generation != readerGeneration) return;
+            if (disposed || session != expected || (scroll == readingScroll || scroll == galleryScroll) && generation != readerGeneration) return;
             restoringPosition = true;
             scroll.Offset = position;
             restoringPosition = false;
@@ -282,49 +288,55 @@ public sealed partial class ModSubscriptionsPage
         if (imageExpanded) return;
         var position = current.Positions.GetValueOrDefault(current.Article?.AbsoluteUri ?? "overview");
         if (renderedSession == current && renderedArticle == current.Article) position = readingScroll.Offset;
-        renderedSession = current; renderedArticle = current.Article;
-        reading.Children.Clear();
+        current.Bodies.TryGetValue(current.Article ?? current.Mod.PageUrl, out var articleState);
+        object? body = current.Article is null ? current.Mod : articleState?.Result?.Content;
+        bool rebuild = renderedSession != current || renderedArticle != current.Article || !ReferenceEquals(renderedBody, body);
+        if (rebuild)
+        {
+            if (renderedSession == current && renderedArticle == current.Article && galleryScroll is not null)
+                current.GalleryPositions[ReadingKey] = galleryScroll.Offset.X;
+            renderedSession = current; renderedArticle = current.Article; renderedBody = body;
+            reading.Children.Clear();
+            readerNotice = Text("", 12); reading.Children.Add(readerNotice);
+            CreateGallery(); readerRetry = null;
+        }
         if (current.Article is { } url)
         {
-            if (!current.Bodies.TryGetValue(url, out var state)) { reading.Children.Add(Text(T("Working"))); return; }
-            reading.Children.Add(Text(ContentStatus(state), 12));
-            if (state.Result?.Content is { } article)
+            if (articleState is not { } state) { readerNotice!.Text = T("Working"); return; }
+            readerNotice!.Text = ContentStatus(state);
+            if (state.Result?.Content is { } article && rebuild)
             {
-                reading.Children.Add(Text(article.Title, 20)); AddReadable(reading, string.IsNullOrWhiteSpace(article.Body) ? T("Empty") : article.Body);
-                foreach (var image in article.Images) reading.Children.Add(InlineImage(image));
+                renderedDocument = ReadingDocument(article.Document, article.Body, article.PageUrl);
+                reading.Children.Add(Text(article.Title, 20)); reading.Children.Add(galleryHost!);
+                AddDocument(reading, renderedDocument);
                 reading.Children.Add(Action(T("Original"), () => { OpenUrl(article.PageUrl); return Task.CompletedTask; }, independent: true));
             }
+            if (state.Result?.Content is { } content && renderedDocument is not null)
+                RenderGallery(current, renderedDocument, content.Images, overview: false);
+            if (readerRetry is not null) reading.Children.Remove(readerRetry);
             if (state.Attempted && state.Result?.IsSuccess != true)
-                reading.Children.Add(Action(T("RetryContent"), async () => { state.Attempted = false; await SelectArticleAsync(url); }, independent: true));
+                reading.Children.Add(readerRetry = Action(T("RetryContent"), async () => { state.Attempted = false; await SelectArticleAsync(url); }, independent: true));
         }
         else
         {
-            summary.Children.Clear(); images.Children.Clear();
-            summary.Children.Add(Text(ContentStatus(current.Overview), 12));
-            ShowSummary(current.Mod);
-            if (current.Mod.InstallationHint.Length > 0) AddReadable(summary, current.Mod.InstallationHint);
-            summary.Children.Add(Action(T("RefreshContent"), () => EnsureOverviewAsync(current, DetailToken, force: true), independent: true));
-            foreach (var image in current.Mod.Images) images.Children.Add(InlineImage(image));
-            var knownThumbnails = current.Mod.Images.Select(image => image.ThumbnailUrl ?? image.ImageUrl).ToHashSet();
-            foreach (var reference in current.ImagePages.Values.SelectMany(state => state.Result?.Content?.Items ?? []).DistinctBy(item => item.PageUrl))
+            readerNotice!.Text = ContentStatus(current.Overview);
+            if (rebuild)
             {
-                if (knownThumbnails.Contains(reference.ThumbnailUrl)) continue;
-                images.Children.Add(InlineImage(new ModImage { Id = reference.Id, ImageUrl = reference.ThumbnailUrl, ThumbnailUrl = reference.ThumbnailUrl, Caption = reference.Caption }, reference));
+                summary.Children.Clear();
+                renderedDocument = ReadingDocument(current.Mod.Document, current.Mod.Summary, current.Mod.PageUrl);
+                ShowSummary(current.Mod);
+                if (current.Mod.InstallationHint.Length > 0) AddReadable(summary, current.Mod.InstallationHint);
+                summary.Children.Add(Action(T("RefreshContent"), () => EnsureOverviewAsync(current, DetailToken, force: true), independent: true));
+                reading.Children.Add(galleryHost!); reading.Children.Add(summary);
             }
-            foreach (var pair in current.ImagePages)
-            {
-                var message = ContentStatus(pair.Value);
-                if (message.Length > 0) images.Children.Add(Text(message, 12));
-                if (pair.Value.Attempted && pair.Value.Result?.IsSuccess != true)
-                    images.Children.Add(Action(T("RetryContent"), async () => { pair.Value.Attempted = false; await LoadImagesAsync(pair.Key, DetailToken); }, independent: true));
-            }
-            var nextPage = current.ImagePages.Values.LastOrDefault()?.Result?.Content?.NextPage;
-            if (nextPage is not null && !current.ImagePages.ContainsKey(nextPage) && current.ImagePages.Count < 100)
-                images.Children.Add(PageSentinel(() => LoadImagesAsync(nextPage, DetailToken)));
-            else if (nextPage is not null && current.ImagePages.Count >= 100) images.Children.Add(Text(T("PaginationLimit"), 12));
-            reading.Children.Add(summary); reading.Children.Add(images);
+            RenderGallery(current, renderedDocument!, current.Mod.Images, overview: true);
         }
-        RestorePosition(readingScroll, position);
+        readerNotice!.IsVisible = !string.IsNullOrWhiteSpace(readerNotice.Text);
+        if (rebuild)
+        {
+            RestorePosition(readingScroll, position);
+            RestorePosition(galleryScroll!, new Vector(current.GalleryPositions.GetValueOrDefault(ReadingKey), 0));
+        }
     }
 
     private async Task LoadImagesAsync(Uri page, CancellationToken token)

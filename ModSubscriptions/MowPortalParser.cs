@@ -76,14 +76,19 @@ internal static class MowPortalParser
         string body = Readable(Description(article));
         string install = InstallationNotes(article);
         string summary = string.Join("\n\n", new[] { versions, body, install }.Where(text => text.Length > 0));
+        var document = ModDocumentParser.Html(Description(article), page,
+            image => ModDocumentParser.Image(image, page, uri => IsImage(uri) ? uri : null) is { } media
+                ? media with { Caption = RedactDeliveryLinks(media.Caption) } : null, PublicLink, RedactDeliveryLinks);
+        var overviewDocument = new ModReadingDocument { Blocks = [.. ModDocumentParser.Legacy(versions, page).Blocks,
+            .. document.Blocks, .. ModDocumentParser.Legacy(install, page).Blocks] };
         var notes = new ModArticle
         {
             Id = "version-notes", PageUrl = new(page.AbsoluteUri + "#version-notes"),
-            Title = versions.Length > 0 ? string.Join(" · ", versions.Split('\n')) : title, Body = body
+            Title = versions.Length > 0 ? string.Join(" · ", versions.Split('\n')) : title, Body = body, Document = document
         };
         return new()
         {
-            Id = Identity(page), PageUrl = page, Title = title, Summary = summary,
+            Id = Identity(page), PageUrl = page, Title = title, Summary = summary, Document = overviewDocument,
             Capabilities = Capabilities, Kind = RemoteProjectKind.Mod, Articles = [notes], Images = Images(article, page)
         };
     }

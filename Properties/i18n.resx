@@ -608,6 +608,10 @@ Make sure Steam has finished downloading the item.</value>
   <data name="MS_RemovalPending" xml:space="preserve"><value>Removal needs recovery; retry recovery before further actions.</value></data>
   <data name="MS_Empty" xml:space="preserve"><value>No content</value></data>
   <data name="MS_ViewImage" xml:space="preserve"><value>Enlarge image</value></data>
+  <data name="MS_Gallery" xml:space="preserve"><value>Gallery</value></data>
+  <data name="MS_GalleryPrevious" xml:space="preserve"><value>Scroll gallery left</value></data>
+  <data name="MS_GalleryNext" xml:space="preserve"><value>Scroll gallery right</value></data>
+  <data name="MS_MoreImages" xml:space="preserve"><value>More images</value></data>
   <data name="MS_InvalidImage" xml:space="preserve"><value>Only public HTTPS image addresses are supported.</value></data>
   <data name="MS_ImageTooLarge" xml:space="preserve"><value>The image exceeds the 20 MiB display limit.</value></data>
   <data name="MS_InstallBoundary" xml:space="preserve"><value>Read the author&apos;s instructions first. Select files to download, then inspect each package. Standard installation places only complete Mod folders into the selected game&apos;s mods directory; scripts and installers are never executed.</value></data>

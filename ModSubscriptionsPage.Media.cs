@@ -13,15 +13,22 @@ public sealed partial class ModSubscriptionsPage
     private readonly SemaphoreSlim mediaDecodeGate = new(1, 1);
     private long mediaCacheBytes;
 
-    private Control InlineImage(ModImage image, ModImageReference? reference = null)
+    private StackPanel InlineImage(ModImage image, ModImageReference? reference = null, bool embedded = false)
     {
         var owner = session;
         var panel = Column();
-        var picture = new Image { Height = 160, MaxWidth = 360, Stretch = Stretch.Uniform, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch };
+        var picture = new Image { Height = embedded ? double.NaN : 160, MinHeight = 160, MaxHeight = embedded ? 600 : 160,
+            MaxWidth = embedded ? 1600 : 360, Stretch = Stretch.Uniform, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch };
+        // Image arranges to its drawn size, which can be zero while Source is absent.
+        // Observe a stable frame so a released/offscreen image can become visible again.
+        var frame = new Border { Child = picture, MinHeight = 160, Height = embedded ? double.NaN : 160,
+            MaxWidth = embedded ? 1600 : 360, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch };
         var message = Text(T("ImageOnScroll"), 12);
-        panel.Children.Add(picture); panel.Children.Add(message);
+        panel.Children.Add(frame); panel.Children.Add(message);
         var caption = image.Caption.Length == 0 ? T("ViewImage") : image.Caption;
-        panel.Children.Add(Action(T("ViewImage") + " · " + caption, OpenImageAsync, independent: true));
+        var open = Action(T("ViewImage") + " · " + caption, OpenImageAsync, independent: true);
+        open.Content = Text(T("ViewImage")); ToolTip.SetTip(open, caption); panel.Children.Add(open);
+        message.MaxLines = embedded ? 4 : 2; message.TextTrimming = TextTrimming.CharacterEllipsis; ToolTip.SetTip(message, image.Caption);
         async Task OpenImageAsync()
         {
             var expected = owner;
@@ -50,7 +57,7 @@ public sealed partial class ModSubscriptionsPage
             try
             {
                 message.Text = T("Working");
-                bitmap = await FetchBitmapAsync(image.ThumbnailUrl ?? image.ImageUrl, 360, token);
+                bitmap = await FetchBitmapAsync(image.ThumbnailUrl ?? image.ImageUrl, embedded ? 1200 : 360, token);
                 if (!IsCurrent(expected, token)) return;
                 picture.Source = bitmap; bitmap = null;
                 message.Text = image.Caption;
@@ -70,13 +77,18 @@ public sealed partial class ModSubscriptionsPage
                 bitmap?.Dispose(); loading = false;
                 if (ReferenceEquals(tileCancellation, cancellation)) tileCancellation = null;
                 cancellation.Dispose();
-                if (token.IsCancellationRequested && visible && !disposed) await LoadThumbnail();
+                if (token.IsCancellationRequested && visible && IsCurrent(expected, DetailToken)) await LoadThumbnail();
             }
         }
-        picture.EffectiveViewportChanged += async (_, args) =>
+        frame.EffectiveViewportChanged += async (_, args) =>
         {
-            visible = new Rect(picture.Bounds.Size).Intersects(args.EffectiveViewport);
+            visible = new Rect(frame.Bounds.Size).Intersects(args.EffectiveViewport);
             if (visible && !disposed) await LoadThumbnail();
+            else
+            {
+                tileCancellation?.Cancel();
+                if (picture.Source is Bitmap owned) { picture.Source = null; owned.Dispose(); }
+            }
         };
         panel.DetachedFromVisualTree += (_, _) =>
         {
@@ -155,6 +167,7 @@ public sealed partial class ModSubscriptionsPage
             bitmap = await FetchBitmapAsync(image.ImageUrl, 1600, token);
             if (!IsCurrent(expected, token) || generation != readerGeneration) return;
             var picture = new Image { Source = bitmap, Stretch = Stretch.Uniform, MinHeight = 160 };
+            var frame = new Border { Child = picture, MinHeight = 160 };
             bool loading = false, visible = false;
             CancellationTokenSource? imageCancellation = null;
             async Task RestoreImage()
@@ -184,9 +197,9 @@ public sealed partial class ModSubscriptionsPage
                     if (imageToken.IsCancellationRequested && visible && !disposed) await RestoreImage();
                 }
             }
-            picture.EffectiveViewportChanged += async (_, args) =>
+            frame.EffectiveViewportChanged += async (_, args) =>
             {
-                visible = new Rect(picture.Bounds.Size).Intersects(args.EffectiveViewport);
+                visible = new Rect(frame.Bounds.Size).Intersects(args.EffectiveViewport);
                 if (visible) await RestoreImage();
             };
             picture.DetachedFromVisualTree += (_, _) =>
@@ -194,7 +207,7 @@ public sealed partial class ModSubscriptionsPage
                 visible = false; imageCancellation?.Cancel(); imageCancellation?.Dispose(); imageCancellation = null;
                 if (picture.Source is Bitmap owned) { picture.Source = null; owned.Dispose(); }
             };
-            panel.Children.Add(picture); bitmap = null; message.Text = image.Caption;
+            panel.Children.Add(frame); bitmap = null; message.Text = image.Caption;
             panel.Children.Add(Action(T("Original"), () => { OpenUrl(image.ImageUrl); return Task.CompletedTask; }, independent: true));
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { }

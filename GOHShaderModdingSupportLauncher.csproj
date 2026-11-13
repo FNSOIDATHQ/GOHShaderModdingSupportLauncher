@@ -34,6 +34,7 @@
     <PackageReference Include="Tomlyn" Version="2.10.1" />
     <PackageReference Include="SharpCompress" Version="0.50.5" />
     <PackageReference Include="HtmlAgilityPack" Version="1.13.1" />
+    <PackageReference Include="Markdig" Version="1.6.0" />
     <PackageReference Include="System.Net.Http.WinHttpHandler" Version="10.0.15" />
   </ItemGroup>
   <ItemGroup>

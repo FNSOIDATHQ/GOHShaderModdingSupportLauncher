@@ -82,8 +82,11 @@ internal sealed class GitHubModSource : IModSource, IDisposable
             {
                 using var readme = await JsonAsync(RepoApi(mod.PageUrl, "/readme"), ct).ConfigureAwait(false);
                 string body = GitHubParser.Readme(readme.RootElement);
-                var images = GitHubParser.Images(body, mod.PageUrl, branch, GitHubParser.Text(readme.RootElement, "path", "README.md"));
-                mod = mod with { Summary = mod.Summary + (mod.Summary.Length > 0 ? "\n\n" : "") + body, Images = images };
+                var document = GitHubParser.ReadmeDocument(body, mod.PageUrl, branch, GitHubParser.Text(readme.RootElement, "path", "README.md"));
+                var description = ModDocumentParser.Legacy(mod.Summary, mod.PageUrl);
+                mod = mod with { Summary = mod.Summary + (mod.Summary.Length > 0 ? "\n\n" : "") + body,
+                    Document = new() { Blocks = [.. description.Blocks, .. document.Blocks] },
+                    Images = ModDocumentParser.Images(document).DistinctBy(image => image.ImageUrl).ToArray() };
             }
             catch (ModSourceException ex) when (ex.Failure.Kind == ModSourceError.NotFound) { }
             using var releasePage = await JsonAsync(RepoApi(mod.PageUrl, "/releases?per_page=1&page=1"), ct).ConfigureAwait(false);
