@@ -24,6 +24,7 @@ internal sealed record ModTextRun
 internal sealed record ModContentBlock
 {
     public ModBlockKind Kind { get; init; }
+    public string[] Anchors { get; init; } = [];
     public ModTextRun[] Runs { get; init; } = [];
     public ModContentBlock[] Children { get; init; } = [];
     public ModImage? Image { get; init; }
@@ -43,7 +44,7 @@ internal sealed record ModReadingDocument
 internal static partial class ModDocumentParser
 {
     private static readonly MarkdownPipeline MarkdownPipeline = new MarkdownPipelineBuilder()
-        .UsePipeTables().UseAutoLinks().UseEmphasisExtras().Build();
+        .UsePipeTables().UseAutoLinks().UseEmphasisExtras().UseAutoIdentifiers().Build();
     private static readonly MarkdownPipeline LegacyPipeline = new MarkdownPipelineBuilder()
         .UseSoftlineBreakAsHardlineBreak().Build();
 
@@ -84,6 +85,18 @@ internal static partial class ModDocumentParser
                 runs.Clear();
             }
             void Visit(HtmlNode node, ModTextRun style)
+            {
+                string[] anchors = new[] { Attribute(node, "id"), node.Name == "a" ? Attribute(node, "name") : "" }
+                    .Where(value => value.Length is > 0 and <= 256).Distinct(StringComparer.Ordinal).ToArray();
+                if (anchors.Length == 0) { VisitContent(node, style); return; }
+                Flush();
+                int first = blocks.Count;
+                VisitContent(node, style);
+                Flush();
+                if (blocks.Count == first) Add(new() { Kind = ModBlockKind.Paragraph });
+                blocks[first] = blocks[first] with { Anchors = [.. anchors, .. blocks[first].Anchors] };
+            }
+            void VisitContent(HtmlNode node, ModTextRun style)
             {
                 if (node.NodeType == HtmlNodeType.Text)
                 {
@@ -197,10 +210,11 @@ internal static partial class ModDocumentParser
             foreach (var block in blocks)
             {
                 if (++count > 10000 || block is null || !Enum.IsDefined(block.Kind) || block.Runs is null || block.Children is null ||
+                    block.Anchors is null || block.Anchors.Any(anchor => anchor is null || anchor.Length is 0 or > 256) ||
                     block.Runs.Any(run => run is null || run.Text is null || run.Link is { } link && !IsLink(link)) ||
                     block.Link is { } target && !IsLink(target) ||
                     block.Kind == ModBlockKind.Image && block.Image is null ||
-                    block.Image is { } image && (image.Caption is null || image.ImageUrl is null || !IsLink(image.ImageUrl) || image.ThumbnailUrl is { } thumbnail && !IsLink(thumbnail)) ||
+                    block.Image is { } image && (image.Caption is null || image.ImageUrl is null || !IsLink(image.ImageUrl) || image.ThumbnailUrl is { } thumbnail && !IsLink(thumbnail) || image.PageUrl is { } page && !IsLink(page)) ||
                     !Valid(block.Children, depth + 1)) return false;
             }
             return true;

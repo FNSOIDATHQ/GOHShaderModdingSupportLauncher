@@ -201,6 +201,7 @@ internal static partial class ModDbParser
         return new()
         {
             Id = new UriBuilder(page) { Fragment = "", Query = "" }.Uri.AbsolutePath,
+            PageUrl = new UriBuilder(page) { Fragment = "", Query = "" }.Uri,
             ImageUrl = Media(Attr(original, "href"), page), ThumbnailUrl = Media(Attr(image, "src"), page),
             Caption = Attr(image, "alt")
         };

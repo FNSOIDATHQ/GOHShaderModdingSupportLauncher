@@ -81,7 +81,15 @@ internal static class GitHubParser
         string directory = readmePath.Contains('/') ? readmePath[..(readmePath.LastIndexOf('/') + 1)] : "";
         var relativeBase = new Uri("https://raw.githubusercontent.com/" + RepoName(repository) + "/" + Uri.EscapeDataString(branch) + "/" + directory);
         var linkBase = new Uri(repository.AbsoluteUri + "/blob/" + Uri.EscapeDataString(branch) + "/" + readmePath);
-        return ModDocumentParser.Markdown(markdown, linkBase, image => ModDocumentParser.Image(image, relativeBase, NormalizeImage));
+        var document = ModDocumentParser.Markdown(markdown, linkBase, image => ModDocumentParser.Image(image, relativeBase, NormalizeImage));
+        Uri? Anchor(Uri? url) => url is not null && url.Fragment.Length > 0 && new UriBuilder(url) { Fragment = "" }.Uri == linkBase
+            ? new UriBuilder(repository) { Fragment = url.Fragment[1..] }.Uri : url;
+        ModContentBlock Rebase(ModContentBlock block) => block with
+        {
+            Runs = block.Runs.Select(run => run with { Link = Anchor(run.Link) }).ToArray(),
+            Link = Anchor(block.Link), Children = block.Children.Select(Rebase).ToArray()
+        };
+        return document with { Blocks = document.Blocks.Select(Rebase).ToArray() };
     }
 
     private static Uri? NormalizeImage(Uri uri)

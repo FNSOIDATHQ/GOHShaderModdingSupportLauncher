@@ -586,6 +586,11 @@
   <data name="MS_Favorite" xml:space="preserve"><value>收藏</value></data>
   <data name="MS_Unfavorite" xml:space="preserve"><value>取消收藏</value></data>
   <data name="MS_Original" xml:space="preserve"><value>打开原文</value></data>
+  <data name="MS_OriginalUnavailable" xml:space="preserve"><value>选择阅读内容后可打开对应原文</value></data>
+  <data name="MS_BackFromLink" xml:space="preserve"><value>返回</value></data>
+  <data name="MS_ImageLink" xml:space="preserve"><value>图片链接</value></data>
+  <data name="MS_OpeningLink" xml:space="preserve"><value>正在打开链接内容</value></data>
+  <data name="MS_LinkFailed" xml:space="preserve"><value>链接打开失败，已保留当前内容；可用“打开原文”在浏览器查看目标页面。</value></data>
   <data name="MS_Unsubscribe" xml:space="preserve"><value>取消订阅</value></data>
   <data name="MS_Summary" xml:space="preserve"><value>概览</value></data>
   <data name="MS_Articles" xml:space="preserve"><value>文章</value></data>
@@ -681,7 +686,6 @@
   <data name="MS_VerificationOpen" xml:space="preserve"><value>打开验证窗口</value></data>
   <data name="MS_VerificationRetry" xml:space="preserve"><value>验证访问并重试</value></data>
   <data name="MS_VerificationCancel" xml:space="preserve"><value>关闭验证会话</value></data>
-  <data name="MS_VerificationOriginal" xml:space="preserve"><value>打开原网页</value></data>
   <data name="MS_VerificationOpening" xml:space="preserve"><value>正在打开独立浏览器…</value></data>
   <data name="MS_VerificationBrowserOpen" xml:space="preserve"><value>请在独立浏览器中完成检查，然后点击“验证访问并重试”。仅打开浏览器不会恢复访问。</value></data>
   <data name="MS_VerificationChecking" xml:space="preserve"><value>正在检查 ModDB 是否已恢复访问…</value></data>

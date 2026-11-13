@@ -68,7 +68,7 @@ public sealed partial class ModSubscriptionsPage
             .Select(file => new FileEntry("file:" + file.Id, file, null)));
         fileEntries = entries.ToArray();
         if (!entries.Any(entry => entry.Key == current.File))
-        { current.File = entries.FirstOrDefault()?.Key; fileImageExpanded = false; }
+        { current.File = entries.FirstOrDefault()?.Key; fileImageExpanded = false; current.FileImage = null; if (details.SelectedIndex == 1) SetReadingContext(FileContext()); }
         string? previousGroup = null;
         foreach (var entry in entries)
         {
@@ -145,9 +145,11 @@ public sealed partial class ModSubscriptionsPage
     private void SelectFile(string key)
     {
         if (session is not { } current || !fileEntries.Any(entry => entry.Key == key)) return;
+        CancelLinkNavigation();
         bool restoreFocus = fileNavigationToggle.IsVisible && fileNavigationScroll.IsKeyboardFocusWithin;
         CancelRefresh(); CancelTranslation();
         SaveFileReadingPosition(); fileImageExpanded = false; current.File = key; current.FileNavigationOnly = false; readerGeneration++;
+        current.FileImage = null; SetReadingContext(FileContext());
         RenderFiles(current.Mod, DetailToken);
         if (restoreFocus) fileNavigationToggle.Focus(Avalonia.Input.NavigationMethod.Tab);
     }
@@ -171,7 +173,7 @@ public sealed partial class ModSubscriptionsPage
             if (file.DownloadOnly) fileReader.Children.Add(Text(T("GitHubDownloadOnly")));
             if (string.IsNullOrWhiteSpace(file.Description) && (!ModDocumentParser.HasDocument(file.Document) || file.Document!.Blocks.Length == 0))
                 fileReader.Children.Add(Text(T("NoFileDescription")));
-            else AddDocument(fileReader, fileDocument);
+            else AddContextDocument(fileReader, fileDocument, FileContext());
             bool present = snapshot?.Files.Any(item => item.Id == file.Id && item.Revision == file.Revision) == true;
             if (!present) fileReader.Children.Add(Text(T("FileUnavailable")));
             else if (!file.CanDownload)
@@ -187,13 +189,17 @@ public sealed partial class ModSubscriptionsPage
         }
         if (group is not null)
         {
-            fileReader.Children.Add(Text(T("SharedVersionNotes"), 16));
+            var context = new ReadingContext("release", group.PageUrl);
+            var heading = Text(T("SharedVersionNotes"), 16); BindReadingContext(heading, context); fileReader.Children.Add(heading);
             if (file is null) fileReader.Children.Add(Text(T("ReleaseWithoutFiles")));
-            AddDocument(fileReader, groupDocument);
+            AddContextDocument(fileReader, groupDocument, context);
             if (group.InstallationInstructions.Length > 0) fileReader.Children.Add(Text(T("InstallationInOverview")));
         }
-        var original = file?.BrowserUrl ?? group?.PageUrl ?? file?.PageUrl;
-        if (original is not null) fileReader.Children.Add(Action(T("Original"), () => { OpenUrl(original); return Task.CompletedTask; }, independent: true));
+        if (details.SelectedIndex == 1 && !operation.IsVisible)
+        {
+            if (current.Context is null || current.Context.Kind == "file") SetReadingContext(FileContext());
+            else if (current.Context.Kind == "release") SetReadingContext(group is null ? FileContext() : new("release", group.PageUrl));
+        }
         RefreshTasks();
         RestoreFilePosition(current.FilePositions.GetValueOrDefault(entry.Key));
     }

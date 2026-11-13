@@ -28,6 +28,7 @@ internal static class SubscriptionValidation
         Text(image.Id);
         Url(image.ImageUrl);
         if (image.ThumbnailUrl is not null) Url(image.ThumbnailUrl);
+        if (image.PageUrl is not null) Url(image.PageUrl);
     }
 
     private static void File(RemoteModFile file)

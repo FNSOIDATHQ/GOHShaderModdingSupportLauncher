@@ -409,6 +409,20 @@ internal static class UiSmokeTest
             !panel.Children[2].GetLogicalDescendants().OfType<HyperlinkButton>().Any())
             throw new InvalidOperationException("Ordered subscription document serialization or rendering failed.");
         AppDiagnostics.Log("Subscription document self-test passed: source-generated JSON, paragraph/image order and inline links.");
+        var anchored = GitHubParser.ReadmeDocument("## Install guide\n\n[Jump](#install-guide)", new("https://github.com/example/mod"), "main", "README.md");
+        string anchorJson = System.Text.Json.JsonSerializer.Serialize(anchored, ModContentJsonContext.Default.ModReadingDocument);
+        var anchorCopy = System.Text.Json.JsonSerializer.Deserialize(anchorJson, ModContentJsonContext.Default.ModReadingDocument)!;
+        if (!anchorCopy.Blocks[0].Anchors.Contains("install-guide") || anchorCopy.Blocks.Last().Runs.Single(run => run.Link is not null).Link?.AbsoluteUri != "https://github.com/example/mod#install-guide" ||
+            !ModPageRouter.TryResolveSupportedPage(new("https://www.moddb.com/mods/example/news/guide"), out var articleRoute) || articleRoute?.Kind != ModPageKind.Article ||
+            !ModPageRouter.TryResolveSupportedPage(new("https://github.com/example/mod/releases/tag/v1"), out var releaseRoute) || releaseRoute?.Kind != ModPageKind.Release ||
+            !ModPageRouter.TryResolveSupportedPage(new("https://mow-portal.com/call_to_arms_gates_of_hell/page/2/"), out var categoryRoute) || categoryRoute?.PageNumber != 2 ||
+            ModPageRouter.TryResolveSupportedPage(new("https://www.moddb.com.example.org/mods/example"), out _) ||
+            ModPageRouter.TryResolveSupportedPage(new("https://github.com/example/mod/issues/1"), out _) ||
+            page.GetLogicalDescendants().OfType<Button>().Count(button => button.Content as string == LocalizedStrings.Instance.Get("MS_Original")) != 1 ||
+            page.GetLogicalDescendants().OfType<Button>().Single(button => button.Name == "subscriptionOriginal").IsEnabled ||
+            !page.GetLogicalDescendants().OfType<Button>().Any(button => button.Name == "subscriptionLinkBack" && !button.IsEnabled))
+            throw new InvalidOperationException("Subscription original action, bounded link routes or native anchor serialization failed.");
+        AppDiagnostics.Log("Subscription link self-test passed: one external original action, disabled empty context, three-source URL routes and preserved document anchors.");
         var group = new ModFileGroup { Id = "release-1", Title = "Version 1", PageUrl = new("https://github.com/example/mod/releases/tag/v1"),
             Description = "Shared notes", Document = restored };
         var snapshot = new ModFileSnapshot([new() { Id = "asset:1", Revision = "unchanged", Name = "mod.zip",

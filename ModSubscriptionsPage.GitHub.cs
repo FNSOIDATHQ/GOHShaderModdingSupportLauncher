@@ -85,6 +85,7 @@ public sealed partial class ModSubscriptionsPage
             url.UserInfo.Length != 0 || !url.IsDefaultPort || url.Query.Length != 0 || url.Fragment.Length != 0 ||
             url.AbsolutePath.Trim('/').Split('/').Length != 2)
         { ReportNotice(T("RepositoryUrlRequired")); return; }
+        CancelLinkNavigation();
         CancelRefresh();
         listCancellation?.Cancel(); listCancellation?.Dispose();
         listCancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);

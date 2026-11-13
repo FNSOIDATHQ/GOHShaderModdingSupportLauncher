@@ -33,7 +33,7 @@ public sealed partial class ModSubscriptionsPage
         foreach (Match link in ContentLinks().Matches(content).Cast<Match>().DistinctBy(match => match.Groups[2].Value))
         {
             if (!Uri.TryCreate(link.Groups[2].Value, UriKind.Absolute, out var url)) continue;
-            panel.Children.Add(Action(link.Groups[1].Value + " ↗", () => { OpenUrl(url); return Task.CompletedTask; }, independent: true));
+            panel.Children.Add(Action(link.Groups[1].Value + " ↗", () => FollowLinkAsync(url), independent: true));
         }
     }
 

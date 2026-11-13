@@ -96,6 +96,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
 
     private void ClearDetail()
     {
+        CancelLinkNavigation(clearHistory: true);
         CancelTranslation();
         SaveReadingPosition();
         detailCancellation?.Cancel(); listCancellation?.Cancel();
@@ -103,6 +104,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
         verificationRetryAction = null;
         listGeneration++;
         selected = null; snapshot = null; session = null; fileChoices.Clear();
+        documentAnchors.Clear(); UpdateOriginal();
         CloseOperation();
         title.Text = T("ChooseMod");
         summary.Children.Clear(); articles.Children.Clear(); images.Children.Clear(); files.Children.Clear(); tasks.Children.Clear(); reading.Children.Clear(); recovery.Children.Clear();
@@ -118,6 +120,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
     {
         if (args.PropertyName != nameof(LocalizedStrings.Tab_ModSubscriptions)) return;
         var previousMod = selected;
+        CancelLinkNavigation();
         CancelRefresh(); CancelTranslation(); ResetStatus();
         SaveReadingPosition(); detailCancellation?.Cancel(); listCancellation?.Cancel(); selected = null; snapshot = null; session = null; CloseOperation();
         verificationRetryAction = null;
@@ -329,7 +332,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
 
     private static void OpenUrl(Uri url)
     {
-        if (url.Scheme is "https" or "http") Process.Start(new ProcessStartInfo(url.AbsoluteUri) { UseShellExecute = true });
+        if (ModDocumentParser.IsLink(url)) Process.Start(new ProcessStartInfo(url.AbsoluteUri) { UseShellExecute = true });
     }
 
     public void Dispose()
@@ -344,5 +347,6 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
             runtime.Verification.Changed -= RuntimeChanged;
         }
         DisposeMedia(); imageClient.Dispose(); (textTranslator as IDisposable)?.Dispose();
+        CancelLinkNavigation(clearHistory: true);
     }
 }

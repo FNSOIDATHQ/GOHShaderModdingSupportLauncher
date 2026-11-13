@@ -49,7 +49,7 @@ public sealed partial class ModSubscriptionsPage
             LogMediaParse(pending.Reference.PageUrl, ModMediaOperation.ImagePage, response);
             ReportResult(progress, response, retry);
             if (response.Failure?.Kind == ModSourceError.VerificationRequired) verificationRetryAction = RetryPendingImageAsync;
-            if (response.Content is { } full) { pendingImage = null; await ShowImageAsync(full, token); }
+            if (response.Content is { } full) { pendingImage = null; await ShowImageAsync(full with { PageUrl = pending.Reference.PageUrl }, token); }
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { EndStatus(progress, ModPageOperationState.Cancelled); }
         catch (Exception ex)
@@ -90,6 +90,8 @@ public sealed partial class ModSubscriptionsPage
         var owner = session;
         bool attached = true;
         var panel = Column();
+        panel.Focusable = true;
+        BindReadingContext(panel, new("image", reference?.PageUrl ?? image.PageUrl ?? image.ImageUrl));
         var picture = new Image { Height = embedded ? double.NaN : 160, MinHeight = 160, MaxHeight = embedded ? 600 : 160,
             MaxWidth = embedded ? 1600 : 360, Stretch = Stretch.Uniform, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch };
         // Image arranges to its drawn size, which can be zero while Source is absent.
@@ -100,6 +102,7 @@ public sealed partial class ModSubscriptionsPage
         panel.Children.Add(frame); panel.Children.Add(message);
         var caption = image.Caption.Length == 0 ? T("ViewImage") : image.Caption;
         var open = Action(T("ViewImage") + " · " + caption, OpenImageAsync, independent: true);
+        BindReadingContext(open, new("image", reference?.PageUrl ?? image.PageUrl ?? image.ImageUrl));
         open.Content = Text(T("ViewImage")); ToolTip.SetTip(open, caption); panel.Children.Add(open);
         message.MaxLines = embedded ? 4 : 2; message.TextTrimming = TextTrimming.CharacterEllipsis; ToolTip.SetTip(message, image.Caption);
         async Task OpenImageAsync()
@@ -107,6 +110,7 @@ public sealed partial class ModSubscriptionsPage
             var expected = owner;
             var token = DetailToken;
             if (expected is null || session != expected || !attached) return;
+            CancelLinkNavigation();
             if (reference is null) { await ShowImageAsync(image, token); return; }
             pendingImage = new(expected, reference, details.SelectedIndex, expected.Article, expected.File);
             await RetryPendingImageAsync();
@@ -224,8 +228,13 @@ public sealed partial class ModSubscriptionsPage
     {
         if (session is not { } expected) return;
         bool inFiles = details.SelectedIndex == 1;
+        var previousImage = inFiles ? expected.FileImage : expected.DescriptionImage;
+        var returnContext = previousImage?.ReturnContext ?? expected.Context;
         SaveReadingPosition();
         if (inFiles) fileImageExpanded = true; else imageExpanded = true;
+        var expanded = new ExpandedImage(image, returnContext);
+        if (inFiles) expected.FileImage = expanded; else expected.DescriptionImage = expanded;
+        SetReadingContext(new("image", image.PageUrl ?? image.ImageUrl));
         int generation = ++readerGeneration;
         var progress = BeginStatus("original:" + image.ImageUrl, "Media", image.Caption.Length > 0 ? image.Caption : T("ViewImage"));
         var retry = DocumentRetry(expected, inFiles ? 1 : 0, expected.Article, expected.File, () =>
@@ -239,8 +248,9 @@ public sealed partial class ModSubscriptionsPage
         panel.Children.Add(Action(T("BackToReading"), () =>
         {
             readerGeneration++; expandedMediaRefresh = null;
-            if (inFiles) { fileImageExpanded = false; RenderSelectedFile(); }
-            else { imageExpanded = false; renderedSession = null; RenderReading(); }
+            if (inFiles) { expected.FileImage = null; fileImageExpanded = false; RenderSelectedFile(); }
+            else { expected.DescriptionImage = null; imageExpanded = false; renderedSession = null; RenderReading(); }
+            SetReadingContext(returnContext);
             return Task.CompletedTask;
         }, independent: true));
         var target = inFiles ? fileReader : reading;
@@ -299,7 +309,6 @@ public sealed partial class ModSubscriptionsPage
             panel.Children.Add(frame); bitmap = null; message.Text = image.Caption;
             EndStatus(progress, ModPageOperationState.Succeeded);
             expandedMediaRefresh = RestoreImage;
-            panel.Children.Add(Action(T("Original"), () => { OpenUrl(image.ImageUrl); return Task.CompletedTask; }, independent: true));
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { EndStatus(progress, ModPageOperationState.Cancelled); }
         catch (Exception ex)

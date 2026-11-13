@@ -23,6 +23,8 @@ public sealed partial class ModSubscriptionsPage
     private TextBlock pageNumber = null!, listNotice = null!, activity = null!;
     private Button unsubscribe = null!, backToList = null!, refresh = null!, modListToggle = null!;
     private bool listOnly = true;
+    private Expander githubConfiguration = null!;
+    private TextBlock mowHint = null!;
 
     private void BuildView()
     {
@@ -54,26 +56,30 @@ public sealed partial class ModSubscriptionsPage
         Grid.SetColumn(keyword, 1); Grid.SetColumn(sort, 2); Grid.SetColumn(refresh, 3);
         Grid.SetRow(searchBar, 2); root.Children.Add(searchBar);
         var options = Column();
-        var github = new Expander { Name = "subscriptionGitHubConfiguration", Header = T("GitHubConfiguration"), Content = new ScrollViewer { Content = BuildGitHubOptions(), MaxHeight = 160 },
+        var github = githubConfiguration = new Expander { Name = "subscriptionGitHubConfiguration", Header = T("GitHubConfiguration"), Content = new ScrollViewer { Content = BuildGitHubOptions(), MaxHeight = 160 },
             IsVisible = sourceIndex == 1, HorizontalAlignment = HorizontalAlignment.Stretch };
         options.Children.Add(github);
-        var mow = Text(T("MowPortalHint")); mow.Name = "subscriptionMowPortalHint"; mow.IsVisible = sourceIndex == 2; options.Children.Add(mow);
+        var mow = mowHint = Text(T("MowPortalHint")); mow.Name = "subscriptionMowPortalHint"; mow.IsVisible = sourceIndex == 2; options.Children.Add(mow);
         Grid.SetRow(options, 3); root.Children.Add(options);
 
         var verification = Column();
         verification.Children.Add(Text(T("VerificationTitle"), 16));
         verificationMessage = Text(T("VerificationRequired")); verification.Children.Add(verificationMessage);
         verificationPrivacy = Text(T("VerificationPrivacy")); verification.Children.Add(verificationPrivacy);
-        var verificationActions = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
+        verificationActions = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
         verificationOpen = Action(T("VerificationOpen"), OpenVerificationAsync, independent: true); verificationOpen.Name = "subscriptionVerificationOpen";
         verificationRetry = Action(T("VerificationRetry"), CompleteVerificationAsync, independent: true); verificationRetry.Name = "subscriptionVerificationRetry";
         verificationCancel = Action(T("VerificationCancel"), CloseVerificationAsync, independent: true); verificationCancel.Name = "subscriptionVerificationCancel";
         verificationActions.Children.Add(verificationOpen); verificationActions.Children.Add(verificationRetry); verificationActions.Children.Add(verificationCancel);
-        verificationActions.Children.Add(Action(T("VerificationOriginal"), () => { OpenUrl(CurrentVerificationOrigin ?? new Uri("https://www.moddb.com/games/gates-of-hell/mods")); return Task.CompletedTask; }, independent: true));
         verification.Children.Add(verificationActions);
         verificationBanner = new Border { Name = "subscriptionVerification", IsVisible = false, Padding = new Thickness(10), Margin = new Thickness(0, 0, 0, 8),
             BorderThickness = new Thickness(1), BorderBrush = Brushes.DarkOrange, Child = new ScrollViewer { Content = verification, MaxHeight = 160 } };
         Grid.SetRow(verificationBanner, 4); root.Children.Add(verificationBanner);
+        verificationBanner.AddHandler(PointerPressedEvent, (_, args) =>
+        {
+            if (args.Source is Control control && control.GetLogicalAncestors().Prepend(control).Contains(original)) return;
+            if (CurrentVerificationOrigin is { } url) { navigationOriginal = url; UpdateOriginal(); }
+        }, RoutingStrategies.Tunnel);
 
         body = new Grid { ColumnDefinitions = new("260,12,*") };
         var list = listPane = new Grid { Name = "subscriptionListPane", RowDefinitions = new("Auto,*") };
@@ -95,14 +101,16 @@ public sealed partial class ModSubscriptionsPage
         body.Children.Add(list);
         detail = new Grid { Name = "subscriptionDetailPane", RowDefinitions = new("Auto,*") }; Grid.SetColumn(detail, 2);
         var heading = new Grid { ColumnDefinitions = new("Auto,*"), RowDefinitions = new("Auto,Auto") };
-        backToList = Action(T("BackToList"), () => { SaveReadingPosition(); listOnly = true; CancelTranslation(); UpdateResponsiveLayout(); mods.Focus(NavigationMethod.Tab); return Task.CompletedTask; }, independent: true);
+        backToList = Action(T("BackToList"), () => { CancelLinkNavigation(); SaveReadingPosition(); listOnly = true; CancelTranslation(); UpdateResponsiveLayout(); mods.Focus(NavigationMethod.Tab); return Task.CompletedTask; }, independent: true);
         backToList.Name = "subscriptionBackToList"; heading.Children.Add(backToList);
         Avalonia.Automation.AutomationProperties.SetName(backToList, T("BackToList"));
         title = Text(T("ChooseMod"), 20); title.MaxLines = 2; title.TextTrimming = TextTrimming.CharacterEllipsis;
         title.VerticalAlignment = VerticalAlignment.Center; Grid.SetColumn(title, 1); heading.Children.Add(title);
-        var actions = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
+        var actions = detailActions = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
         favorite = Action(T("Favorite"), ToggleFavoriteAsync); favorite.IsEnabled = false; actions.Children.Add(favorite);
-        actions.Children.Add(Action(T("Original"), () => { if (selected is { } mod) OpenUrl(mod.PageUrl); return Task.CompletedTask; }, independent: true));
+        original = new Button { Name = "subscriptionOriginal", Content = T("Original"), IsEnabled = false };
+        original.Click += async (_, _) => await ExecuteAsync(() => { OpenOriginal(); return Task.CompletedTask; }); actions.Children.Add(original);
+        Avalonia.Automation.AutomationProperties.SetName(original, T("Original"));
         unsubscribe = Action(T("Unsubscribe"), UnsubscribeAsync); unsubscribe.Name = "subscriptionUnsubscribe"; unsubscribe.IsVisible = false;
         actions.Children.Add(unsubscribe); actions.Margin = new Thickness(0, 8, 0, 0);
         Grid.SetRow(actions, 1); Grid.SetColumnSpan(actions, 2); heading.Children.Add(actions); detail.Children.Add(heading);
@@ -111,12 +119,14 @@ public sealed partial class ModSubscriptionsPage
         var description = new Grid { ColumnDefinitions = new("175,12,*") };
         articleScroll = Scroll(articles); articleScroll.Name = "subscriptionDescriptionNavigation"; description.Children.Add(articleScroll);
         reading = Column(); readingScroll = Scroll(reading); readingScroll.Name = "subscriptionReader";
+        reading.AddHandler(PointerPressedEvent, (_, _) => { if (!imageExpanded) { CancelLinkNavigation(); SetReadingContext(DescriptionContext()); } }, RoutingStrategies.Tunnel);
         descriptionSurface = ReadingSurface(readingScroll); Grid.SetColumn(descriptionSurface, 2); description.Children.Add(descriptionSurface);
         fileContent = new Grid { RowDefinitions = new("Auto,*,Auto,Auto"), ColumnDefinitions = new("420,12,*") };
         fileNotice = Column(); Grid.SetColumnSpan(fileNotice, 3); fileContent.Children.Add(fileNotice);
         fileNavigationScroll = Scroll(files); fileNavigationScroll.Name = "subscriptionFileNavigation";
         Grid.SetRow(fileNavigationScroll, 1); fileContent.Children.Add(fileNavigationScroll);
         fileReader = Column(); fileReader.Name = "subscriptionFileReader";
+        fileReader.AddHandler(PointerPressedEvent, (_, _) => { if (!fileImageExpanded) { CancelLinkNavigation(); SetReadingContext(FileContext()); } }, RoutingStrategies.Tunnel);
         var fileBody = Column(); fileBody.Children.Add(fileReader); fileBody.Children.Add(tasks);
         fileScroll = Scroll(fileBody); fileScroll.Name = "subscriptionFileReading";
         fileReadingSurface = ReadingSurface(fileScroll); Grid.SetColumn(fileReadingSurface, 2); Grid.SetRow(fileReadingSurface, 1); fileContent.Children.Add(fileReadingSurface);
@@ -137,22 +147,26 @@ public sealed partial class ModSubscriptionsPage
         details.SelectionChanged += async (sender, args) =>
         {
             if (args.Source != details || rebuilding || session is null) return;
+            CancelLinkNavigation();
             SaveReadingPosition();
             session.Tab = details.SelectedIndex;
             CancelRefresh(); CancelTranslation();
             if (details.SelectedIndex == 1) await ExecuteAsync(() => EnsureFilesAsync());
             else RerenderTranslation();
+            SelectVisibleContext();
         };
         Grid.SetRow(details, 1); detail.Children.Add(details); body.Children.Add(detail);
         Grid.SetRow(body, 5); root.Children.Add(body);
 
         var footer = new Grid { Name = "subscriptionFooter", ColumnDefinitions = new("Auto,*,Auto"), Margin = new Thickness(0, 8, 0, 0) };
         var listActions = Row();
+        linkBack = Action(T("BackFromLink"), BackFromLinkAsync, independent: true); linkBack.Name = "subscriptionLinkBack";
+        linkBack.IsEnabled = linkHistory.Count > 0; listActions.Children.Add(linkBack);
         modListToggle = new Button { Name = "subscriptionModListToggle", VerticalAlignment = VerticalAlignment.Center };
         modListToggle.Click += (_, _) => ToggleModList(); listActions.Children.Add(modListToggle);
         var paging = Row(); paging.Name = "subscriptionPagination";
-        previous = Action(T("Previous"), async () => { CancelRefresh(); browsePage = Math.Max(1, browsePage - 1); await LoadListAsync(); }, independent: true);
-        next = Action(T("Next"), async () => { CancelRefresh(); browsePage++; await LoadListAsync(); }, independent: true);
+        previous = Action(T("Previous"), async () => { CancelLinkNavigation(); CancelRefresh(); browsePage = Math.Max(1, browsePage - 1); await LoadListAsync(); }, independent: true);
+        next = Action(T("Next"), async () => { CancelLinkNavigation(); CancelRefresh(); browsePage++; await LoadListAsync(); }, independent: true);
         pageNumber = Text(""); pageNumber.VerticalAlignment = VerticalAlignment.Center;
         paging.Children.Add(previous); paging.Children.Add(pageNumber); paging.Children.Add(next); listActions.Children.Add(paging); footer.Children.Add(listActions);
         activity = Text(""); activity.VerticalAlignment = VerticalAlignment.Center; activity.Margin = new Thickness(12, 0); Grid.SetColumn(activity, 1); footer.Children.Add(activity);
@@ -175,14 +189,20 @@ public sealed partial class ModSubscriptionsPage
         source.SelectionChanged += (_, _) =>
         {
             if (rebuilding) return;
-            rebuilding = true; UpdateSortOptions(); rebuilding = false;
-            UpdateSearchScope();
-            github.IsVisible = source.SelectedIndex == 1; mow.IsVisible = source.SelectedIndex == 2;
+            UpdateSourceControls();
             browsePage = 1; browseItems = []; hasNext = false;
             OnGameChanged();
         };
         rebuilding = false;
-        UpdatePaging(); UpdateResponsiveLayout();
+        UpdatePaging(); UpdateResponsiveLayout(); UpdateOriginal();
+    }
+
+    private void UpdateSourceControls()
+    {
+        bool previous = rebuilding;
+        rebuilding = true; UpdateSortOptions(); rebuilding = previous;
+        UpdateSearchScope();
+        githubConfiguration.IsVisible = source.SelectedIndex == 1; mowHint.IsVisible = source.SelectedIndex == 2;
     }
 
     protected override void OnSizeChanged(SizeChangedEventArgs e)
@@ -228,6 +248,7 @@ public sealed partial class ModSubscriptionsPage
         activity.IsVisible = !compact;
         if (statusDetails is not null) statusDetails.MaxHeight = Bounds.Height is > 0 and < 600 ? 80 : 182;
         UpdateFileNavigationLayout();
+        UpdateOriginal();
     }
 
     private void ToggleModList()

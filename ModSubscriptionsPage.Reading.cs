@@ -38,6 +38,8 @@ public sealed partial class ModSubscriptionsPage
         internal int Tab;
         internal bool ManualRepository;
         internal bool FileNavigationOnly;
+        internal ReadingContext? Context;
+        internal ExpandedImage? DescriptionImage, FileImage;
         internal Vector NavigationPosition, FilePosition, FileNavigationPosition;
     }
 
@@ -72,9 +74,10 @@ public sealed partial class ModSubscriptionsPage
     {
         var expected = session;
         int generation = readerGeneration;
+        int filesGeneration = fileGeneration;
         Dispatcher.UIThread.Post(() =>
         {
-            if (disposed || session != expected || (scroll == readingScroll || scroll == galleryScroll) && generation != readerGeneration) return;
+            if (disposed || session != expected || (scroll == readingScroll || scroll == galleryScroll) && generation != readerGeneration || scroll == fileScroll && filesGeneration != fileGeneration) return;
             restoringPosition = true;
             scroll.Offset = position;
             restoringPosition = false;
@@ -94,6 +97,7 @@ public sealed partial class ModSubscriptionsPage
 
     private async Task OpenModCoreAsync(RemoteMod mod, bool refresh)
     {
+        CancelLinkNavigation();
         CancelRefresh(); CancelTranslation(); ResetStatus();
         SaveReadingPosition();
         detailCancellation?.Cancel(); detailCancellation?.Dispose(); readerCancellation?.Cancel();
@@ -106,6 +110,8 @@ public sealed partial class ModSubscriptionsPage
         fileImageExpanded = false; renderedFileSession = null; fileEntries = []; fileGeneration++;
         var current = ReadingState(mod);
         session = current;
+        current.DescriptionImage = null; current.FileImage = null;
+        SetReadingContext(current.Tab == 0 ? DescriptionContext() : null);
         if (!SourceForProvider(mod.Id.Provider).Capabilities.CanReadArticles) current.Article = null;
         if (!refresh && current.Overview.Result is null)
         { current.Mod = mod; current.Overview.Result = new(mod, DateTimeOffset.UtcNow); current.Overview.Attempted = true; }
@@ -119,10 +125,7 @@ public sealed partial class ModSubscriptionsPage
         {
             await EnsureOverviewAsync(current, token);
             if (!IsCurrent(current, token)) return;
-            var work = new List<Task>();
-            if (SourceForProvider(current.Mod.Id.Provider).Capabilities.CanReadArticles) work.Add(LoadArticlesAsync(current.Mod.PageUrl, token));
-            // GitHub and Mow Portal already return all embedded media with the overview.
-            if (current.Mod.Id.Provider == "moddb") work.Add(LoadImagesAsync(current.Mod.PageUrl, token));
+            var work = new List<Task> { EnsureDescriptionNavigationAsync(current, token) };
             if (current.Tab == 1) work.Add(EnsureFilesAsync());
             if (current.Article is { } article) work.Add(SelectArticleAsync(article, savePosition: false));
             await Task.WhenAll(work);
@@ -133,6 +136,20 @@ public sealed partial class ModSubscriptionsPage
             if (!IsCurrent(current, token)) return;
             ReportNotice(T("Failed") + ": " + ex.Message, failure: true);
         }
+    }
+
+    private Task EnsureDescriptionNavigationAsync(ReadingSession current, CancellationToken token)
+    {
+        if (!IsCurrent(current, token)) return Task.CompletedTask;
+        var work = new List<Task>();
+        // A link can seed an index under its own URL. Reuse that page rather than
+        // requesting the same index again through the Mod overview address.
+        if (SourceForProvider(current.Mod.Id.Provider).Capabilities.CanReadArticles)
+            work.Add(LoadArticlesAsync(current.ArticlePages.Keys.FirstOrDefault() ?? current.Mod.PageUrl, token));
+        // GitHub and Mow Portal return embedded media with the overview.
+        if (current.Mod.Id.Provider == "moddb")
+            work.Add(LoadImagesAsync(current.ImagePages.Keys.FirstOrDefault() ?? current.Mod.PageUrl, token));
+        return Task.WhenAll(work);
     }
 
     // A content read owns its state and response. Cancelled or superseded reads cannot update a new selection.
@@ -213,6 +230,7 @@ public sealed partial class ModSubscriptionsPage
             if (current.Overview.Result?.Content is { } full)
             {
                 current.Mod = full; selected = full; title.Text = full.Title;
+                if (current.Context?.Kind == "overview") SetReadingContext(new("overview", full.PageUrl));
             }
             if (current.Article is null) RenderReading();
         }, token, force);
@@ -248,7 +266,7 @@ public sealed partial class ModSubscriptionsPage
         }
         AddEntry(T("Summary"), null);
         var entries = SourceForProvider(current.Mod.Id.Provider).Capabilities.CanReadArticles ? current.ArticlePages.Values.SelectMany(page => page.Result?.Content?.Items ?? [])
-            .Concat(current.Mod.Articles).DistinctBy(item => item.Id).ToArray() : [];
+            .Concat(current.Mod.Articles).Concat(current.Bodies.Values.Select(state => state.Result?.Content).OfType<ModArticle>()).DistinctBy(item => item.Id).ToArray() : [];
         foreach (var article in entries) AddEntry(article.Title, article.PageUrl);
         var nextPage = current.ArticlePages.Values.LastOrDefault()?.Result?.Content?.NextPage;
         if (nextPage is not null && !current.ArticlePages.ContainsKey(nextPage) && current.ArticlePages.Count < 100)
@@ -274,6 +292,7 @@ public sealed partial class ModSubscriptionsPage
     private async Task SelectArticleAsync(Uri? url, bool savePosition = true)
     {
         if (session is not { } current) return;
+        CancelLinkNavigation();
         CancelRefresh();
         if (savePosition) SaveReadingPosition();
         readerCancellation?.Cancel(); readerCancellation?.Dispose();
@@ -282,6 +301,8 @@ public sealed partial class ModSubscriptionsPage
         current.Article = url; readerGeneration++;
         CancelTranslation();
         imageExpanded = false;
+        current.DescriptionImage = null;
+        SetReadingContext(DescriptionContext());
         RenderDescriptionNavigation(); RenderReading();
         // Reopening a saved article increments the reader generation. Restore in that generation,
         // since the initial render's queued restore has intentionally become obsolete.
@@ -318,8 +339,7 @@ public sealed partial class ModSubscriptionsPage
                 renderedDocument = ReadingDocument(article.Document, article.Body, article.PageUrl);
                 if (details.SelectedIndex == 0) PrepareTranslationSource(renderedDocument);
                 reading.Children.Add(Text(article.Title, 20)); reading.Children.Add(galleryHost!);
-                AddDocument(reading, renderedDocument);
-                reading.Children.Add(Action(T("Original"), () => { OpenUrl(article.PageUrl); return Task.CompletedTask; }, independent: true));
+                AddContextDocument(reading, renderedDocument, new("article", article.PageUrl));
             }
             if (state.Result?.Content is { } content && renderedDocument is not null)
                 RenderGallery(current, renderedDocument, content.Images, overview: false);

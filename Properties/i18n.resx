@@ -586,6 +586,11 @@ Make sure Steam has finished downloading the item.</value>
   <data name="MS_Favorite" xml:space="preserve"><value>Favorite</value></data>
   <data name="MS_Unfavorite" xml:space="preserve"><value>Remove favorite</value></data>
   <data name="MS_Original" xml:space="preserve"><value>Open original</value></data>
+  <data name="MS_OriginalUnavailable" xml:space="preserve"><value>Select content to open its original page</value></data>
+  <data name="MS_BackFromLink" xml:space="preserve"><value>Back</value></data>
+  <data name="MS_ImageLink" xml:space="preserve"><value>Image link</value></data>
+  <data name="MS_OpeningLink" xml:space="preserve"><value>Opening linked content</value></data>
+  <data name="MS_LinkFailed" xml:space="preserve"><value>Could not open the link. Current content has been kept; use Open original to view the target in your browser.</value></data>
   <data name="MS_Unsubscribe" xml:space="preserve"><value>Unsubscribe</value></data>
   <data name="MS_Summary" xml:space="preserve"><value>Summary</value></data>
   <data name="MS_Articles" xml:space="preserve"><value>Articles</value></data>
@@ -681,7 +686,6 @@ Make sure Steam has finished downloading the item.</value>
   <data name="MS_VerificationOpen" xml:space="preserve"><value>Open verification window</value></data>
   <data name="MS_VerificationRetry" xml:space="preserve"><value>Verify access and retry</value></data>
   <data name="MS_VerificationCancel" xml:space="preserve"><value>Close verification session</value></data>
-  <data name="MS_VerificationOriginal" xml:space="preserve"><value>Open original page</value></data>
   <data name="MS_VerificationOpening" xml:space="preserve"><value>Opening the isolated browser…</value></data>
   <data name="MS_VerificationBrowserOpen" xml:space="preserve"><value>Complete the check in the isolated browser, then select Verify access and retry. Simply opening the browser does not restore access.</value></data>
   <data name="MS_VerificationChecking" xml:space="preserve"><value>Checking whether ModDB access has been restored…</value></data>

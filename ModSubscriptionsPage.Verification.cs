@@ -25,11 +25,13 @@ public sealed partial class ModSubscriptionsPage
         verificationOpen.IsEnabled = !verificationBusy && origin is not null && supported;
         verificationRetry.IsEnabled = !verificationBusy && origin is not null;
         verificationCancel.IsEnabled = verificationBusy || verificationOpenedFor is not null;
+        UpdateOriginal();
     }
 
     private async Task OpenVerificationAsync()
     {
         if (runtime is null || verificationBusy || CurrentVerificationOrigin is not { } origin) return;
+        navigationOriginal = origin; UpdateOriginal();
         if (!ModBrowserClearance.IsSupportedOrigin(origin))
         { verificationNotice = "VerificationUnsupported"; RefreshVerification(); return; }
         verificationBusy = true; verificationNotice = "VerificationOpening";
@@ -59,6 +61,7 @@ public sealed partial class ModSubscriptionsPage
     private async Task CompleteVerificationAsync()
     {
         if (runtime is null || verificationBusy || CurrentVerificationOrigin is not { } origin) return;
+        navigationOriginal = origin; UpdateOriginal();
         verificationBusy = true; verificationNotice = "VerificationChecking";
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
         verificationCancellation = cancellation;

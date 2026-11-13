@@ -32,6 +32,7 @@ internal sealed record ModImage
 {
     public required string Id { get; init; }
     public required Uri ImageUrl { get; init; }
+    public Uri? PageUrl { get; init; }
     public Uri? ThumbnailUrl { get; init; }
     public string Caption { get; init; } = "";
 }

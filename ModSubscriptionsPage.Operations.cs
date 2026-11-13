@@ -7,10 +7,13 @@ namespace GOHShaderModdingSupportLauncher;
 public sealed partial class ModSubscriptionsPage
 {
     private bool operationBusy, recoveryLoading;
+    private ReadingContext? operationContext;
 
     private void CloseOperation()
     {
         if (operation is null) return;
+        if (operation.IsVisible) SetReadingContext(operationContext);
+        operationContext = null;
         operation.Content = null; operation.IsVisible = false; operationScroll.IsVisible = false; fileContent.IsVisible = true;
         if (session is { } current) RestorePosition(fileScroll, current.FilePosition);
         if (translationPreferences.Enabled && session is { } expected) Avalonia.Threading.Dispatcher.UIThread.Post(() =>
@@ -19,10 +22,13 @@ public sealed partial class ModSubscriptionsPage
 
     private void ShowOperation(Control content)
     {
+        CancelLinkNavigation();
+        if (!operation.IsVisible) operationContext = session?.Context;
         SaveFileReadingPosition();
         details.SelectedIndex = 1;
         operation.Content = content; operation.IsVisible = true; operationScroll.IsVisible = true; fileContent.IsVisible = false; operationScroll.Offset = default;
         CancelTranslation();
+        SetReadingContext(operationContext);
     }
 
     private StackPanel OperationPanel(string caption)
