@@ -48,9 +48,9 @@ public sealed partial class ModSubscriptionsPage
     {
         if (session is not { } expected || expected.Mod.Id != mod.Id || !IsCurrent(expected, token)) return;
         string? game = main.SubscriptionGameDirectory;
-        if (game is null) { status.Text = T("SelectGame"); return; }
+        if (game is null) { ReportNotice(T("SelectGame")); return; }
         var chosen = fileChoices.Where(pair => pair.Value.IsEnabled && pair.Value.IsChecked == true && pair.Key.CanDownload).Select(pair => pair.Key).ToArray();
-        if (chosen.Length == 0) { status.Text = T("ChooseFiles"); return; }
+        if (chosen.Length == 0) { ReportNotice(T("ChooseFiles")); return; }
         await runtime!.EnsureRecoveredAsync(game, token);
         token.ThrowIfCancellationRequested();
         if (!string.Equals(game, main.SubscriptionGameDirectory, StringComparison.OrdinalIgnoreCase)) return;
@@ -69,18 +69,27 @@ public sealed partial class ModSubscriptionsPage
         await runtime.RefreshLibraryAsync(token);
         foreach (var download in subscription.Downloads.Where(download => chosen.Any(file => file.Id == download.File.Id && file.Revision == download.File.Revision)))
             _ = DownloadAsync(subscription.Id, download.Id);
-        runtime.NotifyChanged(); RefreshTasks(); RefreshTracking(); status.Text = T("Queued");
+        runtime.NotifyChanged(); RefreshTasks(); RefreshTracking(); ReportNotice(T("Queued"));
     }
 
     private async Task DownloadAsync(Guid subscriptionId, Guid downloadId)
     {
+        string? game = main.SubscriptionGameDirectory;
+        var owner = selected?.Id;
         try
         {
             var subscription = runtime!.Library.Subscriptions.Single(item => item.Id == subscriptionId);
             await runtime.GetDownloads(subscription.Source.Provider).EnqueueAsync(subscriptionId, downloadId, lifetime.Token);
         }
         catch (OperationCanceledException) { }
-        catch (Exception ex) { if (!disposed) await Dispatcher.UIThread.InvokeAsync(() => status.Text = T("Failed") + ": " + ex.Message); }
+        catch (Exception ex)
+        {
+            if (!disposed) await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (!disposed && game == main.SubscriptionGameDirectory && owner == selected?.Id)
+                    ReportNotice(T("Failed") + ": " + ex.Message, failure: true, key: "download:" + downloadId);
+            });
+        }
         finally { runtime?.NotifyChanged(); }
     }
 

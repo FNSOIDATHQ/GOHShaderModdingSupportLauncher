@@ -23,6 +23,9 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
     private int listGeneration;
     private bool hasNext;
     private bool listLoading;
+    private bool listFresh;
+    private Task? listTask;
+    private string? loadingListKey;
     private RemoteMod[] browseItems = [];
     private RemoteMod? selected;
     private ModFileSnapshot? snapshot;
@@ -86,8 +89,16 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
 
     public void OnGameChanged()
     {
+        CancelRefresh(); ResetStatus();
+        ClearDetail();
+        if (active) _ = RefreshAfterGameChangeAsync();
+    }
+
+    private void ClearDetail()
+    {
         SaveReadingPosition();
         detailCancellation?.Cancel(); listCancellation?.Cancel();
+        readerCancellation?.Cancel();
         verificationRetryAction = null;
         listGeneration++;
         selected = null; snapshot = null; session = null; fileChoices.Clear();
@@ -97,23 +108,16 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
         fileReader.Children.Clear(); fileNotice.Children.Clear(); fileEntries = []; renderedFileSession = null; fileImageExpanded = false; fileGeneration++;
         UpdateFileSelection();
         tracking.Text = ""; listOnly = true; RefreshTracking(); UpdateResponsiveLayout();
-        if (active) _ = RefreshAfterGameChangeAsync();
+        imageExpanded = false; renderedSession = null; pendingImage = null; expandedMediaRefresh = null;
     }
 
     private Task RefreshAfterGameChangeAsync() => ExecuteAsync(LoadListAsync);
-
-    private async Task ApplySearchAsync()
-    {
-        string query = keyword.Text?.Trim() ?? "";
-        if (query != appliedKeyword) browsePage = 1;
-        appliedKeyword = query;
-        await LoadListAsync();
-    }
 
     private void LanguageChanged(object? sender, PropertyChangedEventArgs args)
     {
         if (args.PropertyName != nameof(LocalizedStrings.Tab_ModSubscriptions)) return;
         var previousMod = selected;
+        CancelRefresh(); ResetStatus();
         SaveReadingPosition(); detailCancellation?.Cancel(); listCancellation?.Cancel(); selected = null; snapshot = null; session = null; CloseOperation();
         verificationRetryAction = null;
         verificationNotice = null;
@@ -144,32 +148,37 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
     private async Task ExecuteAsync(Func<Task> action)
     {
         if (disposed) return;
-        string provider = SelectedProvider;
-        string? game = main.SubscriptionGameDirectory;
-        var mod = selected?.Id;
-        bool Current() => !disposed && provider == SelectedProvider && game == main.SubscriptionGameDirectory && mod == selected?.Id;
+        var context = BeginStatus("action:" + Guid.NewGuid().ToString("N"), "Fetch");
         try
         {
-            status.Text = T("Working");
             if (runtime is not null) await runtime.Ready;
             await action();
-            if (Current() && status.Text == T("Working")) status.Text = T("Ready");
+            EndStatus(context, ModPageOperationState.Succeeded);
         }
-        catch (OperationCanceledException) { if (Current()) status.Text = T("Cancelled"); }
-        catch (Exception ex) { if (Current()) status.Text = T("Failed") + ": " + ex.Message; }
+        catch (OperationCanceledException) { EndStatus(context, ModPageOperationState.Cancelled, T("Cancelled")); }
+        catch (Exception ex) { EndStatus(context, ModPageOperationState.Failed, T("Failed") + ": " + ex.Message); }
     }
 
-    private async Task LoadListAsync()
+    private string ListKey => string.Join("\n", main.SubscriptionGameDirectory, SelectedProvider, view.SelectedIndex, appliedKeyword, browsePage, sort.SelectedIndex);
+
+    private Task LoadListAsync()
     {
-        if (runtime is null) return;
+        if (runtime is null) return Task.CompletedTask;
+        string key = ListKey;
+        if (listTask is { IsCompleted: false } && loadingListKey == key && listCancellation?.IsCancellationRequested == false) return listTask;
         listCancellation?.Cancel(); listCancellation?.Dispose();
         listCancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
-        var token = listCancellation.Token;
-        int generation = ++listGeneration;
-        listLoading = true;
+        loadingListKey = key;
+        return listTask = LoadListCoreAsync(++listGeneration, listCancellation.Token);
+    }
+
+    private async Task LoadListCoreAsync(int generation, CancellationToken token)
+    {
+        if (runtime is null) return;
+        listLoading = true; listFresh = false;
         UpdatePaging();
         string? game = main.SubscriptionGameDirectory;
-        pageNotice.IsVisible = false;
+        var progress = BeginStatus("list", "Cache", T("Browse"));
         try
         {
             RemoteMod[] items;
@@ -179,31 +188,32 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
                 int page = browsePage;
                 var order = (ModBrowseSort)Math.Max(0, sort.SelectedIndex);
                 var currentSource = SourceForProvider(SelectedProvider);
-                listNotice.Text = T("Working");
                 var cached = await Task.Run(() => currentSource.BrowseAsync(query, page, order, ModReadMode.CacheOnly, token), token);
                 if (generation != listGeneration || disposed) return;
-                if (cached.Content is { } old) { RenderModList(old.Items); listNotice.Text = T("CachedLoading"); }
+                if (cached.Content is { } old) { RenderModList(old.Items); }
+                pageStatus.Update(progress, "Fetch", cached.Content is null ? "" : T("CachedLoading"), ModPageOperationState.Running); RenderStatus();
                 var result = await Task.Run(() => currentSource.BrowseAsync(query, page, order, cancellationToken: token), token);
                 token.ThrowIfCancellationRequested();
                 if (generation != listGeneration || disposed) return;
-                string resultStatus = ReadStatus(result, LoadListAsync);
-                status.Text = BriefStatus(result);
-                listNotice.Text = result.IsSuccess && !result.IsStale ? (result.Content!.Items.Length == 0 ? T("Empty") : "") : resultStatus;
+                ReportResult(progress, result);
+                listFresh = result.IsSuccess && !result.IsStale;
                 if (result.Content is { } content) { browseItems = content.Items; hasNext = content.NextPage is not null; }
                 else if (cached.Content is { } fallback) { browseItems = fallback.Items; hasNext = fallback.NextPage is not null; }
-                else { browseItems = []; hasNext = false; }
+                // A failed request cannot prove that the previous list or selection disappeared.
                 items = browseItems;
             }
             else
             {
                 items = LibraryItems();
-                status.Text = game is null && view.SelectedIndex != 2 ? T("SelectGame") : T("Ready");
-                listNotice.Text = items.Length == 0 ? T("Empty") : "";
+                listFresh = true;
+                EndStatus(progress, ModPageOperationState.Succeeded, game is null && view.SelectedIndex != 2 ? T("SelectGame") : T("Ready"));
             }
+            listNotice.Text = items.Length == 0 && listFresh ? T("Empty") : "";
             UpdatePaging(); RenderModList(items);
             await RefreshRecoveryAsync();
         }
-        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { EndStatus(progress, ModPageOperationState.Cancelled); }
+        catch (Exception ex) { if (generation == listGeneration) EndStatus(progress, ModPageOperationState.Failed, T("Failed") + ": " + ex.Message, retry: ApplySearchAsync); }
         finally { if (generation == listGeneration) { listLoading = false; UpdatePaging(); } }
     }
 
@@ -265,9 +275,6 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
         return message + " · " + T("NetworkLog");
     }
 
-    private static string BriefStatus<TContent>(ModSourceResult<TContent> result) =>
-        T(result.IsSuccess && !result.IsStale ? "Ready" : result.Content is null ? "RequestFailed" : "CachedStatus");
-
     private async Task ToggleFavoriteAsync()
     {
         if (selected is not { } mod || runtime is null) return;
@@ -283,17 +290,24 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
 
     private async Task CheckAsync()
     {
-        if (main.SubscriptionGameDirectory is not { } game) { status.Text = T("SelectGame"); return; }
-        await runtime!.EnsureRecoveredAsync(game, lifetime.Token);
-        var results = await Task.Run(() => runtime.Updates.CheckGameAsync(game, cancellationToken: lifetime.Token), lifetime.Token);
-        if (results.Any(result => result.Failure?.Kind == ModSourceError.VerificationRequired))
-        { verificationRetryAction = CheckAsync; RefreshVerification(); }
-        runtime.ReportCheckResults(results, game);
-        await runtime.RefreshLibraryAsync(lifetime.Token);
-        if (!string.Equals(game, main.SubscriptionGameDirectory, StringComparison.OrdinalIgnoreCase)) return;
-        runtime.NotifyChanged(); RefreshTracking();
-        if (view.SelectedIndex != 0) await LoadListAsync();
-        status.Text = results.Any(result => !result.Succeeded) ? T("CheckFailed") : T("Checked");
+        if (main.SubscriptionGameDirectory is not { } game) { ReportNotice(T("SelectGame")); return; }
+        var progress = BeginStatus("subscriptionCheck", "Fetch", T("CheckScope"));
+        try
+        {
+            await runtime!.EnsureRecoveredAsync(game, lifetime.Token);
+            var results = await Task.Run(() => runtime.Updates.CheckGameAsync(game, cancellationToken: lifetime.Token), lifetime.Token);
+            if (results.Any(result => result.Failure?.Kind == ModSourceError.VerificationRequired))
+            { verificationRetryAction = CheckAsync; RefreshVerification(); }
+            runtime.ReportCheckResults(results, game);
+            await runtime.RefreshLibraryAsync(lifetime.Token);
+            if (!string.Equals(game, main.SubscriptionGameDirectory, StringComparison.OrdinalIgnoreCase)) return;
+            runtime.NotifyChanged(); RefreshTracking();
+            if (view.SelectedIndex != 0) await LoadListAsync();
+            EndStatus(progress, results.Any(result => !result.Succeeded) ? ModPageOperationState.Failed : ModPageOperationState.Succeeded,
+                results.Any(result => !result.Succeeded) ? T("CheckFailed") : T("Checked"), retry: results.Any(result => !result.Succeeded) ? CheckAsync : null);
+        }
+        catch (OperationCanceledException) { EndStatus(progress, ModPageOperationState.Cancelled); }
+        catch (Exception ex) { EndStatus(progress, ModPageOperationState.Failed, T("Failed") + ": " + ex.Message, retry: CheckAsync); }
     }
 
     private void RefreshTracking()
@@ -311,7 +325,8 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
             pair.Value.IsEnabled = sub?.State is not (SubscriptionState.RemovalPending or SubscriptionState.RemovalFailed) &&
                 snapshot?.Files.Any(file => file.Id == pair.Key.Id && file.Revision == pair.Key.Revision && file.CanDownload) == true;
         UpdateFileSelection();
-        if (runtime.Error is { } error) { pageNotice.Text = T("Failed") + ": " + error; pageNotice.IsVisible = true; }
+        if (runtime.Error is { } error) ReportNotice(T("Failed") + ": " + error, failure: true, key: "runtime");
+        else { pageStatus.Remove("runtime"); RenderStatus(); }
     }
 
     private static void OpenUrl(Uri url)
@@ -322,6 +337,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
     public void Dispose()
     {
         if (disposed) return;
+        CancelRefresh();
         disposed = true; timer.Stop(); lifetime.Cancel(); detailCancellation?.Cancel(); verificationCancellation?.Cancel();
         LocalizedStrings.Instance.PropertyChanged -= LanguageChanged;
         if (runtime is not null)

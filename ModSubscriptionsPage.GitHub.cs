@@ -74,7 +74,8 @@ public sealed partial class ModSubscriptionsPage
         bool matchAll = githubMatch.SelectedIndex == 1;
         await Task.Run(() => runtime!.GitHubSettings.Save(topics, matchAll), lifetime.Token);
         LoadGitHubOptions(); browsePage = 1;
-        await LoadListAsync();
+        CancelRefresh(); listCancellation?.Cancel();
+        await ApplySearchAsync();
     }
 
     private async Task AddGitHubRepositoryAsync()
@@ -83,30 +84,38 @@ public sealed partial class ModSubscriptionsPage
             url.Scheme != "https" || !url.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase) ||
             url.UserInfo.Length != 0 || !url.IsDefaultPort || url.Query.Length != 0 || url.Fragment.Length != 0 ||
             url.AbsolutePath.Trim('/').Split('/').Length != 2)
-        { status.Text = T("RepositoryUrlRequired"); return; }
+        { ReportNotice(T("RepositoryUrlRequired")); return; }
+        CancelRefresh();
         listCancellation?.Cancel(); listCancellation?.Dispose();
         listCancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
         var token = listCancellation.Token;
         int generation = ++listGeneration;
-        var response = await Task.Run(() => SourceForProvider("github").GetModAsync(url, cancellationToken: token), token);
-        if (generation != listGeneration || disposed) return;
-        status.Text = ReadStatus(response, AddGitHubRepositoryAsync);
-        string? readStatus = status.Text;
-        if (response.Content is not { } mod) return;
-        await Task.Run(() => runtime!.Store.SaveMod(mod), lifetime.Token);
-        await runtime!.RefreshLibraryAsync(lifetime.Token);
-        if (generation != listGeneration || disposed) return;
-        if (view.SelectedIndex == 0)
+        listLoading = false; UpdatePaging();
+        var progress = BeginStatus("repository", "Fetch", T("AddRepository"));
+        try
         {
-            browseItems = [mod, .. browseItems.Where(item => item.Id != mod.Id)];
-            RenderModList(browseItems);
+            var response = await Task.Run(() => SourceForProvider("github").GetModAsync(url, cancellationToken: token), token);
+            if (generation != listGeneration || disposed) return;
+            ReportResult(progress, response, AddGitHubRepositoryAsync);
+            if (response.Content is not { } mod) return;
+            await Task.Run(() => runtime!.Store.SaveMod(mod), lifetime.Token);
+            await runtime!.RefreshLibraryAsync(lifetime.Token);
+            if (generation != listGeneration || disposed) return;
+            if (view.SelectedIndex == 0)
+            {
+                browseItems = [mod, .. browseItems.Where(item => item.Id != mod.Id)];
+                RenderModList(browseItems);
+            }
+            var content = ReadingState(mod);
+            content.ManualRepository = true;
+            content.Mod = mod; content.Overview.Result = response; content.Overview.Attempted = true;
+            await OpenModCoreAsync(mod, refresh: false);
+            if (generation != listGeneration || disposed || selected?.Id != mod.Id) return;
+            var completed = BeginStatus("repository", "Completed", T("AddRepository")); ReportResult(completed, response, AddGitHubRepositoryAsync);
+            runtime.NotifyChanged();
         }
-        var content = ReadingState(mod);
-        content.Mod = mod; content.Overview.Result = response; content.Overview.Attempted = true;
-        await OpenModCoreAsync(mod, refresh: false);
-        if (generation != listGeneration || disposed || selected?.Id != mod.Id) return;
-        status.Text = readStatus;
-        runtime.NotifyChanged();
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { EndStatus(progress, ModPageOperationState.Cancelled); }
+        catch (Exception ex) { EndStatus(progress, ModPageOperationState.Failed, T("Failed") + ": " + ex.Message, retry: AddGitHubRepositoryAsync); }
     }
 
     private void ShowSummary(RemoteMod mod)

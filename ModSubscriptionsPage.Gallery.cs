@@ -81,13 +81,6 @@ public sealed partial class ModSubscriptionsPage
         foreach (var extra in images.Children.Where(child => !galleryTiles.ContainsValue(child)).ToArray()) images.Children.Remove(extra);
         if (overview)
         {
-            foreach (var pair in current.ImagePages)
-            {
-                string message = ContentStatus(pair.Value);
-                if (message.Length > 0) galleryMessages.Children.Add(Text(message, 12));
-                if (pair.Value.Attempted && pair.Value.Result?.IsSuccess != true)
-                    galleryMessages.Children.Add(Action(T("RetryContent"), async () => { pair.Value.Attempted = false; await LoadImagesAsync(pair.Key, DetailToken); }, independent: true));
-            }
             var nextPage = current.ImagePages.Values.LastOrDefault()?.Result?.Content?.NextPage;
             if (nextPage is not null && !current.ImagePages.ContainsKey(nextPage) && current.ImagePages.Count < 100)
             {

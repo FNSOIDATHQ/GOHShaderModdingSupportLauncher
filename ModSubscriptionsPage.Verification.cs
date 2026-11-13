@@ -69,9 +69,9 @@ public sealed partial class ModSubscriptionsPage
             cancellation.Token.ThrowIfCancellationRequested();
             verificationNotice = restored ? "VerificationPassed" :
                 ModBrowserClearance.IsSupportedOrigin(origin) ? "VerificationFailed" : "VerificationUnsupported";
-            status.Text = T(verificationNotice);
+            ReportNotice(T(verificationNotice), failure: !restored, key: "verification");
             if (!restored) return;
-            var retry = verificationRetryAction ?? LoadListAsync;
+            var retry = verificationRetryAction ?? ApplySearchAsync;
             verificationRetryAction = null;
             await actionGate.WaitAsync(cancellation.Token);
             try { await ExecuteAsync(retry); }

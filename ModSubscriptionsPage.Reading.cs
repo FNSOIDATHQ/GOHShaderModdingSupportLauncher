@@ -16,16 +16,19 @@ public sealed partial class ModSubscriptionsPage
         internal CancellationToken Token;
         internal int Generation;
         internal TaskCompletionSource? Completion;
+        internal readonly string StatusKey = "content:" + Guid.NewGuid().ToString("N");
+        internal string Label = "Description";
+        internal Uri? Address;
     }
 
     private sealed class ReadingSession(RemoteMod mod)
     {
         internal RemoteMod Mod = mod;
-        internal readonly ContentState<RemoteMod> Overview = new();
+        internal readonly ContentState<RemoteMod> Overview = new() { Label = "Summary" };
         internal readonly Dictionary<Uri, ContentState<ModSourcePage<ModArticle>>> ArticlePages = [];
         internal readonly Dictionary<Uri, ContentState<ModArticle>> Bodies = [];
         internal readonly Dictionary<Uri, ContentState<ModSourcePage<ModImageReference>>> ImagePages = [];
-        internal readonly ContentState<ModFileSnapshot> Files = new();
+        internal readonly ContentState<ModFileSnapshot> Files = new() { Label = "Files" };
         internal readonly Dictionary<string, Vector> Positions = [];
         internal readonly Dictionary<string, double> GalleryPositions = [];
         internal readonly HashSet<(string, string)> Chosen = [];
@@ -33,6 +36,7 @@ public sealed partial class ModSubscriptionsPage
         internal string? File;
         internal Uri? Article;
         internal int Tab;
+        internal bool ManualRepository;
         internal Vector NavigationPosition, FilePosition, FileNavigationPosition;
     }
 
@@ -46,8 +50,6 @@ public sealed partial class ModSubscriptionsPage
     private Uri? renderedArticle;
     private object? renderedBody;
     private ModReadingDocument? renderedDocument;
-    private TextBlock? readerNotice;
-    private Button? readerRetry;
 
     private bool IsCurrent(ReadingSession expected, CancellationToken token) =>
         !disposed && !token.IsCancellationRequested && ReferenceEquals(session, expected) && selected?.Id == expected.Mod.Id;
@@ -91,14 +93,15 @@ public sealed partial class ModSubscriptionsPage
 
     private async Task OpenModCoreAsync(RemoteMod mod, bool refresh)
     {
+        CancelRefresh(); ResetStatus();
         SaveReadingPosition();
         detailCancellation?.Cancel(); detailCancellation?.Dispose(); readerCancellation?.Cancel();
         detailCancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
         var token = detailCancellation.Token;
         verificationRetryAction = null; CloseOperation();
-        pageNotice.IsVisible = false;
         selected = mod; snapshot = null; snapshotFresh = false; fileChoices.Clear();
         imageExpanded = false; renderedSession = null;
+        pendingImage = null; expandedMediaRefresh = null;
         fileImageExpanded = false; renderedFileSession = null; fileEntries = []; fileGeneration++;
         var current = ReadingState(mod);
         session = current;
@@ -127,7 +130,7 @@ public sealed partial class ModSubscriptionsPage
         catch (Exception ex)
         {
             if (!IsCurrent(current, token)) return;
-            pageNotice.Text = T("Failed") + ": " + ex.Message; pageNotice.IsVisible = true; status.Text = T("Failed");
+            ReportNotice(T("Failed") + ": " + ex.Message, failure: true);
         }
     }
 
@@ -141,11 +144,17 @@ public sealed partial class ModSubscriptionsPage
             catch (OperationCanceledException) when (token.IsCancellationRequested) { }
             return;
         }
-        if (state.Attempted && !force) return;
+        if (state.Attempted && !force)
+        {
+            if (state.Result is { } previous) ReportResult(BeginStatus(state.StatusKey, "Completed", ContentLabel(state)), previous, ContentRetry(expected, state));
+            return;
+        }
         state.Loading = true;
         state.Token = token;
         int generation = ++state.Generation;
         var completion = state.Completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        var progress = BeginStatus(state.StatusKey, "Cache", ContentLabel(state));
+        var retry = ContentRetry(expected, state);
         if (IsCurrent(expected, token)) render();
         try
         {
@@ -155,24 +164,26 @@ public sealed partial class ModSubscriptionsPage
                 if (!IsCurrent(expected, token)) return;
                 if (cached.Content is not null) { state.Result = cached; render(); }
             }
+            pageStatus.Update(progress, "Fetch", state.Result?.Content is null ? "" : T("CachedLoading"), ModPageOperationState.Running); RenderStatus();
             var result = await Task.Run(() => fetch(ModReadMode.Refresh, token), token);
             if (!IsCurrent(expected, token)) return;
             if (result.Content is null && state.Result?.Content is { } previous)
                 result = result with { Content = previous, IsStale = true };
             state.Result = result; state.Attempted = true;
-            ReadStatus(result, () => ReadContentAsync(expected, state, fetch, render, DetailToken, force: true));
-            status.Text = BriefStatus(result);
+            ReportResult(progress, result, retry);
         }
-        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { EndStatus(progress, ModPageOperationState.Cancelled); }
         catch (Exception ex)
         {
             if (!IsCurrent(expected, token)) return;
             state.Result = new(state.Result is { } old ? old.Content : default, state.Result?.FetchedAt,
                 new(ModSourceError.RequestFailed, ex.Message), state.Result?.Content is not null);
             state.Attempted = true;
+            ReportResult(progress, state.Result, retry);
         }
         finally
         {
+            if (!IsCurrent(expected, token)) EndStatus(progress, ModPageOperationState.Cancelled);
             try
             {
                 if (state.Generation == generation)
@@ -183,13 +194,6 @@ public sealed partial class ModSubscriptionsPage
             }
             finally { completion.TrySetResult(); }
         }
-    }
-
-    private string ContentStatus<TContent>(ContentState<TContent> state) where TContent : class
-    {
-        if (state.Loading) return T(state.Result?.Content is null ? "Working" : "CachedLoading");
-        if (state.Result is not { } result) return T("NotLoaded");
-        return result.IsSuccess && !result.IsStale ? "" : ReadStatus(result);
     }
 
     private async Task EnsureOverviewAsync(ReadingSession current, CancellationToken token, bool force = false)
@@ -223,7 +227,7 @@ public sealed partial class ModSubscriptionsPage
         if (session is not { } current) return;
         if (!SourceForProvider(current.Mod.Id.Provider).Capabilities.CanReadArticles) return;
         if (current.ArticlePages.Count >= 100 && !current.ArticlePages.ContainsKey(page)) return;
-        if (!current.ArticlePages.TryGetValue(page, out var state)) current.ArticlePages.Add(page, state = new());
+        if (!current.ArticlePages.TryGetValue(page, out var state)) current.ArticlePages.Add(page, state = new() { Label = "Articles", Address = page });
         var adapter = SourceForProvider(current.Mod.Id.Provider);
         await ReadContentAsync(current, state, (mode, ct) => adapter.GetArticlesAsync(page, mode, ct), RenderDescriptionNavigation, token);
     }
@@ -245,13 +249,6 @@ public sealed partial class ModSubscriptionsPage
         var entries = SourceForProvider(current.Mod.Id.Provider).Capabilities.CanReadArticles ? current.ArticlePages.Values.SelectMany(page => page.Result?.Content?.Items ?? [])
             .Concat(current.Mod.Articles).DistinctBy(item => item.Id).ToArray() : [];
         foreach (var article in entries) AddEntry(article.Title, article.PageUrl);
-        foreach (var pair in current.ArticlePages)
-        {
-            var message = ContentStatus(pair.Value);
-            if (message.Length > 0) articles.Children.Add(Text(message, 12));
-            if (pair.Value.Attempted && pair.Value.Result?.IsSuccess != true)
-                articles.Children.Add(Action(T("RetryContent"), async () => { pair.Value.Attempted = false; await LoadArticlesAsync(pair.Key, DetailToken); }, independent: true));
-        }
         var nextPage = current.ArticlePages.Values.LastOrDefault()?.Result?.Content?.NextPage;
         if (nextPage is not null && !current.ArticlePages.ContainsKey(nextPage) && current.ArticlePages.Count < 100)
             articles.Children.Add(PageSentinel(() => LoadArticlesAsync(nextPage, DetailToken)));
@@ -266,7 +263,7 @@ public sealed partial class ModSubscriptionsPage
         bool started = false;
         sentinel.EffectiveViewportChanged += async (_, args) =>
         {
-            if (started || restoringPosition || !new Rect(sentinel.Bounds.Size).Intersects(args.EffectiveViewport) || disposed) return;
+            if (started || restoringPosition || refreshingNavigation || !new Rect(sentinel.Bounds.Size).Intersects(args.EffectiveViewport) || disposed) return;
             started = true;
             await ExecuteAsync(load);
         };
@@ -276,6 +273,7 @@ public sealed partial class ModSubscriptionsPage
     private async Task SelectArticleAsync(Uri? url, bool savePosition = true)
     {
         if (session is not { } current) return;
+        CancelRefresh();
         if (savePosition) SaveReadingPosition();
         readerCancellation?.Cancel(); readerCancellation?.Dispose();
         readerCancellation = CancellationTokenSource.CreateLinkedTokenSource(DetailToken);
@@ -284,7 +282,7 @@ public sealed partial class ModSubscriptionsPage
         imageExpanded = false;
         RenderDescriptionNavigation(); RenderReading();
         if (url is null) return;
-        if (!current.Bodies.TryGetValue(url, out var state)) current.Bodies.Add(url, state = new());
+        if (!current.Bodies.TryGetValue(url, out var state)) current.Bodies.Add(url, state = new() { Label = "Articles", Address = url });
         var adapter = SourceForProvider(current.Mod.Id.Provider);
         await ReadContentAsync(current, state, (mode, ct) => adapter.GetArticleAsync(url, mode, ct),
             () => { if (current.Article == url) RenderReading(); }, token);
@@ -305,13 +303,11 @@ public sealed partial class ModSubscriptionsPage
                 current.GalleryPositions[ReadingKey] = galleryScroll.Offset.X;
             renderedSession = current; renderedArticle = current.Article; renderedBody = body;
             reading.Children.Clear();
-            readerNotice = Text("", 12); reading.Children.Add(readerNotice);
-            CreateGallery(); readerRetry = null;
+            CreateGallery();
         }
         if (current.Article is { } url)
         {
-            if (articleState is not { } state) { readerNotice!.Text = T("Working"); return; }
-            readerNotice!.Text = ContentStatus(state);
+            if (articleState is not { } state) return;
             if (state.Result?.Content is { } article && rebuild)
             {
                 renderedDocument = ReadingDocument(article.Document, article.Body, article.PageUrl);
@@ -321,25 +317,19 @@ public sealed partial class ModSubscriptionsPage
             }
             if (state.Result?.Content is { } content && renderedDocument is not null)
                 RenderGallery(current, renderedDocument, content.Images, overview: false);
-            if (readerRetry is not null) reading.Children.Remove(readerRetry);
-            if (state.Attempted && state.Result?.IsSuccess != true)
-                reading.Children.Add(readerRetry = Action(T("RetryContent"), async () => { state.Attempted = false; await SelectArticleAsync(url); }, independent: true));
         }
         else
         {
-            readerNotice!.Text = ContentStatus(current.Overview);
             if (rebuild)
             {
                 summary.Children.Clear();
                 renderedDocument = ReadingDocument(current.Mod.Document, current.Mod.Summary, current.Mod.PageUrl);
                 ShowSummary(current.Mod);
                 if (current.Mod.InstallationHint.Length > 0) AddReadable(summary, current.Mod.InstallationHint);
-                summary.Children.Add(Action(T("RefreshContent"), () => EnsureOverviewAsync(current, DetailToken, force: true), independent: true));
                 reading.Children.Add(galleryHost!); reading.Children.Add(summary);
             }
             RenderGallery(current, renderedDocument!, current.Mod.Images, overview: true);
         }
-        readerNotice!.IsVisible = !string.IsNullOrWhiteSpace(readerNotice.Text);
         if (rebuild)
         {
             RestorePosition(readingScroll, position);
@@ -351,7 +341,7 @@ public sealed partial class ModSubscriptionsPage
     {
         if (session is not { } current) return;
         if (current.ImagePages.Count >= 100 && !current.ImagePages.ContainsKey(page)) return;
-        if (!current.ImagePages.TryGetValue(page, out var state)) current.ImagePages.Add(page, state = new());
+        if (!current.ImagePages.TryGetValue(page, out var state)) current.ImagePages.Add(page, state = new() { Label = "Images", Address = page });
         var adapter = SourceForProvider(current.Mod.Id.Provider);
         await ReadContentAsync(current, state, (mode, ct) => adapter.GetImagesAsync(page, mode, ct),
             () => { if (current.Article is null) RenderReading(); }, token);

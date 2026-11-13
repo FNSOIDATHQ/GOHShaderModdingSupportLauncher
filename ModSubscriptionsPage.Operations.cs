@@ -85,7 +85,7 @@ public sealed partial class ModSubscriptionsPage
         var token = DetailToken;
         if (sub.Downloads.Any(item => item.State is DownloadState.Pending or DownloadState.Downloading &&
             (!runtime!.Progress.TryGetValue(item.Id, out var progress) || progress.State is DownloadState.Pending or DownloadState.Downloading)))
-        { status.Text = T("CancelBeforeRemoval"); await OpenFilesAsync(); return; }
+        { ReportNotice(T("CancelBeforeRemoval")); await OpenFilesAsync(); return; }
         var pending = await Task.Run(() => runtime!.Installer.PreviewRecovery(sub.GameDirectory), token);
         if (!IsCurrent(expected, token) || !SameGame(sub.GameDirectory)) return;
         if (pending.Length > 0) { await ReviewRecoveryAsync(); return; }
@@ -131,6 +131,7 @@ public sealed partial class ModSubscriptionsPage
             var operations = await Task.Run(() => runtime.Installer.PreviewRecovery(game), lifetime.Token);
             if (!SameGame(game)) return;
             recovery.Children.Clear();
+            pageStatus.Remove("recovery"); RenderStatus();
             if (operations.Length == 0) return;
             recovery.Children.Add(Text(T("UnfinishedOperations"), 16));
             recovery.Children.Add(Text(T("RecoveryScope")));
@@ -141,8 +142,8 @@ public sealed partial class ModSubscriptionsPage
         {
             if (SameGame(game))
             {
-                recovery.Children.Clear(); recovery.Children.Add(Text(T("RecoveryReadFailed") + ": " + ex.Message));
-                recovery.Children.Add(Action(T("RetryContent"), RefreshRecoveryAsync, independent: true));
+                recovery.Children.Clear();
+                ReportNotice(T("RecoveryReadFailed") + ": " + ex.Message, failure: true, key: "recovery", retry: RefreshRecoveryAsync);
             }
         }
         finally

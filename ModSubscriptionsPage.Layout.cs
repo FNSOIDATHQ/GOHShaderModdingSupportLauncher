@@ -17,7 +17,7 @@ public sealed partial class ModSubscriptionsPage
     private TextBlock selectedFileCount = null!;
     private Button downloadSelected = null!;
     private ContentControl operation = null!;
-    private TextBlock pageNumber = null!, pageNotice = null!, listNotice = null!, activity = null!;
+    private TextBlock pageNumber = null!, listNotice = null!, activity = null!;
     private Button subscribe = null!, unsubscribe = null!, backToList = null!, refresh = null!;
     private bool listOnly = true;
 
@@ -53,8 +53,6 @@ public sealed partial class ModSubscriptionsPage
             IsVisible = sourceIndex == 1, HorizontalAlignment = HorizontalAlignment.Stretch };
         options.Children.Add(github);
         var mow = Text(T("MowPortalHint")); mow.Name = "subscriptionMowPortalHint"; mow.IsVisible = sourceIndex == 2; options.Children.Add(mow);
-        pageNotice = Text(""); pageNotice.Name = "subscriptionNotice"; pageNotice.IsVisible = false;
-        options.Children.Add(new ScrollViewer { Content = pageNotice, MaxHeight = 70 });
         Grid.SetRow(options, 3); root.Children.Add(options);
 
         var verification = Column();
@@ -124,6 +122,7 @@ public sealed partial class ModSubscriptionsPage
             if (args.Source != details || rebuilding || session is null) return;
             SaveReadingPosition();
             session.Tab = details.SelectedIndex;
+            CancelRefresh();
             if (details.SelectedIndex == 1) await ExecuteAsync(() => EnsureFilesAsync());
         };
         Grid.SetRow(details, 2); detail.Children.Add(details); body.Children.Add(detail);
@@ -131,30 +130,27 @@ public sealed partial class ModSubscriptionsPage
 
         var footer = new Grid { Name = "subscriptionFooter", ColumnDefinitions = new("Auto,*,Auto"), Margin = new Thickness(0, 8, 0, 0) };
         var paging = Row(); paging.Name = "subscriptionPagination";
-        previous = Action(T("Previous"), async () => { browsePage = Math.Max(1, browsePage - 1); await LoadListAsync(); }, independent: true);
-        next = Action(T("Next"), async () => { browsePage++; await LoadListAsync(); }, independent: true);
+        previous = Action(T("Previous"), async () => { CancelRefresh(); browsePage = Math.Max(1, browsePage - 1); await LoadListAsync(); }, independent: true);
+        next = Action(T("Next"), async () => { CancelRefresh(); browsePage++; await LoadListAsync(); }, independent: true);
         pageNumber = Text(""); pageNumber.VerticalAlignment = VerticalAlignment.Center;
         paging.Children.Add(previous); paging.Children.Add(pageNumber); paging.Children.Add(next); footer.Children.Add(paging);
         activity = Text(""); activity.VerticalAlignment = VerticalAlignment.Center; activity.Margin = new Thickness(12, 0); Grid.SetColumn(activity, 1); footer.Children.Add(activity);
         status = Text(T("Ready")); status.Name = "subscriptionStatus"; status.TextWrapping = TextWrapping.NoWrap;
         status.TextTrimming = TextTrimming.CharacterEllipsis; status.MaxWidth = 220; status.VerticalAlignment = VerticalAlignment.Center;
         status.HorizontalAlignment = HorizontalAlignment.Right;
-        status.PropertyChanged += (_, args) =>
-        {
-            if (args.Property != TextBlock.TextProperty || status.Text is not { } value) return;
-            int separator = value.IndexOf(" · ", StringComparison.Ordinal);
-            if (separator < 0) separator = value.IndexOf(": ", StringComparison.Ordinal);
-            if (separator < 0 && value.Length <= 80) return;
-            pageNotice.Text = value; pageNotice.IsVisible = true;
-            status.Text = separator > 0 ? value[..separator] : T("DetailsAbove");
-        };
-        Grid.SetColumn(status, 2); footer.Children.Add(status); Grid.SetRow(footer, 6); root.Children.Add(footer);
+        BuildStatusDetails(root);
+        statusToggle = new Button { Name = "subscriptionStatusToggle", Content = status, Padding = new Thickness(4),
+            HorizontalAlignment = HorizontalAlignment.Right };
+        statusToggle.Click += (_, _) => { statusDetails.IsVisible = !statusDetails.IsVisible; if (statusDetails.IsVisible) RenderStatusDetails(); };
+        ToolTip.SetTip(statusToggle, T("StatusDetails"));
+        Avalonia.Automation.AutomationProperties.SetName(statusToggle, T("StatusDetails"));
+        Grid.SetColumn(statusToggle, 2); footer.Children.Add(statusToggle); Grid.SetRow(footer, 6); root.Children.Add(footer);
         Content = root;
 
         keyword.Text = query;
         keyword.KeyDown += async (_, args) => { if (args.Key == Key.Enter) { args.Handled = true; await ExecuteAsync(ApplySearchAsync); } };
-        view.SelectionChanged += (_, _) => { if (!rebuilding && active) { browsePage = 1; _ = RefreshAfterGameChangeAsync(); } };
-        sort.SelectionChanged += (_, _) => { if (!rebuilding && active) { browsePage = 1; _ = RefreshAfterGameChangeAsync(); } };
+        view.SelectionChanged += (_, _) => { if (!rebuilding && active) { CancelRefresh(); browsePage = 1; _ = ExecuteAsync(ApplySearchAsync); } };
+        sort.SelectionChanged += (_, _) => { if (!rebuilding && active) { CancelRefresh(); browsePage = 1; _ = ExecuteAsync(ApplySearchAsync); } };
         source.SelectionChanged += (_, _) =>
         {
             if (rebuilding) return;
@@ -190,6 +186,7 @@ public sealed partial class ModSubscriptionsPage
         keyword.Margin = compact ? new Thickness(0, 6, 0, 0) : new Thickness(8, 0);
         Grid.SetColumn(sort, compact ? 1 : 2); Grid.SetColumn(refresh, 3); Grid.SetRow(refresh, compact ? 1 : 0);
         activity.IsVisible = !compact;
+        if (statusDetails is not null) statusDetails.MaxHeight = Bounds.Height is > 0 and < 600 ? 80 : 182;
     }
 
     private void UpdatePaging()

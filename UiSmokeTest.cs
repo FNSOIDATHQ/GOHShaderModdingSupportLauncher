@@ -397,5 +397,24 @@ internal static class UiSmokeTest
             !fileRoot.GetLogicalDescendants().OfType<Button>().Any(control => control.Name == "subscriptionDownloadSelected"))
             throw new InvalidOperationException("Subscription file navigation or shared version serialization failed.");
         AppDiagnostics.Log("Subscription file self-test passed: shared version metadata, stable file identity and independent file navigation.");
+        var statuses = new ModPageStatus();
+        var scope = new ModPageScope(null, "moddb", null, "overview");
+        var failed = statuses.Begin("overview", scope, "Fetch");
+        statuses.Update(failed, "Completed", "offline", ModPageOperationState.Failed);
+        var success = statuses.Begin("images", scope, "Fetch");
+        statuses.Update(success, "Completed", "", ModPageOperationState.Succeeded);
+        if (!statuses.Operations.Any(item => item.Id == failed.Id && item.State == ModPageOperationState.Failed))
+            throw new InvalidOperationException("An independent success dismissed a content failure.");
+        var replacement = statuses.Begin("overview", scope, "Fetch");
+        if (statuses.Update(failed, "Completed", "late", ModPageOperationState.Succeeded) ||
+            !statuses.Operations.Any(item => item.Id == replacement.Id && item.State == ModPageOperationState.Running))
+            throw new InvalidOperationException("A superseded status completion replaced a current request.");
+        statuses.Reset();
+        if (statuses.Update(replacement, "Completed", "late", ModPageOperationState.Failed) || statuses.Operations.Count != 0 ||
+            page.GetLogicalDescendants().OfType<Button>().Count(button => button.Name == "subscriptionRefresh") != 1 ||
+            !page.GetLogicalDescendants().OfType<Button>().Any(button => button.Name == "subscriptionStatusToggle") ||
+            !page.GetLogicalDescendants().OfType<Border>().Any(border => border.Name == "subscriptionStatusDetails"))
+            throw new InvalidOperationException("Subscription refresh scope or inline status details failed.");
+        AppDiagnostics.Log("Subscription refresh self-test passed: one entry, inline status details and obsolete completion rejection.");
     }
 }

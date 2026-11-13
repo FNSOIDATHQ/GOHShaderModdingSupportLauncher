@@ -725,13 +725,10 @@
   <data name="MS_CleanupIncomplete" xml:space="preserve"><value>清理未完成</value></data>
   <data name="MS_PageNumber" xml:space="preserve"><value>第 {0} 页</value></data>
   <data name="MS_ActiveDownloads" xml:space="preserve"><value>{0} 项下载进行中</value></data>
-  <data name="MS_DetailsAbove" xml:space="preserve"><value>请查看页内详情</value></data>
   <data name="MS_CachedLoading" xml:space="preserve"><value>正在显示缓存 · 刷新中…</value></data>
   <data name="MS_NotLoaded" xml:space="preserve"><value>尚未加载</value></data>
   <data name="MS_RetryContent" xml:space="preserve"><value>重试</value></data>
-  <data name="MS_RefreshContent" xml:space="preserve"><value>刷新内容</value></data>
   <data name="MS_MoreOnScroll" xml:space="preserve"><value>滚动以读取更多…</value></data>
-  <data name="MS_ImageOnScroll" xml:space="preserve"><value>图片进入可见区域后加载</value></data>
   <data name="MS_ImageFailed" xml:space="preserve"><value>无法读取图片</value></data>
   <data name="MS_BackToReading" xml:space="preserve"><value>返回正文</value></data>
   <data name="MS_BackToFiles" xml:space="preserve"><value>返回／取消</value></data>
@@ -754,4 +751,20 @@
   <data name="MS_ReleaseWithoutFiles" xml:space="preserve"><value>版本说明（无附件）</value></data>
   <data name="MS_InstallationInOverview" xml:space="preserve"><value>通用安装说明见概览。</value></data>
   <data name="MS_FileChoicesChanged" xml:space="preserve"><value>有 {0} 项勾选已清除，相关文件已变更或不再可用。</value></data>
+  <data name="MS_StatusDetails" xml:space="preserve"><value>展开或收起操作详情</value></data>
+  <data name="MS_StatusRunning" xml:space="preserve"><value>正在刷新 {0} 项</value></data>
+  <data name="MS_StatusRunningIssues" xml:space="preserve"><value>正在刷新 {0} 项 · {1} 项需注意</value></data>
+  <data name="MS_StatusIssues" xml:space="preserve"><value>{0} 项需要注意</value></data>
+  <data name="MS_StatusCompleted" xml:space="preserve"><value>刷新完成</value></data>
+  <data name="MS_StatusPhase_Cache" xml:space="preserve"><value>读取缓存</value></data>
+  <data name="MS_StatusPhase_Fetch" xml:space="preserve"><value>读取来源</value></data>
+  <data name="MS_StatusPhase_Media" xml:space="preserve"><value>读取图片</value></data>
+  <data name="MS_StatusPhase_Completed" xml:space="preserve"><value>已结束</value></data>
+  <data name="MS_StatusState_Running" xml:space="preserve"><value>进行中</value></data>
+  <data name="MS_StatusState_Succeeded" xml:space="preserve"><value>已完成</value></data>
+  <data name="MS_StatusState_Warning" xml:space="preserve"><value>使用缓存或需要操作</value></data>
+  <data name="MS_StatusState_Failed" xml:space="preserve"><value>失败</value></data>
+  <data name="MS_StatusState_Cancelled" xml:space="preserve"><value>已取消</value></data>
+  <data name="MS_RefreshAfterOperation" xml:space="preserve"><value>请先完成或取消当前确认，返回文件页后再刷新。</value></data>
+  <data name="MS_SelectionOutsideResults" xml:space="preserve"><value>所选 Mod 已不在刷新后的结果中，请从列表中重新选择。</value></data>
 </root>

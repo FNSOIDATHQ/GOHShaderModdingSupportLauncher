@@ -45,14 +45,11 @@ public sealed partial class ModSubscriptionsPage
         if (snapshotFresh && snapshot is not null)
         {
             int removed = chosen.RemoveWhere(key => !snapshot.Files.Any(file => (file.Id, file.Revision) == key && file.CanDownload));
-            if (removed > 0) status.Text = string.Format(T("FileChoicesChanged"), removed);
+            if (removed > 0) ReportNotice(string.Format(T("FileChoicesChanged"), removed), key: "fileChoices", attention: true);
         }
         current.Chosen.Clear(); current.Chosen.UnionWith(chosen);
         var navigationPosition = renderedFileSession == current ? fileNavigationScroll.Offset : current.FileNavigationPosition;
         files.Children.Clear(); fileChoices.Clear(); fileNotice.Children.Clear();
-        string message = ContentStatus(current.Files);
-        if (message.Length > 0) fileNotice.Children.Add(Text(message, 12));
-        fileNotice.Children.Add(Action(T("RefreshContent"), async () => { current.Files.Attempted = false; await EnsureFilesAsync(); }, independent: true));
         AddPageNotice(mod, token);
         var subscription = Subscription(mod);
         var notices = subscription is not null ? ModUpdateCheckService.GetNotices(subscription) : [];
@@ -110,7 +107,7 @@ public sealed partial class ModSubscriptionsPage
             }
             Grid.SetColumn(button, 1); row.Children.Add(button); files.Children.Add(row);
         }
-        if (entries.Count == 0) files.Children.Add(Text(snapshot is null ? T("NotLoaded") : T("Empty")));
+        if (entries.Count == 0 && snapshot is not null) files.Children.Add(Text(T("Empty")));
         UpdateFileSelection(); RenderSelectedFile();
         RestorePosition(fileNavigationScroll, navigationPosition);
     }
@@ -129,6 +126,7 @@ public sealed partial class ModSubscriptionsPage
     private void SelectFile(string key)
     {
         if (session is not { } current || !fileEntries.Any(entry => entry.Key == key)) return;
+        CancelRefresh();
         SaveFileReadingPosition(); fileImageExpanded = false; current.File = key; readerGeneration++;
         RenderFiles(current.Mod, DetailToken);
     }

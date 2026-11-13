@@ -725,13 +725,10 @@ Make sure Steam has finished downloading the item.</value>
   <data name="MS_CleanupIncomplete" xml:space="preserve"><value>Cleanup incomplete</value></data>
   <data name="MS_PageNumber" xml:space="preserve"><value>Page {0}</value></data>
   <data name="MS_ActiveDownloads" xml:space="preserve"><value>{0} active downloads</value></data>
-  <data name="MS_DetailsAbove" xml:space="preserve"><value>See page details</value></data>
   <data name="MS_CachedLoading" xml:space="preserve"><value>Showing cached content · refreshing…</value></data>
   <data name="MS_NotLoaded" xml:space="preserve"><value>Not loaded yet</value></data>
   <data name="MS_RetryContent" xml:space="preserve"><value>Retry</value></data>
-  <data name="MS_RefreshContent" xml:space="preserve"><value>Refresh content</value></data>
   <data name="MS_MoreOnScroll" xml:space="preserve"><value>Scroll for more…</value></data>
-  <data name="MS_ImageOnScroll" xml:space="preserve"><value>Image loads when visible</value></data>
   <data name="MS_ImageFailed" xml:space="preserve"><value>Unable to load image</value></data>
   <data name="MS_BackToReading" xml:space="preserve"><value>Back to reading</value></data>
   <data name="MS_BackToFiles" xml:space="preserve"><value>Back / cancel</value></data>
@@ -754,4 +751,20 @@ Make sure Steam has finished downloading the item.</value>
   <data name="MS_ReleaseWithoutFiles" xml:space="preserve"><value>Version notes (no attachments)</value></data>
   <data name="MS_InstallationInOverview" xml:space="preserve"><value>General installation instructions are in the overview.</value></data>
   <data name="MS_FileChoicesChanged" xml:space="preserve"><value>{0} selections cleared because the files changed or are no longer available.</value></data>
+  <data name="MS_StatusDetails" xml:space="preserve"><value>Show or hide operation details</value></data>
+  <data name="MS_StatusRunning" xml:space="preserve"><value>Refreshing {0} items</value></data>
+  <data name="MS_StatusRunningIssues" xml:space="preserve"><value>Refreshing {0} items · {1} issues</value></data>
+  <data name="MS_StatusIssues" xml:space="preserve"><value>Needs attention ({0})</value></data>
+  <data name="MS_StatusCompleted" xml:space="preserve"><value>Refresh complete</value></data>
+  <data name="MS_StatusPhase_Cache" xml:space="preserve"><value>Reading cache</value></data>
+  <data name="MS_StatusPhase_Fetch" xml:space="preserve"><value>Reading source</value></data>
+  <data name="MS_StatusPhase_Media" xml:space="preserve"><value>Reading image</value></data>
+  <data name="MS_StatusPhase_Completed" xml:space="preserve"><value>Finished</value></data>
+  <data name="MS_StatusState_Running" xml:space="preserve"><value>In progress</value></data>
+  <data name="MS_StatusState_Succeeded" xml:space="preserve"><value>Completed</value></data>
+  <data name="MS_StatusState_Warning" xml:space="preserve"><value>Cached content or action needed</value></data>
+  <data name="MS_StatusState_Failed" xml:space="preserve"><value>Failed</value></data>
+  <data name="MS_StatusState_Cancelled" xml:space="preserve"><value>Cancelled</value></data>
+  <data name="MS_RefreshAfterOperation" xml:space="preserve"><value>Return to the files after completing or cancelling the current confirmation, then refresh.</value></data>
+  <data name="MS_SelectionOutsideResults" xml:space="preserve"><value>The selected mod is outside the refreshed results. Choose a mod from the list.</value></data>
 </root>
