@@ -25,6 +25,14 @@ public partial class MainWindow
     private (string? Workshop, string? Local, string Options) CurrentModPaths =>
         (universalVars.workshopDir?.FullName, universalVars.localDir?.FullName, universalVars.optionLoc);
 
+    private sealed record LockedModListSnapshot(Mod[] Mods, long Revision, long Generation,
+        string OptionsText, CancellationToken CancellationToken);
+
+    private LockedModListSnapshot? CaptureLockedModList(bool afterGaming, CancellationToken cancellationToken = default) =>
+        afterGaming && universalVars.NeedLockModList
+            ? new(universalVars.modLoaded.ToArray(), ModListRevision, modScanGeneration,
+                File.ReadAllText(universalVars.optionLoc), cancellationToken) : null;
+
     private void CancelModScan()
     {
         modScanGeneration++;
@@ -37,7 +45,7 @@ public partial class MainWindow
     {
         CancelModScan();
         var paths = CurrentModPaths;
-        var locked = afterGaming && universalVars.NeedLockModList ? universalVars.modLoaded.ToArray() : null;
+        var locked = CaptureLockedModList(afterGaming);
         ApplyModScan(modInspector.Scan(paths.Workshop, paths.Local), paths, locked);
     }
 
@@ -53,8 +61,8 @@ public partial class MainWindow
         CancelModScan();
         long generation = modScanGeneration;
         var paths = CurrentModPaths;
-        var locked = afterGaming && universalVars.NeedLockModList ? universalVars.modLoaded.ToArray() : null;
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var locked = CaptureLockedModList(afterGaming, cancellation.Token);
         modScanCancellation = cancellation;
         ModScanProgress = null;
         foreach (var mod in universalVars.modDic.Values) mod.IsInspectionPending = true;
@@ -163,14 +171,17 @@ public partial class MainWindow
         if (File.Exists(universalVars.optionLoc)) ReadLoadedMods();
     }
 
-    private void ApplyModScan(ModScanResult scan, (string? Workshop, string? Local, string Options) paths, Mod[]? locked)
+    private void ApplyModScan(ModScanResult scan, (string? Workshop, string? Local, string Options) paths, LockedModListSnapshot? locked)
     {
         universalVars.modDic = CreateScannedMods(scan);
         ModScan = scan;
         inspectedPaths = listedModPaths = paths;
         ReadEnabledSnapshot();
         ModInspectionChanged?.Invoke(true);
-        if (locked is not null) RestoreLockedModList(locked);
+        // Discovery and completion notifications can run user commands. Never restore their older list.
+        if (locked is not null && locked.Revision == ModListRevision && locked.Generation == modScanGeneration &&
+            paths == CurrentModPaths && !locked.CancellationToken.IsCancellationRequested)
+            RestoreLockedModList(locked.Mods, locked.OptionsText);
     }
 
     internal async Task VerifyModActivationAsync(IReadOnlyList<Mod> mods)
@@ -227,13 +238,25 @@ public partial class MainWindow
         });
     }
 
-    internal void RestoreLockedModList(IReadOnlyList<Mod> locked)
+    internal void RestoreLockedModList(IReadOnlyList<Mod> locked, string? expectedOptions = null)
     {
+        // Compare against the file at exit-refresh start, not the pre-game list we intend to restore.
+        if (expectedOptions is not null && File.ReadAllText(universalVars.optionLoc) != expectedOptions)
+        {
+            ReadEnabledSnapshot();
+            ModInspectionChanged?.Invoke(true);
+            return;
+        }
         var restored = locked.Select(previous => universalVars.modDic.Values.FirstOrDefault(mod =>
             mod.DiscoveryId.Equals(previous.DiscoveryId, StringComparison.OrdinalIgnoreCase)) ??
             new Mod(previous.name, previous.type, previous.path, previous.folderName, false)).ToList();
         ModActivationGuard.RequireRegular(restored);
-        FileManager.WriteLoadedMods(universalVars.optionLoc, restored);
+        if (!FileManager.TryWriteLoadedMods(universalVars.optionLoc, restored, expectedOptions))
+        {
+            ReadEnabledSnapshot();
+            ModInspectionChanged?.Invoke(true);
+            return;
+        }
         ModListWritten();
         foreach (var mod in universalVars.modDic.Values) mod.hasLoad = false;
         foreach (var mod in restored) mod.hasLoad = true;

@@ -287,9 +287,13 @@ namespace GOHShaderModdingSupportLauncher
         }
 
         internal static void WriteLoadedMods(string path, IReadOnlyList<Mod> mods)
+            => TryWriteLoadedMods(path, mods, expectedText: null);
+
+        internal static bool TryWriteLoadedMods(string path, IReadOnlyList<Mod> mods, string? expectedText)
         {
             // Keep all unrelated settings, including sections following {mods}.
             var text = File.ReadAllText(path);
+            if (expectedText is not null && text != expectedText) return false;
             int start = -1, end = -1, sectionDepth = -1, depth = 0, rootEnd = -1;
             bool quoted = false, escaped = false, comment = false;
             for (int i = 0; i < text.Length; i++)
@@ -338,7 +342,9 @@ namespace GOHShaderModdingSupportLauncher
             section.Append("\t}");
             var modified = start >= 0 ? text[..start] + section + text[end..]
                 : text[..rootEnd] + "\t" + section + "\r\n" + text[rootEnd..];
+            if (expectedText is not null && File.ReadAllText(path) != expectedText) return false;
             WriteTextAtomically(path, modified, overwrite: true);
+            return true;
         }
 
         public static string NormalizeCacheHash(string? hash) => IsValidCacheHash(hash) ? hash! : "-1";

@@ -13,12 +13,13 @@ public partial class ModManager
         if (activationInProgress) return;
         activationInProgress = true;
         long revision = main.ModListRevision;
+        var context = main.ModDirectoryContext;
         try
         {
             await main.VerifyModActivationAsync(selected);
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (revision != main.ModListRevision) throw new OperationCanceledException();
+                if (revision != main.ModListRevision || context != main.ModDirectoryContext) throw new OperationCanceledException();
                 CommitLoadedMods(main.universalVars.modLoaded.Concat(selected).DistinctBy(mod => mod.DiscoveryId).ToList());
             });
         }

@@ -196,5 +196,6 @@ internal static class ModActivationSmokeTest
             window.Close(); LocalizedStrings.Instance.SetCulture(originalCulture);
         }
         AppDiagnostics.Log("Mod activation self-test passed: asynchronous discovery and progressive Checking labels, responsive reorder/disable, exact bilingual rejection, batch atomicity, mixed activation, fresh presets, locked restoration and pre-shader launch guard.");
+        ModListRestorationSmokeTest.Run(root);
     }
 }
