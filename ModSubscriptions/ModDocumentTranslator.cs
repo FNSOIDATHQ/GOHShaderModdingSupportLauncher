@@ -17,7 +17,11 @@ internal sealed partial class ModDocumentTranslator(IModTextTranslator translato
     private readonly LinkedList<string> lru = [];
     private readonly object sync = new();
     private long cacheBytes;
+    private long cacheGeneration;
     internal const long CacheLimit = 8 * 1024 * 1024;
+
+    internal void ClearCache()
+    { lock (sync) { cacheGeneration++; cache.Clear(); lru.Clear(); cacheBytes = 0; } }
 
     internal string Key(ModReadingDocument document, string language) => translator.Provider + ":" + language + ":" +
         Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(document, ModTranslationJsonContext.Default.ModReadingDocument)));
@@ -37,6 +41,8 @@ internal sealed partial class ModDocumentTranslator(IModTextTranslator translato
         IProgress<ModTranslationProgress>? progress = null, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        long generation;
+        lock (sync) generation = cacheGeneration;
         if (!ModDocumentParser.HasDocument(document)) throw new ModTranslationException(ModTranslationError.InvalidResponse);
         string key = Key(document, language);
         if (TryGet(key, out var cached)) return cached!;
@@ -137,6 +143,7 @@ internal sealed partial class ModDocumentTranslator(IModTextTranslator translato
             long bytes = JsonSerializer.SerializeToUtf8Bytes(result.Document, ModTranslationJsonContext.Default.ModReadingDocument).LongLength * 2;
             lock (sync)
             {
+                if (generation != cacheGeneration) return result;
                 if (cache.Remove(key, out var previous)) { cacheBytes -= previous.Bytes; lru.Remove(key); }
                 if (bytes <= CacheLimit)
                 {

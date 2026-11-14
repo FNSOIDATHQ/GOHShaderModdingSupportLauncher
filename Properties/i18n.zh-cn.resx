@@ -798,4 +798,9 @@
   <data name="Navigation_Collapse" xml:space="preserve"><value>收起导航栏</value></data>
   <data name="MS_ExpandModList" xml:space="preserve"><value>展开 Mod 列表</value></data>
   <data name="MS_CollapseModList" xml:space="preserve"><value>收起 Mod 列表</value></data>
+  <data name="U_ClearModSubscriptionCache" xml:space="preserve"><value>清除 Mod 订阅缓存</value></data>
+  <data name="U_ModSubscriptionCacheResult" xml:space="preserve"><value>已释放 {0:N0} 字节，删除 {1} 个文件；失败 {2} 项。</value></data>
+  <data name="U_ModSubscriptionCacheFailed" xml:space="preserve"><value>无法清除 Mod 订阅缓存，请重试。</value></data>
+  <data name="MS_ImageCachedFallback" xml:space="preserve"><value>图片刷新失败，正在显示已缓存的图片。</value></data>
+  <data name="MS_ImageCacheSaveFailed" xml:space="preserve"><value>图片已读取，但无法保存离线缓存。</value></data>
 </root>

@@ -6,6 +6,8 @@
     <StackPanel Margin="30" HorizontalAlignment="Center" Spacing="16">
       <Button x:Name="clearShaderCache" Height="50" Click="clearShaderCache_Click"
               Content="{Binding U_ClearAllCache, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="22" />
+      <Button x:Name="clearModSubscriptionCache" MinHeight="50" Click="clearModSubscriptionCache_Click"
+              Content="{Binding U_ClearModSubscriptionCache, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="22" />
       <Button x:Name="restore" Height="50" Click="restore_Click"
               Content="{Binding U_Restore, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="22" />
       <Button x:Name="openConfig" Height="50" Click="openConfig_Click"

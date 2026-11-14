@@ -78,10 +78,12 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
 
     public void Activate()
     {
-        if (active || disposed) return;
+        if (disposed) return;
+        if (active) { _ = ResumeAfterCacheClearAsync(); return; }
         active = true;
         runtime = main.SubscriptionRuntime;
         runtime.Changed += RuntimeChanged;
+        runtime.CachesClearing += CachesClearing;
         runtime.Verification.Changed += RuntimeChanged;
         timer.Start();
         _ = RunAsync(async () => { await runtime.Ready; await LoadTranslationOptionsAsync(); LoadGitHubOptions(); RefreshVerification(); await LoadListAsync(); });
@@ -89,6 +91,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
 
     public void OnGameChanged()
     {
+        cacheReturn = null;
         CancelRefresh(); ResetStatus();
         ClearDetail();
         if (active) _ = RefreshAfterGameChangeAsync();
@@ -344,6 +347,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
         if (runtime is not null)
         {
             runtime.Changed -= RuntimeChanged;
+            runtime.CachesClearing -= CachesClearing;
             runtime.Verification.Changed -= RuntimeChanged;
         }
         DisposeMedia(); imageClient.Dispose(); (textTranslator as IDisposable)?.Dispose();

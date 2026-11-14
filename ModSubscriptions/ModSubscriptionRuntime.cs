@@ -29,6 +29,9 @@ internal sealed class ModSubscriptionRuntime : IDisposable
     internal IModSource MowPortal { get; private set; } = null!;
     internal GitHubOptionsStore GitHubSettings { get; private set; } = null!;
     internal ModTranslationOptionsStore TranslationSettings { get; private set; } = null!;
+    internal ModCacheMaintenance CacheMaintenance { get; private set; } = null!;
+    internal ModMediaCache MediaCache { get; private set; } = null!;
+    internal event Action? CachesClearing;
     internal ModDownloadService Downloads { get; private set; } = null!;
     private ModDownloadService githubDownloads = null!;
     private ModDownloadService mowPortalDownloads = null!;
@@ -55,11 +58,14 @@ internal sealed class ModSubscriptionRuntime : IDisposable
         Ready = Task.Run(() =>
         {
             Store = store ?? new SubscriptionStore();
-            Source = source ?? new ModDbSource(diagnostic: diagnostic, verification: Verification, clearance: clearance);
+            CacheMaintenance = new(Path.GetDirectoryName(Store.LibraryPath)!);
+            MediaCache = new(CacheMaintenance);
+            Source = source ?? new ModDbSource(cache: new(CacheMaintenance.DirectoryFor("moddb-cache"), CacheMaintenance),
+                diagnostic: diagnostic, verification: Verification, clearance: clearance);
             GitHubSettings = new GitHubOptionsStore(Path.Combine(Path.GetDirectoryName(Store.LibraryPath)!, "github-settings.json"));
             TranslationSettings = new(Path.Combine(Path.GetDirectoryName(Store.LibraryPath)!, "translation-settings.json"));
-            GitHub = githubSource ?? new GitHubModSource(settings: GitHubSettings, diagnostic: diagnostic);
-            MowPortal = mowPortalSource ?? new MowPortalModSource(diagnostic: diagnostic, verification: Verification);
+            GitHub = githubSource ?? new GitHubModSource(cache: new(CacheMaintenance.DirectoryFor("github-cache"), CacheMaintenance), settings: GitHubSettings, diagnostic: diagnostic);
+            MowPortal = mowPortalSource ?? new MowPortalModSource(cache: new(CacheMaintenance.DirectoryFor("mowportal-cache"), CacheMaintenance), diagnostic: diagnostic, verification: Verification);
             Installer = new(Store, host);
             Updates = new(Store, ResolveSource, Verification);
             Downloads = new(Store, Source, progress: new RuntimeProgress(this), verification: Verification, clearance: clearance);
@@ -68,6 +74,12 @@ internal sealed class ModSubscriptionRuntime : IDisposable
             Volatile.Write(ref library, Store.Snapshot());
         });
         background = RunAsync();
+    }
+
+    internal async Task<ModCacheClearResult> ClearCachesAsync(CancellationToken token = default)
+    {
+        await Ready.WaitAsync(token);
+        return await CacheMaintenance.ClearAsync(() => { MediaCache.ClearMemory(); CachesClearing?.Invoke(); }, token);
     }
 
     internal async Task OpenVerificationAsync(Uri origin, CancellationToken token = default)
@@ -321,6 +333,7 @@ internal sealed class ModSubscriptionRuntime : IDisposable
         catch (Exception) { /* Initialization failure is already exposed to the page. */ }
         finally
         {
+            if (Ready.IsCompletedSuccessfully) MediaCache.ClearMemory();
             await verificationBrowser.DisposeAsync().ConfigureAwait(false);
             clearance.Clear();
             (Source as IDisposable)?.Dispose();

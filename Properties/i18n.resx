@@ -798,4 +798,9 @@ Make sure Steam has finished downloading the item.</value>
   <data name="Navigation_Collapse" xml:space="preserve"><value>Collapse navigation</value></data>
   <data name="MS_ExpandModList" xml:space="preserve"><value>Show mod list</value></data>
   <data name="MS_CollapseModList" xml:space="preserve"><value>Hide mod list</value></data>
+  <data name="U_ClearModSubscriptionCache" xml:space="preserve"><value>Clear Mod subscription cache</value></data>
+  <data name="U_ModSubscriptionCacheResult" xml:space="preserve"><value>Freed {0:N0} bytes; deleted {1} files; {2} failures.</value></data>
+  <data name="U_ModSubscriptionCacheFailed" xml:space="preserve"><value>Could not clear the Mod subscription cache. Please try again.</value></data>
+  <data name="MS_ImageCachedFallback" xml:space="preserve"><value>Showing the cached image because it could not be refreshed.</value></data>
+  <data name="MS_ImageCacheSaveFailed" xml:space="preserve"><value>The image loaded, but its offline cache could not be saved.</value></data>
 </root>

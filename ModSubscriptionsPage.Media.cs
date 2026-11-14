@@ -9,23 +9,14 @@ namespace GOHShaderModdingSupportLauncher;
 
 public sealed partial class ModSubscriptionsPage
 {
-    private sealed record MediaCacheEntry(ModImagePayload Payload, DateTimeOffset AddedAt);
-    private readonly Dictionary<Uri, MediaCacheEntry> mediaCache = [];
     private readonly SemaphoreSlim mediaDecodeGate = new(1, 1);
-    private long mediaCacheBytes;
-    private sealed class MediaTransfer(CancellationTokenSource cancellation)
-    {
-        internal readonly CancellationTokenSource Cancellation = cancellation;
-        internal Task<ModImagePayload> Task = null!;
-        internal int Readers;
-    }
-    private readonly Dictionary<(string Provider, Uri Url), MediaTransfer> mediaTransfers = [];
     private readonly HashSet<Func<Task>> visibleMediaRefresh = [];
     private Func<Task>? expandedMediaRefresh;
     private sealed record PendingImage(ReadingSession Owner, ModImageReference Reference, int Tab, Uri? Article, string? File);
     private PendingImage? pendingImage;
 
-    private bool MediaFresh(Uri url) => mediaCache.TryGetValue(url, out var cached) && DateTimeOffset.UtcNow - cached.AddedAt < TimeSpan.FromMinutes(10);
+    private bool MediaFresh(Uri url) => runtime?.Ready.IsCompletedSuccessfully == true &&
+        runtime.MediaCache.IsFresh(session?.Mod.Id.Provider ?? "moddb", url);
 
     private async Task RefreshVisibleMediaAsync()
     {
@@ -60,30 +51,12 @@ public sealed partial class ModSubscriptionsPage
         }
     }
 
-    private async Task<ModImagePayload> ReadMediaPayloadAsync(Uri url, string provider, ModMediaOperation operation, CancellationToken token)
+    private Task<ModCachedImage> ReadMediaPayloadAsync(Uri url, string provider, ModMediaOperation operation, CancellationToken token)
     {
-        var key = (provider, url);
-        if (!mediaTransfers.TryGetValue(key, out var transfer))
-        {
-            var cancellation = CancellationTokenSource.CreateLinkedTokenSource(DetailToken);
-            transfer = new(cancellation);
-            var client = new ModImageClient(imageClient, runtime!.PrepareVerificationRequest,
-                (uri, code) => runtime!.RequireVerification(uri, code), LogMedia);
-            transfer.Task = client.GetAsync(url, provider, operation, cancellation.Token);
-            mediaTransfers.Add(key, transfer);
-        }
-        transfer.Readers++;
-        try { return await transfer.Task.WaitAsync(token); }
-        finally
-        {
-            if (--transfer.Readers == 0)
-            {
-                if (mediaTransfers.TryGetValue(key, out var active) && active == transfer) mediaTransfers.Remove(key);
-                if (!transfer.Task.IsCompleted) transfer.Cancellation.Cancel();
-                // Observe a cancelled last reader's transfer even if its transport ignores cancellation.
-                _ = transfer.Task.ContinueWith(task => { _ = task.Exception; transfer.Cancellation.Dispose(); }, TaskScheduler.Default);
-            }
-        }
+        var client = new ModImageClient(imageClient, runtime!.PrepareVerificationRequest,
+            (uri, code) => runtime!.RequireVerification(uri, code), LogMedia);
+        return runtime.MediaCache.GetAsync(url, provider, (cached, ct) => client.GetAsync(url, provider, operation, ct, cached),
+            async (payload, ct) => { using var validated = await DecodeBitmapAsync(payload, 64, operation, ct); }, token);
     }
 
     private StackPanel InlineImage(ModImage image, ModImageReference? reference = null, bool embedded = false)
@@ -235,23 +208,16 @@ public sealed partial class ModSubscriptionsPage
         string provider = session?.Mod.Id.Provider ?? "moddb";
         if (!ModImageClient.IsAllowed(url, url, provider))
             throw new ModSourceException(new(ModSourceError.AccessDenied, "The image address is not supported.", DiagnosticKind: ModHttpFailureKind.RedirectRejected));
-        if (mediaCache.TryGetValue(url, out var cached))
-        {
-            // Revisit a URL after a bounded lifetime rather than keeping same-address images forever.
-            if (DateTimeOffset.UtcNow - cached.AddedAt < TimeSpan.FromMinutes(10))
-                return await DecodeBitmapAsync(cached.Payload, width, operation, token);
-        }
         await runtime!.Ready.WaitAsync(token);
-        var payload = await ReadMediaPayloadAsync(url, provider, operation, token);
-        var decoded = await DecodeBitmapAsync(payload, width, operation, token);
-        if (mediaCache.Remove(url, out var previous)) mediaCacheBytes -= previous.Payload.Bytes.Length;
-        // Keep a bounded byte cache; visual controls own and release their decoded bitmaps.
-        while (mediaCache.Count > 0 && mediaCacheBytes + payload.Bytes.Length > 32 * 1024 * 1024)
-        {
-            var first = mediaCache.First(); mediaCacheBytes -= first.Value.Payload.Bytes.Length; mediaCache.Remove(first.Key);
-        }
-        if (mediaCache.TryAdd(url, new(payload, DateTimeOffset.UtcNow))) mediaCacheBytes += payload.Bytes.Length;
-        return decoded;
+        var result = await ReadMediaPayloadAsync(url, provider, operation, token);
+        token.ThrowIfCancellationRequested();
+        string statusKey = "mediaCache:" + url;
+        if (result.IsStale)
+            ReportNotice(T("ImageCachedFallback"), key: statusKey, attention: true, retry: MediaRetry());
+        else if (result.CacheWarning is not null)
+            ReportNotice(T("ImageCacheSaveFailed"), key: statusKey, attention: true);
+        else { pageStatus.Remove(statusKey); statusRetries.Remove(statusKey); }
+        return await DecodeBitmapAsync(result.Payload, width, operation, token);
     }
 
     private static void LogMedia(ModHttpDiagnostic diagnostic) => AppDiagnostics.Log(diagnostic.ToString());
@@ -375,5 +341,5 @@ public sealed partial class ModSubscriptionsPage
         finally { bitmap?.Dispose(); if (!IsCurrent(expected, token) || generation != readerGeneration) EndStatus(progress, ModPageOperationState.Cancelled); }
     }
 
-    private void DisposeMedia() { readerCancellation?.Cancel(); mediaCache.Clear(); mediaCacheBytes = 0; }
+    private void DisposeMedia() { readerCancellation?.Cancel(); visibleMediaRefresh.Clear(); expandedMediaRefresh = null; }
 }

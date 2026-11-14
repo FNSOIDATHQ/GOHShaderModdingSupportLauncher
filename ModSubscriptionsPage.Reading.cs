@@ -99,6 +99,7 @@ public sealed partial class ModSubscriptionsPage
 
     private async Task OpenModCoreAsync(RemoteMod mod, bool refresh)
     {
+        cacheReturn = null;
         CancelLinkNavigation();
         CancelRefresh(); CancelTranslation(); ResetStatus();
         SaveReadingPosition();
@@ -181,12 +182,12 @@ public sealed partial class ModSubscriptionsPage
             if (state.Result?.Content is null)
             {
                 var cached = await Task.Run(() => fetch(ModReadMode.CacheOnly, token), token);
-                if (!IsCurrent(expected, token)) return;
+                if (!IsCurrent(expected, token) || state.Generation != generation) return;
                 if (cached.Content is not null) { state.Result = cached; render(); }
             }
             pageStatus.Update(progress, "Fetch", state.Result?.Content is null ? "" : T("CachedLoading"), ModPageOperationState.Running); RenderStatus();
             var result = await Task.Run(() => fetch(ModReadMode.Refresh, token), token);
-            if (!IsCurrent(expected, token)) return;
+            if (!IsCurrent(expected, token) || state.Generation != generation) return;
             if (result.Content is null && state.Result?.Content is { } previous)
                 result = result with { Content = previous, IsStale = true };
             state.Result = result; state.Attempted = true;
@@ -195,7 +196,7 @@ public sealed partial class ModSubscriptionsPage
         catch (OperationCanceledException) when (token.IsCancellationRequested) { EndStatus(progress, ModPageOperationState.Cancelled); }
         catch (Exception ex)
         {
-            if (!IsCurrent(expected, token)) return;
+            if (!IsCurrent(expected, token) || state.Generation != generation) return;
             state.Result = new(state.Result is { } old ? old.Content : default, state.Result?.FetchedAt,
                 new(ModSourceError.RequestFailed, ex.Message), state.Result?.Content is not null);
             state.Attempted = true;

@@ -4,6 +4,7 @@ using System.IO;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using GOHShaderModdingSupportLauncher.Properties;
+using GOHShaderModdingSupportLauncher.ModSubscriptions;
 
 
 
@@ -14,6 +15,7 @@ namespace GOHShaderModdingSupportLauncher
         private MainWindow main;
 
         private MainWindow.ToolsVars vars;
+        private bool clearingModCache;
         public Tools(MainWindow owner)
         {
             main = owner;
@@ -21,8 +23,26 @@ namespace GOHShaderModdingSupportLauncher
             vars = main.toolsVars;
 
             InitializeComponent();
+        }
 
-            
+        private async void clearModSubscriptionCache_Click(object? sender, RoutedEventArgs e)
+        {
+            if (clearingModCache) return;
+            clearingModCache = true; clearModSubscriptionCache.IsEnabled = false;
+            try
+            {
+                var result = await main.SubscriptionRuntime.ClearCachesAsync();
+                MessageBox.Show(main, string.Format(LocalizedStrings.Instance.Get("U_ModSubscriptionCacheResult"),
+                    result.BytesFreed, result.FilesDeleted, result.Failures), i18n.Universal_Notice,
+                    MessageBoxButton.OK, result.Failures > 0 ? MessageBoxImage.Warning : MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                AppDiagnostics.Log("Mod subscription cache clear: " + ex.GetType().Name);
+                MessageBox.Show(main, LocalizedStrings.Instance.Get("U_ModSubscriptionCacheFailed"),
+                    i18n.Universal_Notice, MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally { clearingModCache = false; clearModSubscriptionCache.IsEnabled = true; }
         }
         //private void PreCompileAllShader()
         //{

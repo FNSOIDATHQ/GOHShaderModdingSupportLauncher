@@ -17,9 +17,15 @@ internal static class MessageBox
         MessageBoxImage image = MessageBoxImage.Information,
         bool attachToMainWindow = true)
     {
-        var dialog = Create(message, title, buttons, image);
         var owner = attachToMainWindow
             ? (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow : null;
+        Show(owner, message, title, buttons, image);
+    }
+
+    public static void Show(Window? owner, string message, string title,
+        MessageBoxButton buttons = MessageBoxButton.OK, MessageBoxImage image = MessageBoxImage.Information)
+    {
+        var dialog = Create(message, title, buttons, image);
         if (owner?.IsVisible == true) dialog.Show(owner);
         else dialog.Show();
     }

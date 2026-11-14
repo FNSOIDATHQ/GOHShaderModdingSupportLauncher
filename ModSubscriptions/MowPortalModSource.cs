@@ -120,6 +120,7 @@ internal sealed class MowPortalModSource : IModSource, IDisposable
     private async Task<ModSourceResult<T>> ReadAsync<T>(string key, Func<CancellationToken, Task<T>> fetch,
         JsonTypeInfo<CachedModContent<T>> type, ModReadMode mode, CancellationToken token)
     {
+        using var cacheRead = cache.BeginRead();
         token.ThrowIfCancellationRequested();
         var previous = cache.Read(key, type);
         if (mode == ModReadMode.CacheOnly)

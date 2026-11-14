@@ -15,6 +15,13 @@ public sealed partial class ModSubscriptionsPage
         if (operation.IsVisible) SetReadingContext(operationContext);
         operationContext = null;
         operation.Content = null; operation.IsVisible = false; operationScroll.IsVisible = false; fileContent.IsVisible = true;
+        if (cacheResetAfterOperation)
+        {
+            cacheResetAfterOperation = false;
+            ClearDetail();
+            ResumeVisibleCacheReading();
+            return;
+        }
         if (session is { } current) RestorePosition(fileScroll, current.FilePosition);
         if (translationPreferences.Enabled && session is { } expected) Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         { if (session == expected) RerenderTranslation(); });

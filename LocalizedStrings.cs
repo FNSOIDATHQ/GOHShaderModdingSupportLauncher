@@ -75,6 +75,7 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
         nameof(Tab_Tools),
         nameof(Title),
         nameof(U_ClearAllCache),
+        nameof(U_ClearModSubscriptionCache),
         nameof(U_OpenCacheFolder),
         nameof(U_OpenLauncherConfig),
         nameof(U_OpenLogFolder),
@@ -154,6 +155,7 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
     public string Tab_Tools => this[nameof(Tab_Tools)];
     public string Title => this[nameof(Title)];
     public string U_ClearAllCache => this[nameof(U_ClearAllCache)];
+    public string U_ClearModSubscriptionCache => this[nameof(U_ClearModSubscriptionCache)];
     public string U_OpenCacheFolder => this[nameof(U_OpenCacheFolder)];
     public string U_OpenLauncherConfig => this[nameof(U_OpenLauncherConfig)];
     public string U_OpenLogFolder => this[nameof(U_OpenLogFolder)];

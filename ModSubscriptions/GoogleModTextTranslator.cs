@@ -11,6 +11,8 @@ internal interface IModTextTranslator
     Task<string> TranslateAsync(string text, string language, CancellationToken cancellationToken);
 }
 
+internal interface IModTranslationCache { void ClearCache(); }
+
 internal sealed record ModTextBatchTranslation(string?[] Texts, ModTranslationException? Failure = null);
 
 internal interface IModBatchTextTranslator : IModTextTranslator
@@ -29,7 +31,7 @@ internal sealed class ModTranslationException(ModTranslationError error, DateTim
 
 // Experimental anonymous endpoint, independent of ModDB HTTP/clearance and all account state.
 // No redirects, cookies, credentials, request URLs or public text are logged.
-internal sealed class GoogleModTextTranslator : IModBatchTextTranslator, IDisposable
+internal sealed class GoogleModTextTranslator : IModBatchTextTranslator, IModTranslationCache, IDisposable
 {
     internal const int ChunkLength = 700;
     internal const int BatchItems = 32, BatchCharacters = 3600, MaxUrlLength = 8000;
@@ -37,6 +39,8 @@ internal sealed class GoogleModTextTranslator : IModBatchTextTranslator, IDispos
     private sealed record CachedText(string Value, int Bytes, DateTimeOffset Expires);
     private readonly Dictionary<string, CachedText> cache = [];
     private readonly LinkedList<string> lru = [];
+    private readonly object cacheGate = new();
+    private long cacheGeneration;
     private long cacheBytes, requestCount, cacheHits;
     private readonly HttpClient client;
     private readonly SemaphoreSlim gate = new(1, 1);
@@ -63,6 +67,8 @@ internal sealed class GoogleModTextTranslator : IModBatchTextTranslator, IDispos
         IProgress<ModTranslationProgress>? progress = null, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        long generation;
+        lock (cacheGate) generation = cacheGeneration;
         if (!ModTranslationSettings.IsLanguage(language)) throw new ArgumentException("Unsupported translation language.", nameof(language));
         if (texts.Count > 4096 || texts.Any(text => string.IsNullOrWhiteSpace(text) || text.Length > ChunkLength))
             throw new ModTranslationException(ModTranslationError.TooLarge);
@@ -104,7 +110,7 @@ internal sealed class GoogleModTextTranslator : IModBatchTextTranslator, IDispos
                     for (int i = 0; i < count; i++)
                     {
                         var item = pending[offset + i];
-                        Cache(item.Key, translated[i]);
+                        lock (cacheGate) { if (generation == cacheGeneration) Cache(item.Key, translated[i]); }
                         foreach (int index in item.Value) results[index] = translated[i];
                     }
                     offset += count;
@@ -188,10 +194,13 @@ internal sealed class GoogleModTextTranslator : IModBatchTextTranslator, IDispos
     private static string CacheKey(string text, string language) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(language + "\n" + text)));
     private bool TryCached(string key, out string? value)
     {
-        value = null;
-        if (!cache.TryGetValue(key, out var item)) return false;
-        if (item.Expires <= DateTimeOffset.UtcNow) { cache.Remove(key); lru.Remove(key); cacheBytes -= item.Bytes; return false; }
-        lru.Remove(key); lru.AddLast(key); value = item.Value; return true;
+        lock (cacheGate)
+        {
+            value = null;
+            if (!cache.TryGetValue(key, out var item)) return false;
+            if (item.Expires <= DateTimeOffset.UtcNow) { cache.Remove(key); lru.Remove(key); cacheBytes -= item.Bytes; return false; }
+            lru.Remove(key); lru.AddLast(key); value = item.Value; return true;
+        }
     }
 
     private void Cache(string key, string value)
@@ -205,4 +214,9 @@ internal sealed class GoogleModTextTranslator : IModBatchTextTranslator, IDispos
     }
 
     public void Dispose() => client.Dispose();
+
+    public void ClearCache()
+    {
+        lock (cacheGate) { cacheGeneration++; cache.Clear(); lru.Clear(); cacheBytes = 0; }
+    }
 }

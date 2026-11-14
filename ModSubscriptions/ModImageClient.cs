@@ -4,7 +4,8 @@ using System.Text;
 
 namespace GOHShaderModdingSupportLauncher.ModSubscriptions;
 
-internal sealed record ModImagePayload(byte[] Bytes, Uri FinalUri, string? ContentType);
+internal sealed record ModImagePayload(byte[] Bytes, Uri FinalUri, string? ContentType,
+    string? ETag = null, DateTimeOffset? LastModified = null);
 
 // Borrows the page's anonymous client. Each hop has its own request, host lease and
 // verification preparation, so an origin's temporary clearance cannot follow a redirect.
@@ -31,7 +32,8 @@ internal sealed class ModImageClient(HttpClient client, Action<HttpRequestMessag
         };
     }
 
-    internal async Task<ModImagePayload> GetAsync(Uri uri, string provider, ModMediaOperation operation, CancellationToken token)
+    internal async Task<ModImagePayload> GetAsync(Uri uri, string provider, ModMediaOperation operation, CancellationToken token,
+        ModImagePayload? cached = null)
     {
         Uri current = uri;
         ModHttpStage stage = ModHttpStage.Request;
@@ -58,6 +60,13 @@ internal sealed class ModImageClient(HttpClient client, Action<HttpRequestMessag
                 if (!IsAllowed(uri, current, provider) || !visited.Add(current) || redirects > 8)
                     throw Error(ModHttpFailureKind.RedirectRejected, "The image address or redirect is not supported.", ModSourceError.AccessDenied);
                 using var request = new HttpRequestMessage(HttpMethod.Get, current);
+                bool conditional = cached is not null && current == cached.FinalUri;
+                if (conditional)
+                {
+                    if (System.Net.Http.Headers.EntityTagHeaderValue.TryParse(cached!.ETag, out var etag)) request.Headers.IfNoneMatch.Add(etag);
+                    if (cached!.LastModified is { } modified) request.Headers.IfModifiedSince = modified;
+                    conditional = request.Headers.IfNoneMatch.Count > 0 || request.Headers.IfModifiedSince is not null;
+                }
                 prepare(request);
                 var host = hosts.For(current);
                 await host.Gate.WaitAsync(ct).ConfigureAwait(false);
@@ -74,6 +83,12 @@ internal sealed class ModImageClient(HttpClient client, Action<HttpRequestMessag
                     contentType = response.Content.Headers.ContentType?.MediaType;
                     stage = ModHttpStage.Headers; Report(stage);
                     if (ModChallengeDetector.IsChallenge(response)) requireVerification(current, response.StatusCode);
+                    if (response.StatusCode == HttpStatusCode.NotModified && conditional)
+                    {
+                        ct.ThrowIfCancellationRequested(); Report(ModHttpStage.Completed);
+                        return cached! with { ETag = response.Headers.ETag?.ToString() ?? cached!.ETag,
+                            LastModified = response.Content.Headers.LastModified ?? cached!.LastModified };
+                    }
                     if (status is 301 or 302 or 303 or 307 or 308)
                     {
                         stage = ModHttpStage.Redirect; Report(stage);
@@ -117,7 +132,7 @@ internal sealed class ModImageClient(HttpClient client, Action<HttpRequestMessag
                     if (response.Content.Headers.ContentLength is { } length && length != bytes.Length)
                         throw Error(ModHttpFailureKind.Response, "The image response was incomplete.", ModSourceError.RequestFailed);
                     ct.ThrowIfCancellationRequested(); Report(ModHttpStage.Completed);
-                    return new(bytes.ToArray(), current, contentType);
+                    return new(bytes.ToArray(), current, contentType, response.Headers.ETag?.ToString(), response.Content.Headers.LastModified);
                 }
                 finally { host.Gate.Release(); }
             }

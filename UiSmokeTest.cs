@@ -30,6 +30,7 @@ internal static class UiSmokeTest
             if (Application.Current?.Styles.Count != 2)
                 throw new InvalidOperationException("Avalonia theme or DataGrid styles did not load.");
             CheckSubscriptionMedia();
+            CheckSubscriptionCache(fixture);
             var mods = Directory.CreateDirectory(Path.Combine(fixture, "mods"));
             foreach (var name in new[] { "alpha", "beta", "zeta", "gamma" })
             {
@@ -208,6 +209,9 @@ internal static class UiSmokeTest
                         throw new InvalidOperationException("Converter tabs are not stacked on the left.");
                     ((Converter)host.Content).FindControl<TextBox>("convertPath")!.Text = "keep this path";
                 }
+                if (i == 4 && (((Tools)host.Content).FindControl<Button>("clearModSubscriptionCache")?.Content as string != LocalizedStrings.Instance.U_ClearModSubscriptionCache ||
+                    ((Tools)host.Content).FindControl<TextBlock>("modSubscriptionCacheResult") is not null))
+                    throw new InvalidOperationException("Subscription cache cleanup tool did not load.");
             }
             // Routing follows stable tags even if an entry moves in the sidebar.
             var subscriptionsItem = primary.Items.OfType<ListBoxItem>()
@@ -376,6 +380,43 @@ internal static class UiSmokeTest
 
     private static string? NavigationLabel(ListBoxItem item) => item.GetLogicalDescendants().OfType<TextBlock>()
         .Single(control => control.Classes.Contains("navigationLabel")).Text;
+
+    private static void CheckSubscriptionCache(string fixture)
+    {
+        using var asset = Avalonia.Platform.AssetLoader.Open(new("avares://GOHShaderModdingSupportLauncher/img/logo.png"));
+        using var bytes = new MemoryStream(); asset.CopyTo(bytes);
+        var payload = new ModImagePayload(bytes.ToArray(), new("https://media.moddb.com/cache-check.png"), "image/png");
+        Task.Run(async () =>
+        {
+            string root = Path.Combine(fixture, "subscription-cache-check");
+            Directory.CreateDirectory(root);
+            string library = Path.Combine(root, "library.json");
+            File.WriteAllText(library, "user data");
+            var maintenance = new ModCacheMaintenance(root);
+            var media = new ModMediaCache(maintenance);
+            int requests = 0;
+            Task<ModImagePayload> Fetch(ModImagePayload? _, CancellationToken ct)
+            { ct.ThrowIfCancellationRequested(); requests++; return Task.FromResult(payload); }
+            Task Validate(ModImagePayload value, CancellationToken ct)
+            { using var bitmap = ModImageDecoder.Decode(value, 64, ModMediaOperation.Thumbnail, ct); return Task.CompletedTask; }
+            await media.GetAsync(payload.FinalUri, "moddb", Fetch, Validate, CancellationToken.None);
+            media.ClearMemory();
+            var restarted = new ModMediaCache(new(root));
+            await restarted.GetAsync(payload.FinalUri, "moddb", (_, _) => throw new IOException("Unexpected network request"), Validate, CancellationToken.None);
+            if (requests != 1) throw new InvalidOperationException("Persistent image cache missed after restart.");
+            foreach (string name in new[] { "moddb-cache", "github-cache", "mowportal-cache" })
+            {
+                Directory.CreateDirectory(Path.Combine(root, name));
+                File.WriteAllText(Path.Combine(root, name, "content.json"), "cache");
+            }
+            var result = await maintenance.ClearAsync(() => { media.ClearMemory(); restarted.ClearMemory(); });
+            if (result.Failures != 0 || result.FilesDeleted != 4 || result.BytesFreed <= payload.Bytes.Length || File.ReadAllText(library) != "user data")
+                throw new InvalidOperationException("Subscription cache cleanup changed user data or missed cached content.");
+            await media.GetAsync(payload.FinalUri, "moddb", Fetch, Validate, CancellationToken.None);
+            if (requests != 2) throw new InvalidOperationException("Cleared images were not reloaded.");
+        }).GetAwaiter().GetResult();
+        AppDiagnostics.Log("Subscription cache self-test passed: persistent thumbnails, offline restart, source-generated metadata, isolated cleanup and reload.");
+    }
 
     private static void CheckSubscriptionMedia()
     {

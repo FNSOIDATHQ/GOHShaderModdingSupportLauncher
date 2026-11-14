@@ -45,6 +45,7 @@ public sealed partial class ModSubscriptionsPage
             ReportNotice(T("RefreshAfterOperation"));
             return Task.CompletedTask;
         }
+        cacheReturn = null;
         CancelLinkNavigation();
         string query = keyword.Text?.Trim() ?? "";
         bool changed = query != appliedKeyword;
