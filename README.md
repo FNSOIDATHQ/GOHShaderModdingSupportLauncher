@@ -156,6 +156,8 @@ Images follow a limited number of HTTPS redirects to supported media hosts. Fail
 
 Use `--check-google-translation` or `--check-transmart-translation` to test the EXE's own anonymous WinHTTP translation with public short samples, a multi-paragraph text of over 3,000 characters, English-to-Chinese and Chinese-to-English targets, protected values, line breaks, cache and cancellation. A Russian-to-Chinese sample is reported separately when the service's engine is unavailable. These checks do not open the UI or change game files. Exit code 0 means the required short/long, two-target and cache/cancellation checks passed; results and any unavailable Russian engine are written to the same diagnostic log. These commands use the Windows user proxy settings and do not establish mainland direct-access evidence. Translation preferences are stored separately in `translation-settings.json`; the bounded translation caches stay in memory and are cleared by the subscription cache cleanup tool.
 
+Mod directory inspection records ordinary content, external programs and supported shader resources independently. A mixed content/DLL directory retains its ordinary-content classification. Missing or unreadable descriptors, nested folders and duplicate loading IDs remain visible; `.gohsms` is excluded. Refresh scans in the background and discards superseded results. Metadata-only and unsupported layouts remain unconfirmed. This first stage supplies inspection results; combined feature badges, help and activation checks are planned for later stages.
+
 ## Development Guide
 
 I'm building this program using Visual Studio 2026, with environment below:
@@ -164,7 +166,7 @@ I'm building this program using Visual Studio 2026, with environment below:
 * Run `powershell -NoProfile -ExecutionPolicy Bypass -File .\Publish-Aot.ps1`. Distribute the sole EXE from `bin/net10-aot-single-file/`.
 * The EXE includes the .NET runtime and native UI libraries. No .NET runtime installation is required on the target PC.
 * On first launch, native DLLs are verified and extracted to `%LOCALAPPDATA%\GOHSMSLauncher\Native\<archive SHA-256>` (or `%TEMP%` if necessary). Missing or changed DLLs are restored on the next launch.
-* Use `--software-rendering` for software graphics. `--validate-native-bundle` verifies extraction and loading without opening the UI. `--self-test-ui` checks seven pages, stable navigation, two languages, and mod operations without network access or launching the game.
+* Use `--software-rendering` for software graphics. `--validate-native-bundle` verifies extraction and loading without opening the UI. `--self-test-ui` checks seven pages, stable navigation, two languages, mod operations and directory inspection (ordinary/mixed/localization/PAK content, metadata, independent feature states, IDs, cache invalidation and cancellation) without network access or launching the game.
 * Avalonia DataGrid 12.1.2 produces two upstream Native AOT analysis summaries for reflection based features. This launcher uses fixed read-only columns with compiled bindings; the publish script rejects all other trim/AOT warnings.
 * `Properties/i18n.Designer.cs` is maintained with the embedded Chinese resource lookup; keep that lookup when adding resource keys.
 * From commit a120cb0 onwards, this project has been using Codex to support development.

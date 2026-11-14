@@ -108,8 +108,7 @@ public partial class MainWindow
             // A completed background task must not refresh a different game's state.
             if (!IsCurrentGame(gameDirectory)) return;
             main.universalVars.localDir!.Refresh();
-            main.RefreshMods();
-            main.RefreshModPage();
+            main.BeginModRefresh();
         });
 
         private static void OnUiThread(Action action)

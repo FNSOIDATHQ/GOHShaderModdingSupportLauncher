@@ -69,7 +69,7 @@ namespace GOHShaderModdingSupportLauncher
             DragDrop.AddDragOverHandler(loadedMods, loadedMods_DragOver);
             DragDrop.AddDropHandler(loadedMods, loadedMods_Drop);
 
-            main.RefreshMods();
+            main.EnsureModsScanned();
             UpdateUI();
             unloadedMods.Columns[0].Sort(System.ComponentModel.ListSortDirection.Ascending);
             main.ModAliases.Changed += RefreshAliases;
@@ -329,11 +329,15 @@ namespace GOHShaderModdingSupportLauncher
             UpdateAliasAction();
         }
 
-        private void refresh_Click(object sender, RoutedEventArgs e)
+        private async void refresh_Click(object sender, RoutedEventArgs e)
         {
-            main.RefreshMods();
-            UpdateUI();
-            RefreshPresets();
+            try
+            {
+                if (!await main.RefreshModsAsync()) return;
+                UpdateUI();
+                RefreshPresets();
+            }
+            catch (Exception ex) when (IsPresetError(ex)) { ShowPresetError(ex); }
         }
 
         private static readonly DataFormat<string> LoadedModDragFormat =

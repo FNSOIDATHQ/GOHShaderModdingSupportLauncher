@@ -271,7 +271,7 @@ namespace GOHShaderModdingSupportLauncher
             }
 
             openSettingsOnStartup |= !PathsReady;
-            if (PathsReady) RefreshMods();
+            if (PathsReady) await RefreshModsAsync();
             UpdatePathAvailability();
 
             SaveSettings();
@@ -465,7 +465,8 @@ namespace GOHShaderModdingSupportLauncher
 
         private void OnManualPathChanged()
         {
-            if (PathsReady) RefreshMods();
+            CancelModScan();
+            if (PathsReady) BeginModRefresh();
             UpdatePathAvailability();
             RefreshModPage();
             if (!SuppressSubscriptionActivation) ChangeSubscriptionGame();
@@ -673,206 +674,6 @@ namespace GOHShaderModdingSupportLauncher
                 }
 
                 log.Close();
-            }
-        }
-
-        public void RefreshMods(bool afterGaming = false)
-        {
-            universalVars.modDic = ScanMods();
-
-            if (universalVars.NeedLockModList == true && afterGaming == true)
-            {
-                verifyLoadedMods();
-            }
-            else
-            {
-                universalVars.modLoaded.Clear();
-                ReadLoadedMods();
-            }
-        }
-
-        private string getModShowName(FileInfo[] modInfo)
-        {
-            string name = "";
-            try
-            {
-                using (StreamReader info = modInfo[0].OpenText())
-                {
-                    string nameLine;
-                    //push to name line
-                    while (info.EndOfStream == false)
-                    {
-                        while (((nameLine = info.ReadLine()).Contains("name", StringComparison.OrdinalIgnoreCase) == false || nameLine.Contains("{", StringComparison.Ordinal) == false) && info.EndOfStream == false) ;
-
-                        int commentIndex = nameLine.IndexOf(";");
-                        nameLine = nameLine.Substring(0, commentIndex == -1 ? nameLine.Length : commentIndex);
-#if DEBUG
-                        Trace.WriteLine("get nameline= " + nameLine);
-#endif
-                        if (nameLine.Length > 0)
-                        {
-                            int nameS = nameLine.IndexOf('"') + 1;
-                            int nameL = nameLine.LastIndexOf('"') - nameS;
-                            if (nameS == -1 || nameL <= 0)
-                            {
-                                continue;
-                            }
-                            name = nameLine.Substring(nameS, nameL);
-#if DEBUG
-                            Trace.WriteLine("mod show name= " + name);
-#endif
-                            break;
-                        }
-
-                    }
-
-
-                    info.Close();
-                }
-
-                if (name == "")
-                {
-                    name = i18n.Main_ModErrorName;
-                }
-            }
-            catch (Exception e)
-            {
-                MessageBox.Show($"{i18n.Main_ErrorReadModInfo}\n" + e, i18n.Universal_Error, MessageBoxButton.OK, MessageBoxImage.Warning);
-                name = i18n.Main_ModErrorName;
-            }
-
-            return name;
-        }
-
-        private bool checkShader(DirectoryInfo root)
-        {
-            DirectoryInfo[] searchResult = root.GetDirectories("resource", SearchOption.TopDirectoryOnly);
-            if (searchResult.Length != 0)
-            {
-                DirectoryInfo resouce = searchResult[0];
-
-                //check if shader is in paks
-                foreach (var obj in resouce.GetFiles("*.pak", SearchOption.TopDirectoryOnly))
-                {
-#if DEBUG
-                    Trace.WriteLine("get a pak= " + obj.Name);
-#endif
-                    var entries = FileManager.TryReadPakEntries(obj.FullName);
-                    if (entries == null) continue;
-
-                    foreach (var file in entries)
-                    {
-                        if (file.FullName.Contains("shader/dx10/") == true)
-                        {
-                            if (file.Length > 0)
-                            {
-#if DEBUG
-                                Trace.WriteLine("get a shader in pak= " + file.FullName);
-#endif
-                                return true;
-                            }
-                        }
-                    }
-
-                }
-
-                string shaderFolder = resouce.FullName + "/shader/dx10";
-                //check if shader is in dir
-                if (Directory.Exists(shaderFolder) == true)
-                {
-                    DirectoryInfo shader = new DirectoryInfo(shaderFolder);
-                    foreach (FileInfo file in shader.GetFiles("*", SearchOption.AllDirectories))
-                    {
-#if DEBUG
-                        Trace.WriteLine("get a shader file= " + file.Name);
-#endif
-                        if (file.Length > 0)
-                        {
-                            return true;
-                        }
-                    }
-                }
-            }
-
-            return false;
-        }
-
-        internal Dictionary<string, Mod> ScanMods()
-        {
-            var mods = new Dictionary<string, Mod>();
-            ReadModsFromWorkshop(mods);
-            ReadModsFromLocal(mods);
-            foreach (var mod in mods.Values) ModAliases.Apply(mod);
-            return mods;
-        }
-
-        private void ReadModsFromWorkshop(Dictionary<string, Mod> mods)
-        {
-            if (universalVars.workshopDir?.Exists != true) return;
-
-            foreach (var dir in universalVars.workshopDir.GetDirectories())
-            {
-                FileInfo[] modInfo = dir.GetFiles("mod.info", SearchOption.TopDirectoryOnly);
-                string folderName = "mod_" + dir.Name;
-
-                if (modInfo.Length == 0)
-                {
-                    //not a mod
-                    continue;
-                }
-                else if (folderName.Contains(' ') == true)
-                {
-                    //is a mod, but not valid
-                    continue;
-                }
-#if DEBUG
-                Trace.WriteLine("mod dir name= " + dir.Name);
-#endif
-                string name = getModShowName(modInfo);
-
-                bool hasShader = checkShader(dir);
-
-
-                Mod single = new Mod(name, i18n.Main_ModWorkshop, dir.FullName, folderName, hasShader);
-
-                if (mods.TryAdd(folderName, single) == false)
-                {
-                    AppDiagnostics.Log($"Duplicate mod identifier ignored: {folderName} ({dir.FullName})");
-                }
-            }
-        }
-
-        private void ReadModsFromLocal(Dictionary<string, Mod> mods)
-        {
-            if (universalVars.localDir?.Exists != true) return;
-
-            foreach (var dir in universalVars.localDir.GetDirectories())
-            {
-                FileInfo[] modInfo = dir.GetFiles("mod.info", SearchOption.TopDirectoryOnly);
-                string folderName = dir.Name.ToLowerInvariant();
-
-                if (modInfo.Length == 0)
-                {
-                    //not a mod
-                    continue;
-                }
-                else if (folderName.Contains(' ') == true)
-                {
-                    //is a mod, but not valid
-                    continue;
-                }
-                string name = getModShowName(modInfo);
-
-                bool hasShader = checkShader(dir);
-
-
-
-                Mod single = new Mod(name, i18n.Main_ModLocal, dir.FullName, folderName, hasShader);
-
-                if (mods.TryAdd(folderName, single) == false)
-                {
-                    AppDiagnostics.Log($"Duplicate mod identifier ignored: {folderName} ({dir.FullName})");
-                }
             }
         }
 
@@ -1124,6 +925,7 @@ namespace GOHShaderModdingSupportLauncher
         //when manually close by user, only store the settings
         private void OnClosed(object sender, EventArgs e)
         {
+            CancelModScan();
             DisposeSubscriptionRuntime();
             if (pages.TryGetValue(PageId.ModSubscriptions, out var page))
                 ((ModSubscriptionsPage)page).Dispose();

@@ -23,6 +23,9 @@ public sealed class Mod : INotifyPropertyChanged
     public bool HasAlias => alias is not null;
     public string type { get; set; }
     public bool hasShader { get; set; }
+    public ModInspectionResult? Inspection { get; internal set; }
+    public string DiscoveryId => Inspection?.DiscoveryId ?? path;
+    public string? LoadId => Inspection is null ? folderName : Inspection.LoadId;
     public string path;
     public string folderName;
     public bool hasLoad;

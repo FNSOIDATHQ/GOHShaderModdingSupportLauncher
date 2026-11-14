@@ -31,11 +31,16 @@ namespace GOHShaderModdingSupportLauncher
         #region Main Functions
         public sealed record PakEntry(string FullName, long Length, DateTimeOffset LastWriteTime);
 
-        public static PakEntry[]? TryReadPakEntries(string path)
+        public static PakEntry[]? TryReadPakEntries(string path, CancellationToken cancellationToken = default, int maxEntries = int.MaxValue)
+            => TryReadPakIndex(path, cancellationToken, maxEntries, out _);
+
+        internal static PakEntry[]? TryReadPakIndex(string path, CancellationToken cancellationToken, int maxEntries, out bool limitExceeded)
         {
+            limitExceeded = false;
             string format = "unknown";
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 using var stream = File.OpenRead(path);
                 Span<byte> header = stackalloc byte[8];
                 int read = stream.ReadAtLeast(header, header.Length, throwOnEndOfStream: false);
@@ -49,9 +54,18 @@ namespace GOHShaderModdingSupportLauncher
                 {
                     format = "ZIP";
                     using var archive = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: true);
+                    if (archive.Entries.Count > maxEntries)
+                    {
+                        limitExceeded = true;
+                        throw new InvalidDataException("The PAK index exceeds the inspection limit.");
+                    }
                     // Materialize inside the try block: both readers parse entries lazily.
                     return archive.Entries.Where(entry => entry.Name.Length > 0)
-                        .Select(entry => new PakEntry(entry.FullName.Replace('\\', '/'), entry.Length, entry.LastWriteTime))
+                        .Select(entry =>
+                        {
+                            cancellationToken.ThrowIfCancellationRequested();
+                            return new PakEntry(entry.FullName.Replace('\\', '/'), entry.Length, entry.LastWriteTime);
+                        })
                         .ToArray();
                 }
 
@@ -60,20 +74,30 @@ namespace GOHShaderModdingSupportLauncher
                 {
                     format = "RAR";
                     using var archive = RarArchive.OpenArchive(stream, ReaderOptions.ForExternalStream);
-                    var entries = archive.Entries.Where(entry => !entry.IsDirectory)
-                        .Select(entry => new PakEntry((entry.Key ?? "").Replace('\\', '/'), entry.Size,
-                            entry.LastModifiedTime is DateTime modified ? new DateTimeOffset(modified) : DateTimeOffset.UnixEpoch))
-                        .ToArray();
+                    var entries = new List<PakEntry>();
+                    int count = 0;
+                    foreach (var entry in archive.Entries)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        if (++count > maxEntries)
+                        {
+                            limitExceeded = true;
+                            throw new InvalidDataException("The PAK index exceeds the inspection limit.");
+                        }
+                        if (!entry.IsDirectory)
+                            entries.Add(new PakEntry((entry.Key ?? "").Replace('\\', '/'), entry.Size,
+                                entry.LastModifiedTime is DateTime modified ? new DateTimeOffset(modified) : DateTimeOffset.UnixEpoch));
+                    }
                     // Force main-header validation, including archives with no file entries.
                     _ = archive.IsSolid;
                     if (!archive.IsComplete) throw new InvalidDataException("The RAR archive is incomplete.");
-                    return entries;
+                    return entries.ToArray();
                 }
 
                 AppDiagnostics.Log($"Skipping unsupported pak format (expected ZIP or RAR): {path}");
                 return null;
             }
-            catch (Exception ex) when (ex is not OutOfMemoryException)
+            catch (Exception ex) when (ex is not (OutOfMemoryException or OperationCanceledException))
             {
                 // Malformed third-party headers can produce different parser exceptions.
                 AppDiagnostics.Log($"Skipping unreadable pak ({format}): {path}", ex);

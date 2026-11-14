@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 
 namespace GOHShaderModdingSupportLauncher;
 
@@ -79,6 +80,15 @@ internal static class PresetUiSmokeTest
             CheckOrder("z", "b");
             foreach (var name in store.List()) store.Delete(name);
             manager.FindControl<Button>("refresh")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            var timer = System.Diagnostics.Stopwatch.StartNew();
+            while (!window.PendingModRefresh.IsCompleted)
+            {
+                Dispatcher.UIThread.RunJobs();
+                if (timer.Elapsed > TimeSpan.FromSeconds(10)) throw new TimeoutException("Mod refresh did not complete.");
+                Thread.Sleep(1);
+            }
+            window.PendingModRefresh.GetAwaiter().GetResult();
+            Dispatcher.UIThread.RunJobs();
             Require(list.ItemCount == 0 && !manager.FindControl<Button>("loadPreset")!.IsEnabled);
             CheckOrder("z", "b");
         }
