@@ -147,12 +147,22 @@ Other request failures show the HTTP status or connection error category. Run th
 
 Images follow a limited number of HTTPS redirects to supported media hosts. Failed images show the HTTP, content or decoding error and can be retried; individual images are limited to 20 MiB and checked for excessive pixel dimensions before decoding. Run `--check-moddb-images --software-rendering` to check the Replays Unlocked and Hotmod galleries, download their first thumbnail and original in full, and test decoding with the EXE's own renderer. This diagnostic writes to the same log and returns 0 only when all image checks pass; it does not open a verification browser or modify game files.
 
+### Launcher updates
+
+The launcher checks the official GitHub **Latest** release in the background after startup. Successful checks are cached for six hours in `launcher-update.json` beside the launcher settings. **About → Check for updates** refreshes the check and also works before game/profile paths are configured. Requests are anonymous and use the Windows user proxy settings; GitHub API cooldowns are shared with Mod subscriptions. Connection, rate-limit and metadata failures preserve the previous successful snapshot.
+
+Only a strictly newer numeric version is offered, with an optional `v` prefix and two to four numeric components (for example, `v4.00` or `v4.00.1`). Equal versions and older releases never replace the current launcher. Previews, legacy WPF attachments and unsupported version formats remain available through **Open GitHub release**. Downloading requires one attachment named exactly `GOHShaderModdingSupportLauncher.exe` with a valid GitHub `sha256` digest. Releases must contain the final Windows x64 single-file EXE produced by `Publish-Aot.ps1`, including its appended native library bundle; the script prints the complete EXE's SHA-256 after packaging.
+
+**Download and update** shows progress and supports cancellation. The full file size, SHA-256 and x64 executable header are checked before preparing a replacement. The launcher saves its settings and closes through the normal subscription cleanup; a separate helper then verifies both files again, atomically replaces the EXE, preserves the previous version as `old.exe`, and restarts. An existing `old.exe` blocks the update until you move or remove that backup. Replacement or process-start failures trigger recovery of the previous EXE; errors are recorded beside the launcher in `.update-error.log`. If the new version starts but later has a runtime problem, use the retained `old.exe` to recover manually.
+
+Run `--check-launcher-update` to test the EXE's own anonymous release-metadata request without downloading or applying an attachment. Exit code 0 means the metadata request and parsing succeeded; the current tag, eligibility and any incompatible release format are recorded in the diagnostic log. The Workshop updater and its UI workflow are retained in [Legacy/WorkshopUpdater](Legacy/WorkshopUpdater/README.md), excluded from the application build.
+
 ### Notice
 * Force change bump quality is a special measure used to support my shader mods
 * Move Environment.CurrentDirectory to game directory is always necessary to let steam not truncate our launch commands
 * Settings are saved under LocalAppData, with compatibility for existing settings.conf beside the EXE.
 * Game Launch process optional comes with the -showmodinfo parameter, which is an enhancement I found that let game shows detailed mod information
-* Automatic update does not check for the availability of new version, so please delete the backup EXE file yourself after verified updated version.
+* Launcher updates preserve `old.exe`; remove it after confirming the updated version works, before applying another update.
 
 Use `--check-google-translation` or `--check-transmart-translation` to test the EXE's own anonymous WinHTTP translation with public short samples, a multi-paragraph text of over 3,000 characters, English-to-Chinese and Chinese-to-English targets, protected values, line breaks, cache and cancellation. A Russian-to-Chinese sample is reported separately when the service's engine is unavailable. These checks do not open the UI or change game files. Exit code 0 means the required short/long, two-target and cache/cancellation checks passed; results and any unavailable Russian engine are written to the same diagnostic log. These commands use the Windows user proxy settings and do not establish mainland direct-access evidence. Translation preferences are stored separately in `translation-settings.json`; the bounded translation caches stay in memory and are cleared by the subscription cache cleanup tool.
 

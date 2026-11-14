@@ -101,6 +101,8 @@ try {
 }
 finally { $binary.Dispose() }
 
+$exeHash = (Get-FileHash -LiteralPath $destinationExe -Algorithm SHA256).Hash.ToLowerInvariant()
+
 foreach ($arguments in @(@('--validate-native-bundle'), @('--self-test-ui', '--software-rendering'))) {
     $check = Start-Process -FilePath $destinationExe -ArgumentList $arguments -PassThru -Wait -WindowStyle Hidden
     if ($check.ExitCode -ne 0) {
@@ -109,6 +111,8 @@ foreach ($arguments in @(@('--validate-native-bundle'), @('--self-test-ui', '--s
 }
 
 Write-Host "Native AOT executable: $destinationExe"
+Write-Host "GitHub Release asset: $exeName (Windows x64)"
+Write-Host "Final EXE SHA-256: $exeHash"
 Write-Host "Embedded native libraries: $($dlls.Count)"
 Write-Host "Archive SHA-256: $([BitConverter]::ToString($archiveHash).Replace('-', '').ToLowerInvariant())"
 Write-Host "Publish log: $log"

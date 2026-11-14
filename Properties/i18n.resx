@@ -1032,4 +1032,37 @@ Make sure Steam has finished downloading the item.</value>
   <data name="MI_Reason_DuplicateLoadId" xml:space="preserve">
     <value>Multiple folders share this loading ID.</value>
   </data>
+  <data name="LU_CurrentVersion" xml:space="preserve"><value>Current version:</value></data>
+  <data name="LU_ReleaseVersion" xml:space="preserve"><value>GitHub release:</value></data>
+  <data name="LU_Published" xml:space="preserve"><value>Published:</value></data>
+  <data name="LU_DownloadSize" xml:space="preserve"><value>Download size:</value></data>
+  <data name="LU_Available" xml:space="preserve"><value>A newer release is available. Download and update to close the launcher, keep the current EXE as old.exe, and restart. Remove the backup after confirming the new version works.</value></data>
+  <data name="LU_Current" xml:space="preserve"><value>You have the latest published version.</value></data>
+  <data name="LU_LocalNewer" xml:space="preserve"><value>Your current version is newer than the latest published release.</value></data>
+  <data name="LU_NoRelease" xml:space="preserve"><value>No public latest release is available.</value></data>
+  <data name="LU_UnsupportedRelease" xml:space="preserve"><value>The latest release is a preview or uses an unsupported version format. Open GitHub Releases to review it.</value></data>
+  <data name="LU_UnknownVersion" xml:space="preserve"><value>The current version could not be compared safely. Open GitHub Releases to review the download.</value></data>
+  <data name="LU_MissingAsset" xml:space="preserve"><value>This release does not contain a unique GOHShaderModdingSupportLauncher.exe update. Open GitHub Releases to review its files.</value></data>
+  <data name="LU_MissingDigest" xml:space="preserve"><value>This release has no valid SHA-256 digest for automatic updating. Open GitHub Releases to review the download.</value></data>
+  <data name="LU_InvalidAsset" xml:space="preserve"><value>The update attachment is incomplete or does not match the official Windows x64 release.</value></data>
+  <data name="LU_InvalidResponse" xml:space="preserve"><value>GitHub returned invalid release metadata. The previous successful check has been preserved.</value></data>
+  <data name="LU_ChecksumFailed" xml:space="preserve"><value>The downloaded update failed SHA-256 verification. The current launcher has been preserved.</value></data>
+  <data name="LU_InvalidExecutable" xml:space="preserve"><value>The downloaded file is not a Windows x64 executable.</value></data>
+  <data name="LU_UnsupportedTarget" xml:space="preserve"><value>This running host cannot be replaced automatically. Open GitHub Releases and install the published EXE manually.</value></data>
+  <data name="LU_TargetChanged" xml:space="preserve"><value>The current launcher changed during the update. Check for updates again.</value></data>
+  <data name="LU_Checking" xml:space="preserve"><value>A launcher update check is already in progress.</value></data>
+  <data name="LU_Notes" xml:space="preserve"><value>Release notes</value></data>
+  <data name="LU_LastCheck" xml:space="preserve"><value>Checked:</value></data>
+  <data name="LU_CachedCheck" xml:space="preserve"><value>Last successful check (cached):</value></data>
+  <data name="LU_Download" xml:space="preserve"><value>Download and update</value></data>
+  <data name="LU_OpenRelease" xml:space="preserve"><value>Open GitHub release</value></data>
+  <data name="LU_Close" xml:space="preserve"><value>Close</value></data>
+  <data name="LU_CancelDownload" xml:space="preserve"><value>Cancel download</value></data>
+  <data name="LU_Downloading" xml:space="preserve"><value>Downloading and verifying update…</value></data>
+  <data name="LU_Preparing" xml:space="preserve"><value>Preparing verified update…</value></data>
+  <data name="LU_Cancelled" xml:space="preserve"><value>Download cancelled. The current launcher has been preserved.</value></data>
+  <data name="LU_Failed" xml:space="preserve"><value>Unable to complete the launcher update.</value></data>
+  <data name="LU_RetryAfter" xml:space="preserve"><value>Retry after:</value></data>
+  <data name="LU_Restored" xml:space="preserve"><value>The previous launcher has been restored.</value></data>
+  <data name="LU_RestoreFailed" xml:space="preserve"><value>Automatic recovery could not finish. The previous launcher is preserved at the backup path:</value></data>
 </root>

@@ -13,6 +13,7 @@ internal static class Program
             arg.Equals("--validate-native-bundle", StringComparison.OrdinalIgnoreCase) ||
             arg.Equals("--self-test-ui", StringComparison.OrdinalIgnoreCase) ||
             arg.Equals("--check-moddb", StringComparison.OrdinalIgnoreCase) ||
+            arg.Equals("--check-launcher-update", StringComparison.OrdinalIgnoreCase) ||
             arg.Equals("--check-google-translation", StringComparison.OrdinalIgnoreCase) ||
             arg.Equals("--check-transmart-translation", StringComparison.OrdinalIgnoreCase) ||
             arg.Equals("--check-moddb-images", StringComparison.OrdinalIgnoreCase));
@@ -32,6 +33,8 @@ internal static class Program
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static int RunApplication(string[] args)
     {
+        if (Array.Exists(args, arg => arg.Equals("--check-launcher-update", StringComparison.OrdinalIgnoreCase)))
+            return LauncherUpdateDiagnostics.RunAsync().GetAwaiter().GetResult();
         if (Array.Exists(args, arg => arg.Equals("--check-transmart-translation", StringComparison.OrdinalIgnoreCase)))
             return ModSourceDiagnostics.RunTranslationAsync(tranSmart: true).GetAwaiter().GetResult();
         if (Array.Exists(args, arg => arg.Equals("--check-google-translation", StringComparison.OrdinalIgnoreCase)))

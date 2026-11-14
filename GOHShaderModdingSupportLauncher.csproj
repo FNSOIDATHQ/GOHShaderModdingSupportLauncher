@@ -21,6 +21,7 @@
   <ItemGroup>
     <Compile Remove="tests\**\*.cs" />
     <Compile Remove="MainWindowBak.xaml.cs" />
+    <Compile Remove="Legacy\WorkshopUpdater\**\*.cs" />
     <EmbeddedResource Include="pak\noCache\shader.pak" />
     <EmbeddedResource Include="pak\Ori\shader.lzma" />
     <AvaloniaResource Include="bg.jpg" />

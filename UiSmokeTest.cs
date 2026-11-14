@@ -30,6 +30,8 @@ internal static class UiSmokeTest
             if (Application.Current?.Styles.Count != 2)
                 throw new InvalidOperationException("Avalonia theme or DataGrid styles did not load.");
             CheckSubscriptionMedia();
+            LauncherUpdateSmokeTest.Run(fixture);
+            LauncherUpdateUiSmokeTest.Run(fixture);
             CheckSubscriptionCache(fixture);
             ModTranslationUiSmokeTest.Run(fixture);
             ModInspectionSmokeTest.Run(fixture);
@@ -74,7 +76,7 @@ internal static class UiSmokeTest
                 throw new InvalidOperationException("Unsupported settings language was accepted.");
             settings[13] = "en-US";
             FileManager.WriteSettings(settingsPath, settings);
-            var window = new MainWindow(settingsPath) { SuppressSubscriptionActivation = true };
+            var window = new MainWindow(settingsPath) { SuppressSubscriptionActivation = true, SuppressLauncherUpdates = true };
             window.universalVars.configLoc = settingsPath;
             var layout = window.FindControl<Grid>("windowLayout")
                 ?? throw new InvalidOperationException("Main window layout is missing.");

@@ -1032,4 +1032,37 @@
   <data name="MI_Reason_DuplicateLoadId" xml:space="preserve">
     <value>多个目录具有相同的加载 ID。</value>
   </data>
+  <data name="LU_CurrentVersion" xml:space="preserve"><value>当前版本：</value></data>
+  <data name="LU_ReleaseVersion" xml:space="preserve"><value>GitHub 发布版本：</value></data>
+  <data name="LU_Published" xml:space="preserve"><value>发布时间：</value></data>
+  <data name="LU_DownloadSize" xml:space="preserve"><value>下载大小：</value></data>
+  <data name="LU_Available" xml:space="preserve"><value>发现新版本。点击“下载并更新”后，启动器将关闭，将当前程序备份为 old.exe，完成更新并重启。确认新版正常后可手动删除备份。</value></data>
+  <data name="LU_Current" xml:space="preserve"><value>当前已是最新发布版本。</value></data>
+  <data name="LU_LocalNewer" xml:space="preserve"><value>当前版本高于 GitHub 最新发布版本。</value></data>
+  <data name="LU_NoRelease" xml:space="preserve"><value>目前没有可用的公开 Latest 发布版本。</value></data>
+  <data name="LU_UnsupportedRelease" xml:space="preserve"><value>最新发布为预览版，或版本号格式暂不支持。可打开 GitHub 发布页查看。</value></data>
+  <data name="LU_UnknownVersion" xml:space="preserve"><value>无法可靠比较当前版本，请打开 GitHub 发布页查看下载。</value></data>
+  <data name="LU_MissingAsset" xml:space="preserve"><value>此发布未包含唯一的 GOHShaderModdingSupportLauncher.exe 更新文件。可打开 GitHub 发布页查看附件。</value></data>
+  <data name="LU_MissingDigest" xml:space="preserve"><value>此发布缺少自动更新所需的有效 SHA-256 摘要。可打开 GitHub 发布页查看下载。</value></data>
+  <data name="LU_InvalidAsset" xml:space="preserve"><value>更新附件尚未上传完成，或与官方 Windows x64 发布格式不符。</value></data>
+  <data name="LU_InvalidResponse" xml:space="preserve"><value>GitHub 返回的版本信息无效，已保留上次成功检查记录。</value></data>
+  <data name="LU_ChecksumFailed" xml:space="preserve"><value>下载文件的 SHA-256 校验失败，已保留当前启动器。</value></data>
+  <data name="LU_InvalidExecutable" xml:space="preserve"><value>下载文件不是 Windows x64 可执行程序。</value></data>
+  <data name="LU_UnsupportedTarget" xml:space="preserve"><value>当前运行宿主不支持自动替换，请打开 GitHub 发布页手动安装发布版 EXE。</value></data>
+  <data name="LU_TargetChanged" xml:space="preserve"><value>更新期间当前启动器发生了变化，请重新检查更新。</value></data>
+  <data name="LU_Checking" xml:space="preserve"><value>正在检查启动器更新，请稍候。</value></data>
+  <data name="LU_Notes" xml:space="preserve"><value>更新说明</value></data>
+  <data name="LU_LastCheck" xml:space="preserve"><value>检查时间：</value></data>
+  <data name="LU_CachedCheck" xml:space="preserve"><value>上次成功检查（缓存）：</value></data>
+  <data name="LU_Download" xml:space="preserve"><value>下载并更新</value></data>
+  <data name="LU_OpenRelease" xml:space="preserve"><value>打开 GitHub 发布页</value></data>
+  <data name="LU_Close" xml:space="preserve"><value>关闭</value></data>
+  <data name="LU_CancelDownload" xml:space="preserve"><value>取消下载</value></data>
+  <data name="LU_Downloading" xml:space="preserve"><value>正在下载并校验更新…</value></data>
+  <data name="LU_Preparing" xml:space="preserve"><value>正在准备已校验的更新…</value></data>
+  <data name="LU_Cancelled" xml:space="preserve"><value>已取消下载，已保留当前启动器。</value></data>
+  <data name="LU_Failed" xml:space="preserve"><value>无法完成启动器更新。</value></data>
+  <data name="LU_RetryAfter" xml:space="preserve"><value>可重试时间：</value></data>
+  <data name="LU_Restored" xml:space="preserve"><value>已恢复旧版启动器。</value></data>
+  <data name="LU_RestoreFailed" xml:space="preserve"><value>自动恢复未能完成，旧版启动器仍保留在以下备份路径：</value></data>
 </root>

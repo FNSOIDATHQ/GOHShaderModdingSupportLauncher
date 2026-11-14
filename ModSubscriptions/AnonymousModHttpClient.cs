@@ -16,6 +16,8 @@ internal sealed record ModHttpOptions
     internal ModBrowserClearance? Clearance { get; init; }
 }
 
+internal sealed record ModJsonResponse(HttpStatusCode Status, string? Body, string? ETag);
+
 // Serializes requests (including response bodies) per host across all production clients.
 internal sealed class ModHostLimiter
 {
@@ -59,9 +61,19 @@ internal sealed class AnonymousModHttpClient : IDisposable
     internal Task<string> GetJsonAsync(Uri uri, Func<Uri, bool> allow, CancellationToken token) =>
         GetPayloadAsync(uri, allow, token, json: true);
 
+    // Conditional public GitHub reads share the same anonymous transport and core quota.
+    internal Task<ModJsonResponse> GetGitHubJsonAsync(Uri uri, string? etag, CancellationToken token) =>
+        SendAsync(uri, candidate => IsPublicHttps(candidate) && candidate.IdnHost == "api.github.com", false, token,
+            async (response, ct) => new ModJsonResponse(response.StatusCode,
+                response.StatusCode is HttpStatusCode.NotModified or HttpStatusCode.NotFound ? null :
+                    await ReadPayloadAsync(response, ct, json: true).ConfigureAwait(false), response.Headers.ETag?.ToString()),
+            json: true, ifNoneMatch: etag, allowNotModifiedOrMissing: true);
+
     private Task<string> GetPayloadAsync(Uri uri, Func<Uri, bool> allow, CancellationToken token, bool json) =>
-        SendAsync(uri, allow, false, token, async (response, ct) =>
-        {
+        SendAsync(uri, allow, false, token, (response, ct) => ReadPayloadAsync(response, ct, json), json);
+
+    private async Task<string> ReadPayloadAsync(HttpResponseMessage response, CancellationToken ct, bool json)
+    {
             if (response.StatusCode == HttpStatusCode.PartialContent)
                 throw Error(ModSourceError.ParseFailed, "The source returned an incomplete content page.");
             string? type = response.Content.Headers.ContentType?.MediaType;
@@ -85,7 +97,7 @@ internal sealed class AnonymousModHttpClient : IDisposable
             string html = System.Text.Encoding.UTF8.GetString(bytes.GetBuffer(), 0, checked((int)bytes.Length));
             if (!json && ModChallengeDetector.IsChallengeHtml(html)) RequireVerification(response.RequestMessage!.RequestUri!, response.StatusCode);
             return html;
-        }, json);
+    }
 
     internal Task<Uri> ResolveFileAsync(Uri uri, Func<Uri, bool> allow, CancellationToken token) =>
         SendAsync(uri, allow, true, token, async (response, ct) =>
@@ -111,7 +123,8 @@ internal sealed class AnonymousModHttpClient : IDisposable
         });
 
     private async Task<T> SendAsync<T>(Uri uri, Func<Uri, bool> allow, bool probe, CancellationToken token,
-        Func<HttpResponseMessage, CancellationToken, Task<T>> read, bool json = false)
+        Func<HttpResponseMessage, CancellationToken, Task<T>> read, bool json = false,
+        string? ifNoneMatch = null, bool allowNotModifiedOrMissing = false)
     {
         for (int attempt = 0; ; attempt++)
         {
@@ -157,6 +170,8 @@ internal sealed class AnonymousModHttpClient : IDisposable
                             request.Headers.Accept.Clear();
                             request.Headers.Accept.ParseAdd("application/vnd.github+json");
                             request.Headers.Add("X-GitHub-Api-Version", "2022-11-28");
+                            if (ifNoneMatch is not null && EntityTagHeaderValue.TryParse(ifNoneMatch, out var entityTag))
+                                request.Headers.IfNoneMatch.Add(entityTag);
                         }
                         options.Clearance?.Apply(request);
                         if (probe) request.Headers.Range = new RangeHeaderValue(0, 15);
@@ -176,7 +191,8 @@ internal sealed class AnonymousModHttpClient : IDisposable
                             current = new Uri(current, response.Headers.Location);
                             continue;
                         }
-                        if (!response.IsSuccessStatusCode)
+                        if (!response.IsSuccessStatusCode && !(allowNotModifiedOrMissing &&
+                            response.StatusCode is HttpStatusCode.NotModified or HttpStatusCode.NotFound))
                         {
                             if (current.Host == "cloud-api.yandex.net" &&
                                 response.Content.Headers.ContentType?.MediaType == "application/json")
