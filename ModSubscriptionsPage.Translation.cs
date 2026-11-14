@@ -9,11 +9,14 @@ public sealed partial class ModSubscriptionsPage
 {
     private IModTextTranslator textTranslator = new GoogleModTextTranslator();
     private ModDocumentTranslator? documentTranslator;
+    private string currentTranslationProvider = ModTranslationProviders.Google;
+    private readonly Dictionary<string, IModTextTranslator> translationProviders = [];
+    private readonly Dictionary<string, ModDocumentTranslator> translationDocuments = [];
     private ModDocumentTranslator DocumentTranslator => documentTranslator ??= new(textTranslator);
     private ModTranslationSettings translationPreferences = new();
     private readonly SemaphoreSlim translationSettingsGate = new(1, 1);
     private CheckBox translateToggle = null!;
-    private ComboBox translationLanguage = null!, translationDisplay = null!;
+    private ComboBox translationProvider = null!, translationLanguage = null!, translationDisplay = null!;
     private StackPanel translationToolbar = null!;
     private Grid subscriptionHeader = null!;
     private CancellationTokenSource? translationCancellation;
@@ -33,14 +36,20 @@ public sealed partial class ModSubscriptionsPage
         translationToolbar.HorizontalAlignment = HorizontalAlignment.Center;
         var controls = Row(); controls.HorizontalAlignment = HorizontalAlignment.Center;
         translateToggle = new CheckBox { Name = "subscriptionTranslate", Content = T("AutoTranslate"), VerticalAlignment = VerticalAlignment.Center };
+        translationProvider = new ComboBox { Name = "subscriptionTranslationProvider", Width = 160,
+            ItemsSource = new[] { "Google", T("TranslationProviderTranSmart") } };
+        Avalonia.Automation.AutomationProperties.SetName(translationProvider, T("TranslationProvider"));
+        ToolTip.SetTip(translationProvider, T("TranslationProvider"));
         translationLanguage = new ComboBox { Name = "subscriptionTranslationLanguage", Width = 138,
-            ItemsSource = new[] { T("TranslationFollowUI"), "English", "简体中文", "繁體中文", "日本語", "한국어", "Русский", "Deutsch", "Français", "Español", "Português", "Українська", "Polski" } };
+            ItemsSource = new[] { T("TranslationFollowUI"), "English", "简体中文", "繁體中文", "日本語", "한국어", "Русский", "Deutsch", "Français", "Español", "Português", "Українська", "Polski" }
+                .Select(name => new ComboBoxItem { Content = name, Tag = name }).ToArray() };
         translationDisplay = new ComboBox { Name = "subscriptionTranslationDisplay", Width = 116, ItemsSource = new[] { T("TranslatedText"), T("OriginalText") } };
-        controls.Children.Add(translateToggle); controls.Children.Add(translationLanguage); controls.Children.Add(translationDisplay);
+        controls.Children.Add(translateToggle); controls.Children.Add(translationProvider); controls.Children.Add(translationLanguage); controls.Children.Add(translationDisplay);
         translationToolbar.Children.Add(controls);
         ToolTip.SetTip(translationToolbar, T("TranslationHint"));
         ApplyTranslationControls();
         translateToggle.IsCheckedChanged += async (_, _) => await TranslationPreferencesChangedAsync();
+        translationProvider.SelectionChanged += async (_, _) => await TranslationPreferencesChangedAsync();
         translationLanguage.SelectionChanged += async (_, _) => await TranslationPreferencesChangedAsync();
         translationDisplay.SelectionChanged += async (_, _) => await TranslationPreferencesChangedAsync();
         return translationToolbar;
@@ -50,6 +59,15 @@ public sealed partial class ModSubscriptionsPage
     {
         updatingTranslationControls = true;
         translateToggle.IsChecked = translationPreferences.Enabled;
+        translationProvider.SelectedIndex = translationPreferences.Provider == ModTranslationProviders.TranSmart ? 1 : 0;
+        int index = 0;
+        foreach (var item in translationLanguage.Items.Cast<ComboBoxItem>())
+        {
+            item.IsEnabled = textTranslator.Capabilities.SupportsLanguage(index == 0 ? TargetLanguage : ModTranslationSettings.Languages[index - 1]);
+            item.Content = item.IsEnabled ? item.Tag : string.Format(T("TranslationLanguageUnavailable"), item.Tag);
+            ToolTip.SetTip(item, item.IsEnabled ? null : T("TranslationError_UnsupportedLanguage"));
+            index++;
+        }
         translationLanguage.SelectedIndex = Array.IndexOf(ModTranslationSettings.Languages, translationPreferences.Language) + 1;
         translationDisplay.SelectedIndex = translationPreferences.ShowOriginal ? 1 : 0;
         translationDisplay.IsEnabled = translationPreferences.Enabled;
@@ -64,6 +82,7 @@ public sealed partial class ModSubscriptionsPage
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
         { value = new(); if (revision == translationPreferenceRevision) ReportNotice(T("TranslationSettingsInvalid"), attention: true, key: "translationSettings"); }
         if (disposed || revision != translationPreferenceRevision) return;
+        SelectTranslationProvider(value.Provider);
         translationPreferences = value;
         ApplyTranslationControls();
     }
@@ -74,8 +93,10 @@ public sealed partial class ModSubscriptionsPage
         translationPreferenceRevision++;
         SaveReadingPosition();
         var value = new ModTranslationSettings { Enabled = translateToggle.IsChecked == true,
+            Provider = translationProvider.SelectedIndex == 1 ? ModTranslationProviders.TranSmart : ModTranslationProviders.Google,
             Language = translationLanguage.SelectedIndex > 0 ? ModTranslationSettings.Languages[translationLanguage.SelectedIndex - 1] : "",
             ShowOriginal = translationDisplay.SelectedIndex == 1 };
+        SelectTranslationProvider(value.Provider);
         translationPreferences = value;
         ApplyTranslationControls(); CancelTranslation(); RerenderTranslation();
         if (runtime is null) return;
@@ -89,6 +110,32 @@ public sealed partial class ModSubscriptionsPage
         catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         { if (!disposed) ReportNotice(T("TranslationSettingsFailed"), attention: true, key: "translationSettings"); }
+    }
+
+    private void SelectTranslationProvider(string provider)
+    {
+        if (provider == currentTranslationProvider) return;
+        CancelTranslation();
+        translationProviders[currentTranslationProvider] = textTranslator;
+        if (documentTranslator is not null) translationDocuments[currentTranslationProvider] = documentTranslator;
+        if (!translationProviders.TryGetValue(provider, out var selected))
+            translationProviders.Add(provider, selected = ModTranslationProviders.Create(provider));
+        textTranslator = selected;
+        documentTranslator = translationDocuments.GetValueOrDefault(provider);
+        currentTranslationProvider = provider;
+    }
+
+    private void ClearTranslationCaches()
+    {
+        foreach (var engine in translationDocuments.Values.Append(documentTranslator).OfType<ModDocumentTranslator>().Distinct()) engine.ClearCache();
+        foreach (var provider in translationProviders.Values.Append(textTranslator).Distinct())
+            (provider as IModTranslationCache)?.ClearCache();
+    }
+
+    private void DisposeTranslationProviders()
+    {
+        foreach (var provider in translationProviders.Values.Append(textTranslator).Distinct())
+            (provider as IDisposable)?.Dispose();
     }
 
     private void CancelTranslation()
@@ -113,7 +160,7 @@ public sealed partial class ModSubscriptionsPage
         bool visible = details.SelectedIndex == 0 ? panel == reading || panel == summary : panel == fileReader;
         if (!visible || !translationPreferences.Enabled || translationPreferences.ShowOriginal || session is null || operation.IsVisible || !detail.IsVisible) return original;
         string context = string.Join("\n", main.SubscriptionGameDirectory, session.Mod.Id, details.SelectedIndex,
-            details.SelectedIndex == 0 ? session.Article?.AbsoluteUri ?? "overview" : session.File, TargetLanguage);
+            details.SelectedIndex == 0 ? session.Article?.AbsoluteUri ?? "overview" : session.File, textTranslator.Provider, TargetLanguage);
         if (context != translationContext)
         {
             string? sourceKey = translationSource;
@@ -130,6 +177,7 @@ public sealed partial class ModSubscriptionsPage
 
     private async Task TranslateDocumentAsync(string key, ModReadingDocument original, ReadingSession expected, string language, int generation, CancellationToken token)
     {
+        var engine = DocumentTranslator;
         // Finish the current visual-tree render before even an immediately completed provider can repaint it.
         await Task.Yield();
         if (generation != translationGeneration || !IsCurrent(expected, token)) return;
@@ -143,7 +191,7 @@ public sealed partial class ModSubscriptionsPage
                 if (!Current() || finished || value.Total == 0) return;
                 if (pageStatus.Update(operation, "Translation", string.Format(T("TranslationProgress"), value.Completed, value.Total), ModPageOperationState.Running)) RenderStatus();
             });
-            var result = await Task.Run(() => DocumentTranslator.TranslateAsync(original, language, progress, token), token);
+            var result = await Task.Run(() => engine.TranslateAsync(original, language, progress, token), token);
             if (!Current()) return;
             finished = true;
             translationViews[key] = result;

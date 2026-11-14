@@ -776,11 +776,11 @@ Make sure Steam has finished downloading the item.</value>
   <data name="MS_StatusState_Cancelled" xml:space="preserve"><value>Cancelled</value></data>
   <data name="MS_RefreshAfterOperation" xml:space="preserve"><value>Return to the files after completing or cancelling the current confirmation, then refresh.</value></data>
   <data name="MS_SelectionOutsideResults" xml:space="preserve"><value>The selected mod is outside the refreshed results. Choose a mod from the list.</value></data>
-  <data name="MS_AutoTranslate" xml:space="preserve"><value>Google auto-translate</value></data>
+  <data name="MS_AutoTranslate" xml:space="preserve"><value>Auto-translate</value></data>
   <data name="MS_TranslationFollowUI" xml:space="preserve"><value>UI language</value></data>
   <data name="MS_TranslatedText" xml:space="preserve"><value>Translated</value></data>
   <data name="MS_OriginalText" xml:space="preserve"><value>Original</value></data>
-  <data name="MS_TranslationHint" xml:space="preserve"><value>Experimental anonymous Google translation. Only the current public text is sent. Local folders, subscriptions, logs and verification data stay on your computer. Translations may be inaccurate; use Original to read the author's text.</value></data>
+  <data name="MS_TranslationHint" xml:space="preserve"><value>Experimental anonymous translation. Only the current public text is sent to the selected provider. Local folders, subscriptions, logs and verification data stay on your computer. Translations may be inaccurate; use Original to read the author's text.</value></data>
   <data name="MS_TranslationSettingsInvalid" xml:space="preserve"><value>Translation preferences could not be read. Automatic translation is off.</value></data>
   <data name="MS_TranslationSettingsFailed" xml:space="preserve"><value>Translation preferences could not be saved.</value></data>
   <data name="MS_TranslationDocument" xml:space="preserve"><value>Current text translation</value></data>
@@ -821,4 +821,8 @@ Make sure Steam has finished downloading the item.</value>
   <data name="MA_InvalidFile" xml:space="preserve"><value>The Mod alias file is invalid, unsupported or exceeds the size limit.</value></data>
   <data name="MA_LoadError" xml:space="preserve"><value>The Mod alias file could not be loaded. It has been preserved. Check mod-aliases.json beside the launcher settings, then restart the launcher.</value></data>
   <data name="MA_SaveError" xml:space="preserve"><value>Mod aliases could not be saved. Your previous rules are unchanged.</value></data>
+  <data name="MS_TranslationProvider" xml:space="preserve"><value>Translation provider</value></data>
+  <data name="MS_TranslationLanguageUnavailable" xml:space="preserve"><value>{0} (unavailable)</value></data>
+  <data name="MS_TranslationProviderTranSmart" xml:space="preserve"><value>TranSmart</value></data>
+  <data name="MS_TranslationError_UnsupportedLanguage" xml:space="preserve"><value>This target language is unavailable with the selected provider. Choose another language or provider.</value></data>
 </root>

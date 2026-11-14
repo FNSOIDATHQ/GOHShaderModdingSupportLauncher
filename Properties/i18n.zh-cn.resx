@@ -776,11 +776,11 @@
   <data name="MS_StatusState_Cancelled" xml:space="preserve"><value>已取消</value></data>
   <data name="MS_RefreshAfterOperation" xml:space="preserve"><value>请先完成或取消当前确认，返回文件页后再刷新。</value></data>
   <data name="MS_SelectionOutsideResults" xml:space="preserve"><value>所选 Mod 已不在刷新后的结果中，请从列表中重新选择。</value></data>
-  <data name="MS_AutoTranslate" xml:space="preserve"><value>Google 自动翻译</value></data>
+  <data name="MS_AutoTranslate" xml:space="preserve"><value>自动翻译</value></data>
   <data name="MS_TranslationFollowUI" xml:space="preserve"><value>跟随界面语言</value></data>
   <data name="MS_TranslatedText" xml:space="preserve"><value>译文</value></data>
   <data name="MS_OriginalText" xml:space="preserve"><value>原文</value></data>
-  <data name="MS_TranslationHint" xml:space="preserve"><value>实验性匿名 Google 翻译。只发送当前公开正文，不发送本地目录、订阅库、日志或验证信息。机器翻译可能有误，可切换“原文”阅读作者说明。</value></data>
+  <data name="MS_TranslationHint" xml:space="preserve"><value>实验性匿名翻译。只向所选提供者发送当前公开正文，不发送本地目录、订阅库、日志或验证信息。机器翻译可能有误，可切换“原文”阅读作者说明。</value></data>
   <data name="MS_TranslationSettingsInvalid" xml:space="preserve"><value>无法读取翻译设置，自动翻译已关闭。</value></data>
   <data name="MS_TranslationSettingsFailed" xml:space="preserve"><value>无法保存翻译设置。</value></data>
   <data name="MS_TranslationDocument" xml:space="preserve"><value>当前正文翻译</value></data>
@@ -821,4 +821,8 @@
   <data name="MA_InvalidFile" xml:space="preserve"><value>Mod 别名文件无效、版本不受支持或超出大小限制。</value></data>
   <data name="MA_LoadError" xml:space="preserve"><value>无法读取 Mod 别名文件，已保留原文件。请检查启动器设置旁的 mod-aliases.json，然后重启启动器。</value></data>
   <data name="MA_SaveError" xml:space="preserve"><value>无法保存 Mod 别名，原有规则保持不变。</value></data>
+  <data name="MS_TranslationProvider" xml:space="preserve"><value>翻译提供者</value></data>
+  <data name="MS_TranslationLanguageUnavailable" xml:space="preserve"><value>{0}（暂不可用）</value></data>
+  <data name="MS_TranslationProviderTranSmart" xml:space="preserve"><value>腾讯交互翻译</value></data>
+  <data name="MS_TranslationError_UnsupportedLanguage" xml:space="preserve"><value>所选提供者暂不支持此目标语言，请选择其他语言或提供者。</value></data>
 </root>

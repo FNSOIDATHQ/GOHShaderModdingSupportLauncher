@@ -350,7 +350,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
             runtime.CachesClearing -= CachesClearing;
             runtime.Verification.Changed -= RuntimeChanged;
         }
-        DisposeMedia(); imageClient.Dispose(); (textTranslator as IDisposable)?.Dispose();
+        DisposeMedia(); imageClient.Dispose(); DisposeTranslationProviders();
         CancelLinkNavigation(clearHistory: true);
     }
 }

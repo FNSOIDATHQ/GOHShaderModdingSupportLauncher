@@ -93,8 +93,7 @@ public sealed partial class ModSubscriptionsPage
         if (disposed) return;
         var returning = RememberCacheNavigation();
         CancelRefresh(); CancelLinkNavigation(clearHistory: true); CancelTranslation();
-        documentTranslator?.ClearCache();
-        (textTranslator as IModTranslationCache)?.ClearCache();
+        ClearTranslationCaches();
         listCancellation?.Cancel(); readerCancellation?.Cancel();
         listGeneration++; readerGeneration++; fileGeneration++;
         listLoading = listFresh = false; listTask = null; loadingListKey = null;

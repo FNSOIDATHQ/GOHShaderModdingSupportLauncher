@@ -31,6 +31,7 @@ internal static class UiSmokeTest
                 throw new InvalidOperationException("Avalonia theme or DataGrid styles did not load.");
             CheckSubscriptionMedia();
             CheckSubscriptionCache(fixture);
+            ModTranslationUiSmokeTest.Run(fixture);
             var mods = Directory.CreateDirectory(Path.Combine(fixture, "mods"));
             foreach (var name in new[] { "alpha", "beta", "zeta", "gamma" })
             {
@@ -527,9 +528,10 @@ internal static class UiSmokeTest
         string translationJson = System.Text.Json.JsonSerializer.Serialize(preferences, ModTranslationJsonContext.Default.ModTranslationSettings);
         var translationPreferences = System.Text.Json.JsonSerializer.Deserialize(translationJson, ModTranslationJsonContext.Default.ModTranslationSettings);
         var chunks = ModDocumentTranslator.Chunks(new string('a', 899) + "🙂" + new string('b', 905)).ToArray();
-        if (translationPreferences is not { Enabled: false, Language: "", ShowOriginal: false } ||
+        if (translationPreferences is not { Enabled: false, Language: "", ShowOriginal: false, Provider: ModTranslationProviders.Google } ||
             string.Concat(chunks) != new string('a', 899) + "🙂" + new string('b', 905) || chunks.Any(chunk => char.IsHighSurrogate(chunk[^1])) ||
             !page.GetLogicalDescendants().OfType<CheckBox>().Any(control => control.Name == "subscriptionTranslate" && control.IsChecked != true) ||
+            !page.GetLogicalDescendants().OfType<ComboBox>().Any(control => control.Name == "subscriptionTranslationProvider" && control.SelectedIndex == 0 && control.ItemCount == 2) ||
             !page.GetLogicalDescendants().OfType<ComboBox>().Any(control => control.Name == "subscriptionTranslationLanguage" && control.SelectedIndex == 0) ||
             !page.GetLogicalDescendants().OfType<ComboBox>().Any(control => control.Name == "subscriptionTranslationDisplay" && !control.IsEnabled))
             throw new InvalidOperationException("Subscription translation controls, defaults, Unicode chunks or source-generated preferences failed.");

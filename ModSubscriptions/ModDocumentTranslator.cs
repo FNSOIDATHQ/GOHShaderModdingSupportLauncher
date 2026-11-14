@@ -41,6 +41,7 @@ internal sealed partial class ModDocumentTranslator(IModTextTranslator translato
         IProgress<ModTranslationProgress>? progress = null, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (!translator.Capabilities.SupportsLanguage(language)) throw new ModTranslationException(ModTranslationError.UnsupportedLanguage);
         long generation;
         lock (sync) generation = cacheGeneration;
         if (!ModDocumentParser.HasDocument(document)) throw new ModTranslationException(ModTranslationError.InvalidResponse);
@@ -59,7 +60,7 @@ internal sealed partial class ModDocumentTranslator(IModTextTranslator translato
         bool stopped = false;
         if (batchTranslator is not null)
         {
-            var pending = Texts(document.Blocks).SelectMany(UnprotectedParts).SelectMany(Chunks).Select(text => text.Trim())
+            var pending = Texts(document.Blocks).SelectMany(UnprotectedParts).SelectMany(text => Chunks(text, translator.Capabilities.ChunkLength)).Select(text => text.Trim())
                 .Where(text => text.Any(char.IsLetter)).Distinct(StringComparer.Ordinal).Take(4097).ToArray();
             if (pending.Length > 4096) throw new ModTranslationException(ModTranslationError.TooLarge);
             try
@@ -83,12 +84,12 @@ internal sealed partial class ModDocumentTranslator(IModTextTranslator translato
             try
             {
                 var result = new StringBuilder();
-                // Stable source spans avoid relying on Google preserving synthetic markers.
+                // Stable source spans avoid relying on providers preserving synthetic markers.
                 // Technical values are copied locally and never sent to the provider.
                 int offset = 0;
                 async Task AppendText(string source)
                 {
-                    foreach (string chunk in Chunks(source))
+                    foreach (string chunk in Chunks(source, translator.Capabilities.ChunkLength))
                     {
                         timeout.Token.ThrowIfCancellationRequested();
                         string trimmed = chunk.Trim();
@@ -157,9 +158,9 @@ internal sealed partial class ModDocumentTranslator(IModTextTranslator translato
     }
 
     // Prefer paragraph/sentence/word boundaries, leaving whitespace and UTF-16 pairs intact.
-    internal static IEnumerable<string> Chunks(string text)
+    internal static IEnumerable<string> Chunks(string text, int limit = 700)
     {
-        const int limit = GoogleModTextTranslator.ChunkLength;
+        if (limit < 2) throw new ArgumentOutOfRangeException(nameof(limit));
         int start = 0;
         while (start < text.Length)
         {
