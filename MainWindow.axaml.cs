@@ -47,6 +47,7 @@ namespace GOHShaderModdingSupportLauncher
         private bool checkingLauncherUpdate;
         private readonly HashSet<string> checkedUpdatePaths = new(StringComparer.OrdinalIgnoreCase);
         private readonly string settingsPath;
+        internal ModAliasStore ModAliases { get; }
 
         //universal vars
         public class UniversalVars
@@ -119,6 +120,7 @@ namespace GOHShaderModdingSupportLauncher
         internal MainWindow(string settingsPath)
         {
             this.settingsPath = settingsPath;
+            ModAliases = new ModAliasStore(Path.Combine(Path.GetDirectoryName(Path.GetFullPath(settingsPath))!, "mod-aliases.json"));
             uiPreferencesStore = new UiPreferencesStore(Path.Combine(Path.GetDirectoryName(Path.GetFullPath(settingsPath))!, "ui-preferences.json"));
             try { InterfacePreferences = uiPreferencesStore.Load(); }
             catch (Exception ex) when (FileManager.IsFileError(ex) || ex is System.Text.Json.JsonException)
@@ -800,6 +802,7 @@ namespace GOHShaderModdingSupportLauncher
             var mods = new Dictionary<string, Mod>();
             ReadModsFromWorkshop(mods);
             ReadModsFromLocal(mods);
+            foreach (var mod in mods.Values) ModAliases.Apply(mod);
             return mods;
         }
 

@@ -803,4 +803,22 @@
   <data name="U_ModSubscriptionCacheFailed" xml:space="preserve"><value>无法清除 Mod 订阅缓存，请重试。</value></data>
   <data name="MS_ImageCachedFallback" xml:space="preserve"><value>图片刷新失败，正在显示已缓存的图片。</value></data>
   <data name="MS_ImageCacheSaveFailed" xml:space="preserve"><value>图片已读取，但无法保存离线缓存。</value></data>
+  <data name="MA_Title" xml:space="preserve"><value>Mod 别名</value></data>
+  <data name="MA_EditAlias" xml:space="preserve"><value>设置别名</value></data>
+  <data name="MA_OriginalName" xml:space="preserve"><value>原始 Mod 名称</value></data>
+  <data name="MA_Alias" xml:space="preserve"><value>别名</value></data>
+  <data name="MA_Search" xml:space="preserve"><value>搜索原名或别名</value></data>
+  <data name="MA_Add" xml:space="preserve"><value>添加规则</value></data>
+  <data name="MA_Save" xml:space="preserve"><value>保存</value></data>
+  <data name="MA_Delete" xml:space="preserve"><value>删除规则</value></data>
+  <data name="MA_Clear" xml:space="preserve"><value>清除别名</value></data>
+  <data name="MA_Cancel" xml:space="preserve"><value>取消</value></data>
+  <data name="MA_Hint" xml:space="preserve"><value>按完整原名匹配，区分大小写；同名 Mod 共用别名。悬浮在 Mod 名称上可查看原名。</value></data>
+  <data name="MA_Empty" xml:space="preserve"><value>没有匹配的别名规则。填写原名和别名即可添加。</value></data>
+  <data name="MA_InvalidRule" xml:space="preserve"><value>原名和别名不能为空，均最多 1,024 个字符，不能包含换行或控制字符。</value></data>
+  <data name="MA_Duplicate" xml:space="preserve"><value>此原名已有规则，请选中对应规则后编辑。</value></data>
+  <data name="MA_MissingRule" xml:space="preserve"><value>此规则已不存在，请添加新规则。</value></data>
+  <data name="MA_InvalidFile" xml:space="preserve"><value>Mod 别名文件无效、版本不受支持或超出大小限制。</value></data>
+  <data name="MA_LoadError" xml:space="preserve"><value>无法读取 Mod 别名文件，已保留原文件。请检查启动器设置旁的 mod-aliases.json，然后重启启动器。</value></data>
+  <data name="MA_SaveError" xml:space="preserve"><value>无法保存 Mod 别名，原有规则保持不变。</value></data>
 </root>

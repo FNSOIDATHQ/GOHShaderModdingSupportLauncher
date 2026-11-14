@@ -803,4 +803,22 @@ Make sure Steam has finished downloading the item.</value>
   <data name="U_ModSubscriptionCacheFailed" xml:space="preserve"><value>Could not clear the Mod subscription cache. Please try again.</value></data>
   <data name="MS_ImageCachedFallback" xml:space="preserve"><value>Showing the cached image because it could not be refreshed.</value></data>
   <data name="MS_ImageCacheSaveFailed" xml:space="preserve"><value>The image loaded, but its offline cache could not be saved.</value></data>
+  <data name="MA_Title" xml:space="preserve"><value>Mod aliases</value></data>
+  <data name="MA_EditAlias" xml:space="preserve"><value>Edit alias</value></data>
+  <data name="MA_OriginalName" xml:space="preserve"><value>Original Mod name</value></data>
+  <data name="MA_Alias" xml:space="preserve"><value>Alias</value></data>
+  <data name="MA_Search" xml:space="preserve"><value>Search original names and aliases</value></data>
+  <data name="MA_Add" xml:space="preserve"><value>Add rule</value></data>
+  <data name="MA_Save" xml:space="preserve"><value>Save</value></data>
+  <data name="MA_Delete" xml:space="preserve"><value>Delete rule</value></data>
+  <data name="MA_Clear" xml:space="preserve"><value>Clear alias</value></data>
+  <data name="MA_Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="MA_Hint" xml:space="preserve"><value>Rules match the full original name, including case. Mods with the same name share an alias. Hover over a Mod name to see its original name.</value></data>
+  <data name="MA_Empty" xml:space="preserve"><value>No matching alias rules. Enter an original name and alias to add one.</value></data>
+  <data name="MA_InvalidRule" xml:space="preserve"><value>Enter a nonblank original name and alias, each up to 1,024 characters without line breaks or control characters.</value></data>
+  <data name="MA_Duplicate" xml:space="preserve"><value>A rule for this exact original name already exists. Select that rule to edit it.</value></data>
+  <data name="MA_MissingRule" xml:space="preserve"><value>This rule no longer exists. Add a new rule.</value></data>
+  <data name="MA_InvalidFile" xml:space="preserve"><value>The Mod alias file is invalid, unsupported or exceeds the size limit.</value></data>
+  <data name="MA_LoadError" xml:space="preserve"><value>The Mod alias file could not be loaded. It has been preserved. Check mod-aliases.json beside the launcher settings, then restart the launcher.</value></data>
+  <data name="MA_SaveError" xml:space="preserve"><value>Mod aliases could not be saved. Your previous rules are unchanged.</value></data>
 </root>

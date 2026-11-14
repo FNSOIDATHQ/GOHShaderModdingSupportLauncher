@@ -201,6 +201,7 @@ internal static class UiSmokeTest
                         throw new InvalidOperationException("Reordered mods were not saved to options.set.");
                     optionReader.Dispose();
                     PresetUiSmokeTest.Run(manager, window, fixture);
+                    ModAliasUiSmokeTest.Run(manager, window, fixture);
                 }
                 if (i == 3)
                 {

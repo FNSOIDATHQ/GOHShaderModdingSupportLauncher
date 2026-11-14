@@ -55,7 +55,7 @@ namespace GOHShaderModdingSupportLauncher
             InitializeComponent();
             unloadedView = new DataGridCollectionView(unloadedItems);
             unloadedMods.Columns[0].CustomSortComparer = new ModSortComparer(
-                (left, right) => StringComparer.CurrentCultureIgnoreCase.Compare(left.name, right.name));
+                (left, right) => StringComparer.CurrentCultureIgnoreCase.Compare(left.DisplayName, right.DisplayName));
             unloadedMods.Columns[1].CustomSortComparer = new ModSortComparer(
                 (left, right) => StringComparer.CurrentCultureIgnoreCase.Compare(left.type, right.type));
             unloadedMods.Columns[2].CustomSortComparer = new ModSortComparer(
@@ -71,6 +71,8 @@ namespace GOHShaderModdingSupportLauncher
 
             main.RefreshMods();
             UpdateUI();
+            unloadedMods.Columns[0].Sort(System.ComponentModel.ListSortDirection.Ascending);
+            main.ModAliases.Changed += RefreshAliases;
 
             hasInit = true;
         }
@@ -78,6 +80,7 @@ namespace GOHShaderModdingSupportLauncher
         private void UpdateUI()
         {
             vars.hasMod = true;
+            foreach (var mod in main.universalVars.modDic.Values.Concat(main.universalVars.modLoaded).Distinct()) main.ModAliases.Apply(mod);
             loadedItems.Clear();
             unloadedItems.Clear();
             foreach(var mod in main.universalVars.modDic.Values)
@@ -114,6 +117,7 @@ namespace GOHShaderModdingSupportLauncher
                 selectedRow = new SelectedRow("", new List<Mod>());
                 vars.hasMod = false;
             }
+            UpdateAliasAction();
             
         }
 
@@ -306,6 +310,7 @@ namespace GOHShaderModdingSupportLauncher
             {
                 isSyncingSelection = false;
             }
+            UpdateAliasAction();
         }
 
         private void loadedMods_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -321,6 +326,7 @@ namespace GOHShaderModdingSupportLauncher
             {
                 isSyncingSelection = false;
             }
+            UpdateAliasAction();
         }
 
         private void refresh_Click(object sender, RoutedEventArgs e)

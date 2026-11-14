@@ -10,6 +10,7 @@ Language：English [中文](./READMEcn.md)
     - [Preprocess](#preprocess)
     - [Postprocess](#postprocess)
     - [Mod presets](#mod-presets)
+    - [Mod aliases](#mod-aliases)
     - [Mod subscriptions](#mod-subscriptions)
     - [Notice](#notice)
   - [Development Guide](#development-guide)
@@ -81,6 +82,14 @@ name = "Workshop example"
 id = "local_mod"
 name = "Local example"
 ```
+
+### Mod aliases
+
+Select one Mod in **Mod manager** and choose **Edit alias** to set, change or clear its alias. Both name columns show matching aliases in bold; hover to see the original name. Available Mods sort by their displayed names, while enabled Mods keep their load order.
+
+**Settings → Mod aliases** manages all rules, including names that are not currently installed. Search by original name or alias, select a rule to edit or delete it, or choose **Add rule** to enter a new original name and alias. Matching uses the complete original name and is case sensitive. Mods with the same name share a rule across games and sources. Renamed Mods require an updated rule; aliases are never matched again as names.
+
+Rules are saved in `%LOCALAPPDATA%\GOHSMSLauncher\mod-aliases.json`, alongside launcher settings. Removing a Mod or clearing subscription caches preserves them. Aliases change only the name display; Mod files, IDs, enabled order and preset matching keep their original values.
 
 ### Mod subscriptions
 

@@ -48,6 +48,48 @@
                 Content="{Binding S_CompileWarning, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" />
       <CheckBox x:Name="lockModList" Click="lockModList_Click"
                 Content="{Binding S_LockModList, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" />
+      <Expander x:Name="modAliasesExpander" HorizontalAlignment="Stretch"
+                Header="{Binding MA_Title, Source={x:Static local:LocalizedStrings.Instance}}">
+        <StackPanel x:Name="modAliasesPanel" Spacing="8" Margin="0,8">
+          <TextBlock Text="{Binding MA_Hint, Source={x:Static local:LocalizedStrings.Instance}}" TextWrapping="Wrap" />
+          <TextBox x:Name="aliasSearch" TextChanged="aliasSearch_TextChanged"
+                   PlaceholderText="{Binding MA_Search, Source={x:Static local:LocalizedStrings.Instance}}"
+                   AutomationProperties.Name="{Binding MA_Search, Source={x:Static local:LocalizedStrings.Instance}}" />
+          <DataGrid x:Name="aliasRules" Height="210" AutoGenerateColumns="False" IsReadOnly="True"
+                    SelectionMode="Single" CanUserSortColumns="False" CanUserResizeColumns="True"
+                    SelectionChanged="aliasRules_SelectionChanged">
+            <DataGrid.Columns>
+              <DataGridTemplateColumn Header="{Binding MA_OriginalName, Source={x:Static local:LocalizedStrings.Instance}}" Width="*" MinWidth="100">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate x:DataType="local:ModAliasRule">
+                    <TextBlock Text="{Binding OriginalName}" ToolTip.Tip="{Binding OriginalName}" TextTrimming="CharacterEllipsis" Margin="8,0" VerticalAlignment="Center" />
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTemplateColumn Header="{Binding MA_Alias, Source={x:Static local:LocalizedStrings.Instance}}" Width="*" MinWidth="100">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate x:DataType="local:ModAliasRule">
+                    <TextBlock Text="{Binding Alias}" ToolTip.Tip="{Binding Alias}" TextTrimming="CharacterEllipsis" FontWeight="Bold" Margin="8,0" VerticalAlignment="Center" />
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+            </DataGrid.Columns>
+          </DataGrid>
+          <TextBlock x:Name="aliasEmpty" Text="{Binding MA_Empty, Source={x:Static local:LocalizedStrings.Instance}}" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding MA_OriginalName, Source={x:Static local:LocalizedStrings.Instance}}" />
+          <TextBox x:Name="aliasOriginalName" MaxLength="1024"
+                   AutomationProperties.Name="{Binding MA_OriginalName, Source={x:Static local:LocalizedStrings.Instance}}" />
+          <TextBlock Text="{Binding MA_Alias, Source={x:Static local:LocalizedStrings.Instance}}" />
+          <TextBox x:Name="aliasValue" MaxLength="1024"
+                   AutomationProperties.Name="{Binding MA_Alias, Source={x:Static local:LocalizedStrings.Instance}}" />
+          <WrapPanel>
+            <Button x:Name="newAliasRule" Click="newAliasRule_Click" Content="{Binding MA_Add, Source={x:Static local:LocalizedStrings.Instance}}" Margin="0,0,8,4" />
+            <Button x:Name="saveAliasRule" Click="saveAliasRule_Click" Content="{Binding MA_Save, Source={x:Static local:LocalizedStrings.Instance}}" Margin="0,0,8,4" />
+            <Button x:Name="deleteAliasRule" Click="deleteAliasRule_Click" Content="{Binding MA_Delete, Source={x:Static local:LocalizedStrings.Instance}}" IsEnabled="False" Margin="0,0,8,4" />
+          </WrapPanel>
+          <TextBlock x:Name="aliasError" Foreground="#FFD27F" TextWrapping="Wrap" IsVisible="False" />
+        </StackPanel>
+      </Expander>
     </StackPanel>
   </ScrollViewer>
 </UserControl>

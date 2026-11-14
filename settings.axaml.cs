@@ -40,6 +40,7 @@ namespace GOHShaderModdingSupportLauncher
             autoLoadCache.IsChecked = main.universalVars.NeedAutoLoad;
             refreshCacheWhenModified.IsChecked = main.universalVars.NeedCheckShaderModify;
             UpdatePathStatus();
+            InitializeAliases();
         }
 
         private bool updatingAccounts;

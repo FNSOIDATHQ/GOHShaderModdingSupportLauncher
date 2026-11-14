@@ -4,6 +4,11 @@
              xmlns:loc="using:GOHShaderModdingSupportLauncher.Properties"
              x:Class="GOHShaderModdingSupportLauncher.ModManager"
              Loaded="Page_Loaded">
+  <UserControl.Styles>
+    <Style Selector="TextBlock.modName.alias">
+      <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+  </UserControl.Styles>
   <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="10">
     <WrapPanel Grid.Row="0" Margin="0,0,0,8">
       <TextBlock Text="{Binding P_Presets, Source={x:Static local:LocalizedStrings.Instance}}" VerticalAlignment="Center" Margin="0,0,8,4" />
@@ -21,8 +26,15 @@
                 IsReadOnly="True" SelectionMode="Extended" CanUserResizeColumns="True" CanUserSortColumns="True"
                 SelectionChanged="unloadedMods_SelectionChanged">
         <DataGrid.Columns>
-          <DataGridTextColumn x:DataType="local:Mod" Header="{Binding M_GridName, Source={x:Static local:LocalizedStrings.Instance}}" CanUserSort="True"
-                              Binding="{Binding name}" Width="230" MinWidth="80" />
+          <DataGridTemplateColumn Header="{Binding M_GridName, Source={x:Static local:LocalizedStrings.Instance}}" CanUserSort="True"
+                                  SortMemberPath="DisplayName" Width="230" MinWidth="80">
+            <DataGridTemplateColumn.CellTemplate>
+              <DataTemplate x:DataType="local:Mod">
+                <TextBlock Classes="modName" Classes.alias="{Binding HasAlias}" Text="{Binding DisplayName}"
+                           ToolTip.Tip="{Binding name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="8,0" />
+              </DataTemplate>
+            </DataGridTemplateColumn.CellTemplate>
+          </DataGridTemplateColumn>
           <DataGridTextColumn x:DataType="local:Mod" Header="{Binding M_GridType, Source={x:Static local:LocalizedStrings.Instance}}" CanUserSort="True"
                               Binding="{Binding type}" />
           <DataGridCheckBoxColumn x:DataType="local:Mod" Header="{Binding M_GridShader, Source={x:Static local:LocalizedStrings.Instance}}" CanUserSort="True"
@@ -41,8 +53,15 @@
                 IsReadOnly="True" SelectionMode="Extended" CanUserResizeColumns="True" CanUserSortColumns="False"
                 SelectionChanged="loadedMods_SelectionChanged">
         <DataGrid.Columns>
-          <DataGridTextColumn x:DataType="local:Mod" Header="{Binding M_GridName, Source={x:Static local:LocalizedStrings.Instance}}"
-                              Binding="{Binding name}" Width="230" MinWidth="80" />
+          <DataGridTemplateColumn Header="{Binding M_GridName, Source={x:Static local:LocalizedStrings.Instance}}"
+                                  Width="230" MinWidth="80">
+            <DataGridTemplateColumn.CellTemplate>
+              <DataTemplate x:DataType="local:Mod">
+                <TextBlock Classes="modName" Classes.alias="{Binding HasAlias}" Text="{Binding DisplayName}"
+                           ToolTip.Tip="{Binding name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="8,0" />
+              </DataTemplate>
+            </DataGridTemplateColumn.CellTemplate>
+          </DataGridTemplateColumn>
           <DataGridTextColumn x:DataType="local:Mod" Header="{Binding M_GridType, Source={x:Static local:LocalizedStrings.Instance}}"
                               Binding="{Binding type}" />
           <DataGridCheckBoxColumn x:DataType="local:Mod" Header="{Binding M_GridShader, Source={x:Static local:LocalizedStrings.Instance}}"
@@ -52,13 +71,15 @@
     </Grid>
     <TextBlock Grid.Row="2" Text="{Binding M_SelectedMod, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="24"
                FontWeight="Bold" Background="#4CA8B2BB" Margin="0,6" />
-    <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="8">
+    <WrapPanel Grid.Row="3">
       <Button x:Name="openModFolder" Click="openModFolder_Click"
-              Content="{Binding M_OpenFolder, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" />
+              Content="{Binding M_OpenFolder, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" Margin="0,0,8,4" />
       <Button x:Name="loadShaderCache" Click="loadShaderCache_Click"
-              Content="{Binding M_LoadCache, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" />
+              Content="{Binding M_LoadCache, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" Margin="0,0,8,4" />
       <Button x:Name="collectShaderCache" Click="collectShaderCache_Click"
-              Content="{Binding M_CollectCache, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" />
-    </StackPanel>
+              Content="{Binding M_CollectCache, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" Margin="0,0,8,4" />
+      <Button x:Name="editModAlias" Click="editModAlias_Click" IsEnabled="False"
+              Content="{Binding MA_EditAlias, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" Margin="0,0,8,4" />
+    </WrapPanel>
   </Grid>
 </UserControl>
