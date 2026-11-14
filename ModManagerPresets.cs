@@ -40,26 +40,48 @@ public partial class ModManager
 
     private void presetList_SelectionChanged(object? sender, SelectionChangedEventArgs e) => UpdatePresetButtons();
 
-    internal ModPresetMatch ApplyPreset(string name)
+    internal async Task<ModPresetMatch> ApplyPresetAsync(string name)
     {
-        var entries = PresetStore.Read(name);
-        var available = main.ScanMods();
-        var match = ModPresetStore.Match(entries, available);
-        CommitLoadedMods(match.Mods, available);
-        return match;
+        if (activationInProgress) throw new OperationCanceledException();
+        activationInProgress = true;
+        long revision = main.ModListRevision;
+        var context = main.ModDirectoryContext;
+        try
+        {
+            var entries = await Task.Run(() => PresetStore.Read(name));
+            Task<bool>? scan = null;
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (context != main.ModDirectoryContext) throw new OperationCanceledException();
+                scan = main.RefreshModsAsync();
+            });
+            if (!await scan!) throw new OperationCanceledException();
+            return await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (revision != main.ModListRevision || context != main.ModDirectoryContext) throw new OperationCanceledException();
+                var match = ModPresetStore.Match(entries, main.universalVars.modDic);
+                CommitLoadedMods(match.Mods, validateAll: true);
+                return match;
+            });
+        }
+        finally { activationInProgress = false; }
     }
 
-    private void loadPreset_Click(object? sender, RoutedEventArgs e)
+    private async void loadPreset_Click(object? sender, RoutedEventArgs e)
     {
         if (presetList.SelectedItem is not string name) return;
         try
         {
-            var match = ApplyPreset(name);
+            var task = ApplyPresetAsync(name);
+            PendingActivation = task;
+            var match = await task;
             if (match.Missing.Count > 0)
                 MessageBox.Show(PresetText.Get("P_MissingMods") + "\n\n" +
                     string.Join("\n", match.Missing.Select(entry => $"{entry.Name} ({entry.Id})")),
                     i18n.Universal_Warning, MessageBoxButton.OK, MessageBoxImage.Warning);
         }
+        catch (ModActivationRejectedException ex) { main.ShowModActivationFailure(ex); }
+        catch (OperationCanceledException) { }
         catch (Exception ex) when (IsPresetError(ex)) { ShowPresetError(ex); }
     }
 
@@ -152,6 +174,8 @@ public partial class ModManager
 
     private static void ShowPresetError(Exception ex)
     {
+        if (!Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+        { Avalonia.Threading.Dispatcher.UIThread.Post(() => ShowPresetError(ex)); return; }
         AppDiagnostics.Log("Mod list / preset operation failed.", ex);
         MessageBox.Show(PresetText.Get("P_Error") + "\n\n" + ex.Message, i18n.Universal_Warning,
             MessageBoxButton.OK, MessageBoxImage.Error);

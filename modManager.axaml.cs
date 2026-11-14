@@ -59,7 +59,7 @@ namespace GOHShaderModdingSupportLauncher
             unloadedMods.Columns[1].CustomSortComparer = new ModSortComparer(
                 (left, right) => StringComparer.CurrentCultureIgnoreCase.Compare(left.type, right.type));
             unloadedMods.Columns[2].CustomSortComparer = new ModSortComparer(
-                (left, right) => left.hasShader.CompareTo(right.hasShader));
+                (left, right) => left.FeatureSortKey.CompareTo(right.FeatureSortKey));
             loadedMods.ItemsSource = loadedItems;
             unloadedMods.ItemsSource = unloadedView;
             loadedMods.AddHandler(InputElement.PointerPressedEvent, loadedMods_PointerPressed,
@@ -71,6 +71,7 @@ namespace GOHShaderModdingSupportLauncher
 
             main.EnsureModsScanned();
             UpdateUI();
+            main.ModInspectionChanged += InspectionUpdated;
             unloadedMods.Columns[0].Sort(System.ComponentModel.ListSortDirection.Ascending);
             main.ModAliases.Changed += RefreshAliases;
 
@@ -121,17 +122,19 @@ namespace GOHShaderModdingSupportLauncher
             
         }
 
-        private void CommitLoadedMods(List<Mod> mods, Dictionary<string, Mod>? available = null)
+        private void CommitLoadedMods(List<Mod> mods, bool validateAll = false)
         {
+            var enabled = main.universalVars.modLoaded.Select(mod => mod.DiscoveryId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            ModActivationGuard.RequireRegular(validateAll ? mods : mods.Where(mod => !enabled.Contains(mod.DiscoveryId)));
             FileManager.WriteLoadedMods(main.universalVars.optionLoc, mods);
-            if (available != null) main.universalVars.modDic = available;
+            main.ModListWritten();
             foreach (var mod in main.universalVars.modDic.Values) mod.hasLoad = false;
             foreach (var mod in mods) mod.hasLoad = true;
             main.universalVars.modLoaded = mods;
             UpdateUI();
         }
 
-        private void loadMod_Click(object sender, RoutedEventArgs e)
+        private async void loadMod_Click(object sender, RoutedEventArgs e)
         {
             var selected = unloadedMods.SelectedItems.Cast<Mod>().ToList();
             if (selected.Count == 0)
@@ -140,7 +143,9 @@ namespace GOHShaderModdingSupportLauncher
                     MessageBox.Show(i18n.M_NoModSelected, i18n.Universal_Notice, MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
-            try { CommitLoadedMods(loadedItems.Concat(selected).ToList()); }
+            try { PendingActivation = ActivateModsAsync(selected); await PendingActivation; }
+            catch (ModActivationRejectedException ex) { main.ShowModActivationFailure(ex); }
+            catch (OperationCanceledException) { }
             catch (Exception ex) when (IsPresetError(ex)) { ShowPresetError(ex); }
         }
 
@@ -167,7 +172,7 @@ namespace GOHShaderModdingSupportLauncher
 
             if (vars.hasMod == true)
             {
-                Process.Start("explorer.exe", selectedRow.mods[0].path);
+                if (Directory.Exists(selectedRow.mods[0].path)) Process.Start("explorer.exe", selectedRow.mods[0].path);
             }
             
         }
@@ -521,7 +526,12 @@ namespace GOHShaderModdingSupportLauncher
 
         public void RefreshView()
         {
-            if (hasInit) UpdateUI();
+            if (!hasInit) return;
+            var selected = selectedRow.mods?.Select(mod => mod.DiscoveryId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            string grid = selectedRow.dataGrid;
+            UpdateUI();
+            if (selected is null || selected.Count == 0) return;
+            RestoreSelection(grid, selected);
         }
     }
 }

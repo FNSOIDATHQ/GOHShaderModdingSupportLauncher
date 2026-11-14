@@ -11,6 +11,9 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
 
     private static readonly string[] ResourcePropertyNames =
     [
+        nameof(MI_Features),
+        nameof(MI_FeatureHint),
+        nameof(MI_Source),
         nameof(MA_Title),
         nameof(MA_EditAlias),
         nameof(MA_OriginalName),
@@ -110,6 +113,10 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
     internal string Get(string key) => this[key];
 
     public string P_Presets => this[nameof(P_Presets)];
+    public string MI_Features => this[nameof(MI_Features)];
+    public string MI_FeatureHint => string.Join("\n", ModFeatureHintView.FeatureKeys.Select(key =>
+        this["MI_" + key] + this["MI_FeatureHint" + key]));
+    public string MI_Source => this[nameof(MI_Source)];
     public string MA_Title => this[nameof(MA_Title)];
     public string MA_EditAlias => this[nameof(MA_EditAlias)];
     public string MA_OriginalName => this[nameof(MA_OriginalName)];

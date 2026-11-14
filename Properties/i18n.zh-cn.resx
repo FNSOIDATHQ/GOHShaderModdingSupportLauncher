@@ -825,4 +825,211 @@
   <data name="MS_TranslationLanguageUnavailable" xml:space="preserve"><value>{0}（暂不可用）</value></data>
   <data name="MS_TranslationProviderTranSmart" xml:space="preserve"><value>腾讯交互翻译</value></data>
   <data name="MS_TranslationError_UnsupportedLanguage" xml:space="preserve"><value>所选提供者暂不支持此目标语言，请选择其他语言或提供者。</value></data>
+  <data name="MI_Features" xml:space="preserve">
+    <value>特征</value>
+  </data>
+  <data name="MI_FeatureHintRegular" xml:space="preserve">
+    <value>：已确认的常规Mod 结构</value>
+  </data>
+  <data name="MI_FeatureHintDll" xml:space="preserve">
+    <value>：含DLL、可执行程序或外部安装脚本</value>
+  </data>
+  <data name="MI_FeatureHintShader" xml:space="preserve">
+    <value>：含着色器资源，需要全程依赖启动器运行</value>
+  </data>
+  <data name="MI_FeatureHintOther" xml:space="preserve">
+    <value>：结构待确认/无效，或检查未完成</value>
+  </data>
+  <data name="MI_Other" xml:space="preserve">
+    <value>其它</value>
+  </data>
+  <data name="MI_Source" xml:space="preserve">
+    <value>来源</value>
+  </data>
+  <data name="MI_HelpTitle" xml:space="preserve">
+    <value>Mod 类型与加载帮助</value>
+  </data>
+  <data name="MI_Details" xml:space="preserve">
+    <value>检查详情</value>
+  </data>
+  <data name="MI_Regular" xml:space="preserve">
+    <value>常规</value>
+  </data>
+  <data name="MI_Dll" xml:space="preserve">
+    <value>DLL</value>
+  </data>
+  <data name="MI_Shader" xml:space="preserve">
+    <value>着色器</value>
+  </data>
+  <data name="MI_NotInspected" xml:space="preserve">
+    <value>尚未检查</value>
+  </data>
+  <data name="MI_Incomplete" xml:space="preserve">
+    <value>检查未完成</value>
+  </data>
+  <data name="MI_Eligible" xml:space="preserve">
+    <value>符合常规加载条件</value>
+  </data>
+  <data name="MI_OriginalName" xml:space="preserve">
+    <value>原始名称：{0}</value>
+  </data>
+  <data name="MI_Directory" xml:space="preserve">
+    <value>目录：{0}</value>
+  </data>
+  <data name="MI_LoadId" xml:space="preserve">
+    <value>加载 ID：{0}</value>
+  </data>
+  <data name="MI_Qualification" xml:space="preserve">
+    <value>常规加载资格：{0}</value>
+  </data>
+  <data name="MI_Local" xml:space="preserve">
+    <value>本地</value>
+  </data>
+  <data name="MI_Workshop" xml:space="preserve">
+    <value>创意工坊</value>
+  </data>
+  <data name="MI_Unavailable" xml:space="preserve">
+    <value>不可用</value>
+  </data>
+  <data name="MI_AlreadyEnabled" xml:space="preserve">
+    <value>已在启用列表，但结构无效或待确认。请停用或修复目录。</value>
+  </data>
+  <data name="MI_StructureCheck" xml:space="preserve">
+    <value>结构检查：{0}</value>
+  </data>
+  <data name="MI_Complete" xml:space="preserve">
+    <value>检查完成</value>
+  </data>
+  <data name="MI_ContentEvidence" xml:space="preserve">
+    <value>常规内容：命中 {0} 项</value>
+  </data>
+  <data name="MI_Evidence" xml:space="preserve">
+    <value>命中文件：{0} 项</value>
+  </data>
+  <data name="MI_Detected" xml:space="preserve">
+    <value>已发现</value>
+  </data>
+  <data name="MI_NotDetected" xml:space="preserve">
+    <value>未发现</value>
+  </data>
+  <data name="MI_Unknown" xml:space="preserve">
+    <value>尚不能确定</value>
+  </data>
+  <data name="MI_Truncated" xml:space="preserve">
+    <value>显示 {1} 项命中中的前 {0} 项。</value>
+  </data>
+  <data name="MI_Reasons" xml:space="preserve">
+    <value>原因与检查范围</value>
+  </data>
+  <data name="MI_Diagnostic" xml:space="preserve">
+    <value>诊断信息：{0}</value>
+  </data>
+  <data name="MI_Resource" xml:space="preserve">
+    <value>游戏资源</value>
+  </data>
+  <data name="MI_Localization" xml:space="preserve">
+    <value>本地化</value>
+  </data>
+  <data name="MI_PakContent" xml:space="preserve">
+    <value>PAK 内容</value>
+  </data>
+  <data name="MI_LooseShader" xml:space="preserve">
+    <value>散装着色器</value>
+  </data>
+  <data name="MI_PakShader" xml:space="preserve">
+    <value>PAK 内着色器</value>
+  </data>
+  <data name="MI_OpenFolder" xml:space="preserve">
+    <value>打开文件夹</value>
+  </data>
+  <data name="MI_Recheck" xml:space="preserve">
+    <value>重新检查</value>
+  </data>
+  <data name="MI_Checking" xml:space="preserve">
+    <value>检查中</value>
+  </data>
+  <data name="MI_ActivationBlocked" xml:space="preserve">
+    <value>该mod无法通过激活使用</value>
+  </data>
+  <data name="MI_DllManualInstall" xml:space="preserve">
+    <value>DLL注入mod请根据作者说明手动安装</value>
+  </data>
+  <data name="MI_Close" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+  <data name="MI_CheckFailed" xml:space="preserve">
+    <value>检查失败，请解决文件访问问题后重新检查。</value>
+  </data>
+  <data name="MI_OpenFailed" xml:space="preserve">
+    <value>无法打开此目录。</value>
+  </data>
+  <data name="MI_SnapshotUnavailable" xml:space="preserve">
+    <value>当前没有可用的检查结果。目录可能已移除、所选游戏已变更，或本次扫描已被替代。</value>
+  </data>
+  <data name="MI_LocalInspection" xml:space="preserve">
+    <value>本地检查：{0}</value>
+  </data>
+  <data name="MI_HelpRegular" xml:space="preserve">
+    <value>常规：目录具有可识别的元数据与普通游戏内容。激活会将其加入游戏的普通 Mod 列表。</value>
+  </data>
+  <data name="MI_HelpDll" xml:space="preserve">
+    <value>DLL：包含 DLL、可执行程序或外部安装脚本，可与常规、着色器同时出现。额外安装步骤请查看作者说明；此标记不表示文件已加载，也不表示恶意。</value>
+  </data>
+  <data name="MI_HelpShader" xml:space="preserve">
+    <value>着色器：包含启动器支持识别的游戏着色器资源，沿用已有着色器加载和缓存操作。</value>
+  </data>
+  <data name="MI_HelpMixed" xml:space="preserve">
+    <value>常规＋DLL：其中的普通内容符合激活条件。激活不会执行安装脚本或部署 DLL，也不代表 DLL 功能已经生效。</value>
+  </data>
+  <data name="MI_HelpUnknown" xml:space="preserve">
+    <value>其它：统一表示结构待确认、结构无效或检查未完成；已确认的 DLL、着色器仍会同时显示。具体原因与相对路径保留在检查详情中，可打开目录核对后重新检查。检查未完成不代表没有 DLL 或着色器。</value>
+  </data>
+  <data name="MI_HelpDisable" xml:space="preserve">
+    <value>停用：从普通 Mod 启用列表移除内容。另行安装到游戏目录的 DLL，需要按作者说明处理，不会随此操作卸载。</value>
+  </data>
+  <data name="MI_HelpLimits" xml:space="preserve">
+    <value>检查描述本地文件，不保证游戏版本、依赖或多人兼容。订阅文件仅使用明确关联的本地安装目录结果；远程或未经扫描的文件保持“尚未检查”。</value>
+  </data>
+  <data name="MI_Reason_MissingMetadata" xml:space="preserve">
+    <value>Mod 根目录缺少 mod.info。</value>
+  </data>
+  <data name="MI_Reason_InvalidMetadata" xml:space="preserve">
+    <value>根 mod.info 缺少有效的 Mod 声明与名称。</value>
+  </data>
+  <data name="MI_Reason_UnsupportedEncoding" xml:space="preserve">
+    <value>无法可靠读取元数据文件的编码。</value>
+  </data>
+  <data name="MI_Reason_NestedModRoot" xml:space="preserve">
+    <value>发现内层 mod.info，当前外层目录不是 Mod 根目录。</value>
+  </data>
+  <data name="MI_Reason_NoContent" xml:space="preserve">
+    <value>未发现普通游戏内容；仅程序文件与安装资料不足以确认常规 Mod。</value>
+  </data>
+  <data name="MI_Reason_UnrecognizedLayout" xml:space="preserve">
+    <value>此布局尚无已验证的常规内容识别规则。</value>
+  </data>
+  <data name="MI_Reason_UnreadablePath" xml:space="preserve">
+    <value>无法读取某个文件或目录。</value>
+  </data>
+  <data name="MI_Reason_UnreadablePak" xml:space="preserve">
+    <value>无法读取 PAK 目录索引。</value>
+  </data>
+  <data name="MI_Reason_UninspectedArchive" xml:space="preserve">
+    <value>此附件压缩包未递归检查。</value>
+  </data>
+  <data name="MI_Reason_ReparsePoint" xml:space="preserve">
+    <value>已跳过文件系统链接。</value>
+  </data>
+  <data name="MI_Reason_ScanLimit" xml:space="preserve">
+    <value>已达到扫描数量、大小或深度限制。</value>
+  </data>
+  <data name="MI_Reason_UnsafeArchivePath" xml:space="preserve">
+    <value>压缩包条目路径不安全或不受支持。</value>
+  </data>
+  <data name="MI_Reason_InvalidLoadId" xml:space="preserve">
+    <value>目录名不是有效的加载 ID。</value>
+  </data>
+  <data name="MI_Reason_DuplicateLoadId" xml:space="preserve">
+    <value>多个目录具有相同的加载 ID。</value>
+  </data>
 </root>

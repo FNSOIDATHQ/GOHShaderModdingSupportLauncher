@@ -4,6 +4,22 @@
              xmlns:loc="using:GOHShaderModdingSupportLauncher.Properties"
              x:Class="GOHShaderModdingSupportLauncher.ModManager"
              Loaded="Page_Loaded">
+  <UserControl.Resources>
+    <DataTemplate x:Key="ModFeaturesTemplate" x:DataType="local:Mod">
+      <local:ModFeaturesView Mod="{Binding}" />
+    </DataTemplate>
+    <DataTemplate x:Key="ModFeaturesHeaderTemplate">
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <TextBlock Text="{Binding MI_Features, Source={x:Static local:LocalizedStrings.Instance}}" VerticalAlignment="Center" />
+        <TextBlock Name="modFeaturesHeaderHint" Text="ⓘ" VerticalAlignment="Center"
+                   AutomationProperties.Name="{Binding MI_FeatureHint, Source={x:Static local:LocalizedStrings.Instance}}">
+          <ToolTip.Tip>
+            <local:ModFeatureHintView />
+          </ToolTip.Tip>
+        </TextBlock>
+      </StackPanel>
+    </DataTemplate>
+  </UserControl.Resources>
   <UserControl.Styles>
     <Style Selector="TextBlock.modName.alias">
       <Setter Property="FontWeight" Value="Bold" />
@@ -19,7 +35,7 @@
       <Button x:Name="renamePreset" Click="renamePreset_Click" Content="{Binding P_Rename, Source={x:Static local:LocalizedStrings.Instance}}" Margin="0,0,8,4" IsEnabled="False" />
       <Button x:Name="deletePreset" Click="deletePreset_Click" Content="{Binding P_Delete, Source={x:Static local:LocalizedStrings.Instance}}" Margin="0,0,8,4" IsEnabled="False" />
     </WrapPanel>
-    <Grid Grid.Row="1" ColumnDefinitions="*,155,*" RowDefinitions="Auto,*" MinHeight="350">
+    <Grid Grid.Row="1" ColumnDefinitions="*,155,*" RowDefinitions="Auto,*" MinHeight="180">
       <TextBlock Grid.Column="0" Text="{Binding M_Available, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" FontWeight="Bold" Margin="0,0,0,6" />
       <TextBlock Grid.Column="2" Text="{Binding M_Loaded, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" FontWeight="Bold" Margin="0,0,0,6" />
       <DataGrid x:Name="unloadedMods" Grid.Row="1" Grid.Column="0" AutoGenerateColumns="False"
@@ -35,10 +51,11 @@
               </DataTemplate>
             </DataGridTemplateColumn.CellTemplate>
           </DataGridTemplateColumn>
-          <DataGridTextColumn x:DataType="local:Mod" Header="{Binding M_GridType, Source={x:Static local:LocalizedStrings.Instance}}" CanUserSort="True"
+          <DataGridTextColumn x:DataType="local:Mod" Header="{Binding MI_Source, Source={x:Static local:LocalizedStrings.Instance}}" CanUserSort="True"
                               Binding="{Binding type}" />
-          <DataGridCheckBoxColumn x:DataType="local:Mod" Header="{Binding M_GridShader, Source={x:Static local:LocalizedStrings.Instance}}" CanUserSort="True"
-                                  Binding="{Binding hasShader}" />
+          <DataGridTemplateColumn Header="{Binding MI_Features, Source={x:Static local:LocalizedStrings.Instance}}" CanUserSort="True"
+                                  HeaderTemplate="{StaticResource ModFeaturesHeaderTemplate}"
+                                  SortMemberPath="FeatureSortKey" Width="210" MinWidth="100" CellTemplate="{StaticResource ModFeaturesTemplate}" />
         </DataGrid.Columns>
       </DataGrid>
       <StackPanel Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" Spacing="10" Margin="8">
@@ -62,10 +79,11 @@
               </DataTemplate>
             </DataGridTemplateColumn.CellTemplate>
           </DataGridTemplateColumn>
-          <DataGridTextColumn x:DataType="local:Mod" Header="{Binding M_GridType, Source={x:Static local:LocalizedStrings.Instance}}"
+          <DataGridTextColumn x:DataType="local:Mod" Header="{Binding MI_Source, Source={x:Static local:LocalizedStrings.Instance}}"
                               Binding="{Binding type}" />
-          <DataGridCheckBoxColumn x:DataType="local:Mod" Header="{Binding M_GridShader, Source={x:Static local:LocalizedStrings.Instance}}"
-                                  Binding="{Binding hasShader}" />
+          <DataGridTemplateColumn Header="{Binding MI_Features, Source={x:Static local:LocalizedStrings.Instance}}"
+                                  HeaderTemplate="{StaticResource ModFeaturesHeaderTemplate}"
+                                  Width="210" MinWidth="100" CellTemplate="{StaticResource ModFeaturesTemplate}" />
         </DataGrid.Columns>
       </DataGrid>
     </Grid>

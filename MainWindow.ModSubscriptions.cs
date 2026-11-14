@@ -85,10 +85,12 @@ public partial class MainWindow
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
             var identifiers = removed.Select(directory => Path.GetFileName(directory).ToLowerInvariant())
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
-            var available = main.ScanMods();
+            var available = main.universalVars.modDic;
             // A Workshop Mod can share a local folder identifier. Preserve that separate owner.
             identifiers.RemoveWhere(id => available.TryGetValue(id, out var mod) &&
                 !removed.Contains(SubscriptionPaths.Normalize(mod.path)));
+            identifiers.RemoveWhere(id => id.StartsWith("mod_", StringComparison.OrdinalIgnoreCase) && id.Length > 4 &&
+                main.universalVars.workshopDir is { } workshop && Directory.Exists(Path.Combine(workshop.FullName, id[4..])));
 
             string options = SubscriptionPaths.Normalize(main.universalVars.optionLoc);
             ManagedModFiles.EnsureSafe(options);
@@ -101,6 +103,7 @@ public partial class MainWindow
             var mods = retained.Select(id => new Mod(id, "", "", id, false)).ToArray();
             reader.Close();
             FileManager.WriteLoadedMods(options, mods);
+            main.ModListWritten();
         });
 
         public void RefreshMods(string gameDirectory) => OnUiThread(() =>

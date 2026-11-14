@@ -825,4 +825,211 @@ Make sure Steam has finished downloading the item.</value>
   <data name="MS_TranslationLanguageUnavailable" xml:space="preserve"><value>{0} (unavailable)</value></data>
   <data name="MS_TranslationProviderTranSmart" xml:space="preserve"><value>TranSmart</value></data>
   <data name="MS_TranslationError_UnsupportedLanguage" xml:space="preserve"><value>This target language is unavailable with the selected provider. Choose another language or provider.</value></data>
+  <data name="MI_Features" xml:space="preserve">
+    <value>Features</value>
+  </data>
+  <data name="MI_FeatureHintRegular" xml:space="preserve">
+    <value>: Confirmed regular Mod structure</value>
+  </data>
+  <data name="MI_FeatureHintDll" xml:space="preserve">
+    <value>: Contains DLLs, executables or external installation scripts</value>
+  </data>
+  <data name="MI_FeatureHintShader" xml:space="preserve">
+    <value>: Contains shader resources; requires the launcher to remain running throughout</value>
+  </data>
+  <data name="MI_FeatureHintOther" xml:space="preserve">
+    <value>: Structure unconfirmed/invalid, or inspection incomplete</value>
+  </data>
+  <data name="MI_Other" xml:space="preserve">
+    <value>Other</value>
+  </data>
+  <data name="MI_Source" xml:space="preserve">
+    <value>Source</value>
+  </data>
+  <data name="MI_HelpTitle" xml:space="preserve">
+    <value>Mod types and loading help</value>
+  </data>
+  <data name="MI_Details" xml:space="preserve">
+    <value>Inspection details</value>
+  </data>
+  <data name="MI_Regular" xml:space="preserve">
+    <value>Regular</value>
+  </data>
+  <data name="MI_Dll" xml:space="preserve">
+    <value>DLL</value>
+  </data>
+  <data name="MI_Shader" xml:space="preserve">
+    <value>Shader</value>
+  </data>
+  <data name="MI_NotInspected" xml:space="preserve">
+    <value>Not inspected</value>
+  </data>
+  <data name="MI_Incomplete" xml:space="preserve">
+    <value>Check incomplete</value>
+  </data>
+  <data name="MI_Eligible" xml:space="preserve">
+    <value>Eligible for ordinary loading</value>
+  </data>
+  <data name="MI_OriginalName" xml:space="preserve">
+    <value>Original name: {0}</value>
+  </data>
+  <data name="MI_Directory" xml:space="preserve">
+    <value>Folder: {0}</value>
+  </data>
+  <data name="MI_LoadId" xml:space="preserve">
+    <value>Loading ID: {0}</value>
+  </data>
+  <data name="MI_Qualification" xml:space="preserve">
+    <value>Ordinary loading eligibility: {0}</value>
+  </data>
+  <data name="MI_Local" xml:space="preserve">
+    <value>Local</value>
+  </data>
+  <data name="MI_Workshop" xml:space="preserve">
+    <value>Workshop</value>
+  </data>
+  <data name="MI_Unavailable" xml:space="preserve">
+    <value>Unavailable</value>
+  </data>
+  <data name="MI_AlreadyEnabled" xml:space="preserve">
+    <value>Already in the enabled list, but its structure is invalid or unconfirmed. Disable it or repair the folder.</value>
+  </data>
+  <data name="MI_StructureCheck" xml:space="preserve">
+    <value>Structure check: {0}</value>
+  </data>
+  <data name="MI_Complete" xml:space="preserve">
+    <value>Check complete</value>
+  </data>
+  <data name="MI_ContentEvidence" xml:space="preserve">
+    <value>Ordinary content: {0} match(es)</value>
+  </data>
+  <data name="MI_Evidence" xml:space="preserve">
+    <value>Matching files: {0}</value>
+  </data>
+  <data name="MI_Detected" xml:space="preserve">
+    <value>Detected</value>
+  </data>
+  <data name="MI_NotDetected" xml:space="preserve">
+    <value>Not detected</value>
+  </data>
+  <data name="MI_Unknown" xml:space="preserve">
+    <value>Unknown</value>
+  </data>
+  <data name="MI_Truncated" xml:space="preserve">
+    <value>Showing {0} of {1} matches.</value>
+  </data>
+  <data name="MI_Reasons" xml:space="preserve">
+    <value>Reasons and inspection scope</value>
+  </data>
+  <data name="MI_Diagnostic" xml:space="preserve">
+    <value>Diagnostic: {0}</value>
+  </data>
+  <data name="MI_Resource" xml:space="preserve">
+    <value>Game resource</value>
+  </data>
+  <data name="MI_Localization" xml:space="preserve">
+    <value>Localization</value>
+  </data>
+  <data name="MI_PakContent" xml:space="preserve">
+    <value>PAK content</value>
+  </data>
+  <data name="MI_LooseShader" xml:space="preserve">
+    <value>Loose shader</value>
+  </data>
+  <data name="MI_PakShader" xml:space="preserve">
+    <value>Shader in PAK</value>
+  </data>
+  <data name="MI_OpenFolder" xml:space="preserve">
+    <value>Open folder</value>
+  </data>
+  <data name="MI_Recheck" xml:space="preserve">
+    <value>Recheck</value>
+  </data>
+  <data name="MI_Checking" xml:space="preserve">
+    <value>Checking</value>
+  </data>
+  <data name="MI_ActivationBlocked" xml:space="preserve">
+    <value>This mod cannot be used through activation</value>
+  </data>
+  <data name="MI_DllManualInstall" xml:space="preserve">
+    <value>For DLL injection mods, install manually according to the author's instructions</value>
+  </data>
+  <data name="MI_Close" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="MI_CheckFailed" xml:space="preserve">
+    <value>Inspection failed. Recheck after resolving the file access problem.</value>
+  </data>
+  <data name="MI_OpenFailed" xml:space="preserve">
+    <value>Could not open this folder.</value>
+  </data>
+  <data name="MI_SnapshotUnavailable" xml:space="preserve">
+    <value>No current inspection result is available. The folder may be missing, the selected game may have changed, or the scan was superseded.</value>
+  </data>
+  <data name="MI_LocalInspection" xml:space="preserve">
+    <value>Local inspection: {0}</value>
+  </data>
+  <data name="MI_HelpRegular" xml:space="preserve">
+    <value>Regular — The folder has a recognized descriptor and ordinary game content. Activation adds it to the game's ordinary Mod list.</value>
+  </data>
+  <data name="MI_HelpDll" xml:space="preserve">
+    <value>DLL — Contains a DLL, executable program or external installation script. This label can appear alongside Regular and Shader; follow the author's instructions for any extra installation steps. It does not mean these files have been loaded or are malicious.</value>
+  </data>
+  <data name="MI_HelpShader" xml:space="preserve">
+    <value>Shader — Contains game shader resources recognized by this launcher. Existing shader loading and cache actions continue to apply.</value>
+  </data>
+  <data name="MI_HelpMixed" xml:space="preserve">
+    <value>Regular + DLL — Ordinary content is eligible for activation. Activation does not run installation scripts, deploy DLLs or prove that the DLL features work.</value>
+  </data>
+  <data name="MI_HelpUnknown" xml:space="preserve">
+    <value>Other — Groups unconfirmed or invalid structures and incomplete checks. Known DLL and Shader features remain visible alongside it. Inspection details retain the reasons and relative paths; open the folder to review it, then recheck. An incomplete check never proves that DLLs or shaders are absent.</value>
+  </data>
+  <data name="MI_HelpDisable" xml:space="preserve">
+    <value>Disabling — Removes ordinary content from the enabled Mod list. DLLs installed separately in the game directory must be removed according to the author's instructions.</value>
+  </data>
+  <data name="MI_HelpLimits" xml:space="preserve">
+    <value>Inspection describes local files, not game-version, dependency or multiplayer compatibility. Subscription files use inspection results only for explicitly associated local installations; remote or unscanned files remain Not inspected.</value>
+  </data>
+  <data name="MI_Reason_MissingMetadata" xml:space="preserve">
+    <value>No mod.info was found at the Mod root.</value>
+  </data>
+  <data name="MI_Reason_InvalidMetadata" xml:space="preserve">
+    <value>The root mod.info does not contain a valid Mod declaration and name.</value>
+  </data>
+  <data name="MI_Reason_UnsupportedEncoding" xml:space="preserve">
+    <value>The descriptor encoding cannot be read reliably.</value>
+  </data>
+  <data name="MI_Reason_NestedModRoot" xml:space="preserve">
+    <value>A nested mod.info was found. The selected outer folder is not the Mod root.</value>
+  </data>
+  <data name="MI_Reason_NoContent" xml:space="preserve">
+    <value>No ordinary game content was found; program files and installation material alone do not establish an ordinary Mod.</value>
+  </data>
+  <data name="MI_Reason_UnrecognizedLayout" xml:space="preserve">
+    <value>This layout has no confirmed ordinary-content rule yet.</value>
+  </data>
+  <data name="MI_Reason_UnreadablePath" xml:space="preserve">
+    <value>A file or folder could not be read.</value>
+  </data>
+  <data name="MI_Reason_UnreadablePak" xml:space="preserve">
+    <value>A PAK index could not be read.</value>
+  </data>
+  <data name="MI_Reason_UninspectedArchive" xml:space="preserve">
+    <value>This attached archive was not inspected recursively.</value>
+  </data>
+  <data name="MI_Reason_ReparsePoint" xml:space="preserve">
+    <value>A filesystem link was skipped.</value>
+  </data>
+  <data name="MI_Reason_ScanLimit" xml:space="preserve">
+    <value>An inspection size or depth limit was reached.</value>
+  </data>
+  <data name="MI_Reason_UnsafeArchivePath" xml:space="preserve">
+    <value>An archive entry has an unsafe or unsupported path.</value>
+  </data>
+  <data name="MI_Reason_InvalidLoadId" xml:space="preserve">
+    <value>The folder name is not a valid loading ID.</value>
+  </data>
+  <data name="MI_Reason_DuplicateLoadId" xml:space="preserve">
+    <value>Multiple folders share this loading ID.</value>
+  </data>
 </root>

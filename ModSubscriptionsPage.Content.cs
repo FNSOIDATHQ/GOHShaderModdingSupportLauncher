@@ -101,9 +101,11 @@ public sealed partial class ModSubscriptionsPage
         int running = runtime.Library.Subscriptions.Where(item => item.GameDirectory.Equals(game, SubscriptionPaths.Comparison))
             .Sum(item => item.Downloads.Count(download => download.State is DownloadState.Pending or DownloadState.Downloading));
         activity.Text = running > 0 ? string.Format(T("ActiveDownloads"), running) : "";
-        if (Subscription() is not { Downloads.Length: > 0 } sub || session?.File is not { } key) return;
+        if (session?.File is not { } key || !key.StartsWith("file:", StringComparison.Ordinal)) return;
+        var sub = Subscription();
+        if (sub is not { Downloads.Length: > 0 }) { AddLocalInspection(tasks, sub, null); return; }
         var downloads = sub.Downloads.Where(download => "file:" + download.File.Id == key).ToArray();
-        if (downloads.Length == 0) return;
+        if (downloads.Length == 0) { AddLocalInspection(tasks, sub, null); return; }
         tasks.Children.Add(Text(T("Downloads"), 16));
         foreach (var download in downloads)
         {
@@ -121,6 +123,7 @@ public sealed partial class ModSubscriptionsPage
             tasks.Children.Add(Text(FormatBytes(received) + " / " + FormatBytes(total)));
             if (download.Error is { } error && state != DownloadState.NeedsManualInstall && !waitingForVerification) tasks.Children.Add(Text(T("Failed") + ": " + error));
             if (state == DownloadState.NeedsManualInstall) tasks.Children.Add(Text(T("ManualInstructions")));
+            AddLocalInspection(tasks, sub, download.Id);
             if (sub.State != SubscriptionState.Active) continue;
             if (state is DownloadState.Pending or DownloadState.Downloading)
                 line.Children.Add(Action(T("Cancel"), async () =>

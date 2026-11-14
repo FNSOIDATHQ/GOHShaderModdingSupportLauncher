@@ -33,11 +33,13 @@ internal static class UiSmokeTest
             CheckSubscriptionCache(fixture);
             ModTranslationUiSmokeTest.Run(fixture);
             ModInspectionSmokeTest.Run(fixture);
+            ModInspectionUiSmokeTest.Run(fixture);
             var mods = Directory.CreateDirectory(Path.Combine(fixture, "mods"));
             foreach (var name in new[] { "alpha", "beta", "zeta", "gamma" })
             {
                 var directory = Directory.CreateDirectory(Path.Combine(mods.FullName, name));
-                File.WriteAllText(Path.Combine(directory.FullName, "mod.info"), "{name \"" + name + "\"}\n");
+                File.WriteAllText(Path.Combine(directory.FullName, "mod.info"), "{mod {name \"" + name + "\"}}\n");
+                File.WriteAllText(Path.Combine(Directory.CreateDirectory(Path.Combine(directory.FullName, "resource")).FullName, "content.set"), "fixture");
                 if (name == "gamma")
                 {
                     var resource = Directory.CreateDirectory(Path.Combine(directory.FullName, "resource"));
@@ -49,7 +51,8 @@ internal static class UiSmokeTest
             }
             var workshop = Directory.CreateDirectory(Path.Combine(fixture, "workshop"));
             var workshopMod = Directory.CreateDirectory(Path.Combine(workshop.FullName, "123"));
-            File.WriteAllText(Path.Combine(workshopMod.FullName, "mod.info"), "{name \"omega\"}\n");
+            File.WriteAllText(Path.Combine(workshopMod.FullName, "mod.info"), "{mod {name \"omega\"}}\n");
+            File.WriteAllText(Path.Combine(Directory.CreateDirectory(Path.Combine(workshopMod.FullName, "resource")).FullName, "content.set"), "fixture");
             var options = Path.Combine(fixture, "options.set");
             File.WriteAllText(options, "{mods\r\n\"alpha:0\"\r\n\"beta:0\"\r\n}\r\n");
 
@@ -151,13 +154,21 @@ internal static class UiSmokeTest
                 if (i == 1)
                 {
                     var manager = (ModManager)host.Content;
+                    ModActivationSmokeTest.Pump(window.PendingModRefresh);
+                    manager.RefreshView();
                     var grid = manager.FindControl<DataGrid>("loadedMods");
                     if (grid?.Columns.Count != 3 || grid.ItemsSource?.Cast<Mod>().Count() != 2)
                         throw new InvalidOperationException("Compiled mod table failed to load.");
+                    grid.ApplyTemplate();
+                    grid.Measure(new Size(760, 500));
+                    grid.Arrange(new Rect(0, 0, 760, 500));
+                    Dispatcher.UIThread.RunJobs();
+                    grid.SelectedItems.Clear();
+                    grid.SelectedItems.Add(window.universalVars.modLoaded[0]);
                     var unload = manager.FindControl<Button>("unloadMod")!;
                     unload.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                     if (window.universalVars.modLoaded.Count != 1)
-                        throw new InvalidOperationException("Mod unload failed.");
+                        throw new InvalidOperationException($"Mod unload failed: remaining={window.universalVars.modLoaded.Count}, selection={grid.SelectedItems.Count}.");
                     var unloaded = manager.FindControl<DataGrid>("unloadedMods")!;
                     unloaded.ApplyTemplate();
                     unloaded.Measure(new Size(760, 500));
@@ -175,7 +186,7 @@ internal static class UiSmokeTest
                         {
                             0 => (left, right) => StringComparer.CurrentCultureIgnoreCase.Compare(left.name, right.name),
                             1 => (left, right) => StringComparer.CurrentCultureIgnoreCase.Compare(left.type, right.type),
-                            _ => (left, right) => left.hasShader.CompareTo(right.hasShader)
+                            _ => (left, right) => left.FeatureSortKey.CompareTo(right.FeatureSortKey)
                         };
                         unloaded.Columns[columnIndex].Sort(ListSortDirection.Ascending);
                         Dispatcher.UIThread.RunJobs();
@@ -191,8 +202,10 @@ internal static class UiSmokeTest
                     }
                     if (sortEventCount != 6)
                         throw new InvalidOperationException($"Column header sorting raised {sortEventCount} events instead of six.");
-                    unloaded.SelectedIndex = 0;
+                    unloaded.SelectedItems.Clear();
+                    unloaded.SelectedItems.Add(unloaded.ItemsSource!.Cast<Mod>().First());
                     manager.FindControl<Button>("loadMod")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    ModActivationSmokeTest.Pump(manager.PendingActivation);
                     if (window.universalVars.modLoaded.Count != 2)
                         throw new InvalidOperationException($"Mod load failed: loaded={window.universalVars.modLoaded.Count}, unloaded selection={unloaded.SelectedIndex}, loaded selection={grid.SelectedIndex}.");
                     if (!manager.MoveLoadedMod(window.universalVars.modLoaded[1], window.universalVars.modLoaded[0]))

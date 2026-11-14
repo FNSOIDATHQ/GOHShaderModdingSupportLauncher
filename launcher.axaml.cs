@@ -303,7 +303,7 @@ namespace GOHShaderModdingSupportLauncher
             }
         }
 
-        private void OnGameExit()
+        private async Task OnGameExitAsync()
         {
             if (main.universalVars.NeedCompileWarning == true)
             {
@@ -311,11 +311,10 @@ namespace GOHShaderModdingSupportLauncher
             }
             if (main.universalVars.NeedRedisplay == true)
             {
-                main.RefreshMods(true);
-                main.RefreshModPage();
                 main.Show();
                 main.Topmost = true;
                 main.Topmost = false;
+                await main.RefreshModsAsync(afterGaming: true);
             }
             else
             {
@@ -324,14 +323,18 @@ namespace GOHShaderModdingSupportLauncher
             }
         }
 
-        private async Task RunGameAsync(string processName)
+        internal async Task RunGameAsync(string processName, bool autoFix = false)
         {
             if (isLaunching) return;
             isLaunching = true;
             bool replaced = false;
             bool completed = false;
+            var launchContext = main.ModDirectoryContext;
             try
             {
+                if (!await main.CheckEnabledModsForLaunchAsync() || launchContext != main.ModDirectoryContext) return;
+                ModActivationGuard.RequireRegular(main.universalVars.modLoaded);
+                if (autoFix) { ClearCache(true); RestoreFile(true); }
                 if (!CheckShaderModify()) AutoLoadCache();
                 if (vars.lm == MainWindow.LauncherVars.LaunchMethod.FileReplace)
                 {
@@ -363,6 +366,8 @@ namespace GOHShaderModdingSupportLauncher
                 await game.WaitForExitAsync();
                 completed = true;
             }
+            catch (ModActivationRejectedException ex) { main.ShowModActivationFailure(ex); }
+            catch (OperationCanceledException) { }
             catch (Exception ex)
             {
                 AppDiagnostics.Log("Unable to launch or wait for game.", ex);
@@ -380,8 +385,13 @@ namespace GOHShaderModdingSupportLauncher
                     AppDiagnostics.Log("Post-game cleanup failed.", ex);
                     MessageBox.Show(ex.Message, i18n.Universal_Error, MessageBoxButton.OK, MessageBoxImage.Error);
                 }
-                if (completed) OnGameExit();
-                else main.Show();
+                if (completed)
+                {
+                    Task? exit = null;
+                    await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { exit = OnGameExitAsync(); });
+                    await exit!;
+                }
+                else await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => main.Show());
                 isLaunching = false;
             }
         }
@@ -398,11 +408,7 @@ namespace GOHShaderModdingSupportLauncher
 
         private async void AutoFix_Click(object sender, RoutedEventArgs e)
         {
-            //force fix
-            ClearCache(true);
-            RestoreFile(true);
-
-            await RunGameAsync("call_to_arms.exe");
+            await RunGameAsync("call_to_arms.exe", autoFix: true);
         }
 
         //this will make a auto fix
@@ -423,7 +429,7 @@ namespace GOHShaderModdingSupportLauncher
                 }) ?? throw new InvalidOperationException("Game process did not start.");
                 main.Hide();
                 await game.WaitForExitAsync();
-                OnGameExit();
+                await OnGameExitAsync();
             }
             catch (Exception ex)
             {

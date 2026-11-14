@@ -271,7 +271,7 @@ namespace GOHShaderModdingSupportLauncher
             }
 
             openSettingsOnStartup |= !PathsReady;
-            if (PathsReady) await RefreshModsAsync();
+            if (PathsReady) BeginModRefresh();
             UpdatePathAvailability();
 
             SaveSettings();
@@ -682,7 +682,9 @@ namespace GOHShaderModdingSupportLauncher
             using var options = File.OpenText(universalVars.optionLoc);
             foreach (string modName in FileManager.ReadLoadedModNames(options))
             {
-                if (universalVars.modDic.TryGetValue(modName, out var mod) && mod.hasLoad == false)
+                var mod = universalVars.modDic.GetValueOrDefault(modName) ??
+                    new Mod(modName, "", "", modName, false) { IsMissingReference = true };
+                if (mod.hasLoad == false && !universalVars.modLoaded.Any(item => item.folderName == modName))
                 {
                     mod.hasLoad = true;
                     universalVars.modLoaded.Add(mod);
@@ -690,53 +692,7 @@ namespace GOHShaderModdingSupportLauncher
             }
         }
 
-        public void verifyLoadedMods()
-        {
-            string modified = "";
-            using (StreamReader opt = File.OpenText(universalVars.optionLoc))
-            {
-                //push to mod list start point
-                while (opt.ReadLine() is var line)
-                {
-                    //no mod section
-                    if (opt.EndOfStream == true)
-                    {
-                        modified += "\t{mods\r\n";
-                        break;
-                    }
-                    modified += line + "\r\n";
-                    if (line.Contains("{mods") == true)
-                    {
-                        break;
-                    }
-
-                }
-
-                opt.Close();
-            }
-
-            List<Mod> purned = new List<Mod>();
-            List<Mod> newList = universalVars.modDic.Values.ToList();
-            foreach (Mod mod in universalVars.modLoaded)
-            {
-                int newIndex = newList.FindIndex(m => m.folderName == mod.folderName);
-                if (newIndex != -1)
-                {
-                    modified += "\t\t\"" + mod.folderName + ":0\"\r\n";
-                    purned.Add(newList[newIndex]);
-                    universalVars.modDic[mod.folderName].hasLoad = true;
-                }
-                else
-                {
-
-                }
-            }
-            universalVars.modLoaded = purned;
-
-            modified += "\t}\r\n}\r\n";
-
-            File.WriteAllText(universalVars.optionLoc, modified);
-        }
+        internal void verifyLoadedMods() => RestoreLockedModList(universalVars.modLoaded.ToArray());
 
         //reference https://juejin.cn/post/6989143365862293534
         public static void ExtractFile(String resource, String path, int batch)

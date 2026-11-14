@@ -27,6 +27,7 @@ public sealed record ModInspectionResult(
     public bool ContentEvidenceTruncated => ContentMatchCount > ContentEvidence.Count;
     public bool CanActivate => IsRegular && LoadId is not null &&
         !Issues.Any(issue => issue.Reason == ModInspectionReason.DuplicateLoadId);
+    public bool HasRegularFeature => CanActivate && StructureComplete && ExternalPrograms.Complete && Shaders.Complete;
 }
 
 public sealed record ModScanProgress(int InspectedDirectories, string DirectoryPath);

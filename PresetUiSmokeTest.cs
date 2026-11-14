@@ -10,6 +10,12 @@ internal static class PresetUiSmokeTest
     internal static void Run(ModManager manager, MainWindow window, string root)
     {
         static void Require(bool ok) { if (!ok) throw new InvalidOperationException("Preset UI check failed."); }
+        ModPresetMatch Apply(string name)
+        {
+            var task = manager.ApplyPresetAsync(name);
+            ModActivationSmokeTest.Pump(task);
+            return task.GetAwaiter().GetResult();
+        }
         var originalStore = manager.PresetStore;
         var originalOptions = window.universalVars.optionLoc;
         var originalLocal = window.universalVars.localDir;
@@ -19,7 +25,8 @@ internal static class PresetUiSmokeTest
         foreach (var id in new[] { "z", "a", "b" })
         {
             var dir = Directory.CreateDirectory(Path.Combine(mods.FullName, id));
-            File.WriteAllText(Path.Combine(dir.FullName, "mod.info"), "{name \"Same\"}\n");
+            File.WriteAllText(Path.Combine(dir.FullName, "mod.info"), "{mod {name \"Same\"}}\n");
+            File.WriteAllText(Path.Combine(Directory.CreateDirectory(Path.Combine(dir.FullName, "resource")).FullName, "content.set"), "fixture");
         }
         var options = Path.Combine(fixture.FullName, "options.set");
         File.WriteAllText(options, "{options\n{mods\n\"a:0\"\n}\n{after 1}\n}\n");
@@ -36,7 +43,7 @@ internal static class PresetUiSmokeTest
             manager.RefreshPresets("Ordered");
             var list = manager.FindControl<ComboBox>("presetList")!;
             Require(list.SelectedItem as string == "Ordered" && manager.FindControl<Button>("loadPreset")!.IsEnabled);
-            Require(manager.ApplyPreset("Ordered").Missing.Single().Id == "missing");
+            Require(Apply("Ordered").Missing.Single().Id == "missing");
             void CheckOrder(params string[] expected)
             {
                 Require(window.universalVars.modLoaded.Select(m => m.folderName).SequenceEqual(expected));
@@ -52,31 +59,31 @@ internal static class PresetUiSmokeTest
             window.RefreshMods();
             manager.RefreshView();
             CheckOrder("z", "b");
-            var before = window.universalVars.modLoaded;
-            var dictionary = window.universalVars.modDic;
+            var before = window.universalVars.modLoaded.ToArray();
             store.Save("Empty", []);
             using (var locked = new FileStream(options, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 bool failed = false;
-                try { manager.ApplyPreset("Empty"); } catch (IOException) { failed = true; }
-                Require(failed && ReferenceEquals(before, window.universalVars.modLoaded) && ReferenceEquals(dictionary, window.universalVars.modDic));
+                try { Apply("Empty"); } catch (IOException) { failed = true; }
+                Require(failed && before.SequenceEqual(window.universalVars.modLoaded));
             }
             CheckOrder("z", "b");
             File.WriteAllText(store.PathFor("Bad"), "version = 99\nmods = []");
             bool invalid = false;
-            try { manager.ApplyPreset("Bad"); } catch (FormatException) { invalid = true; }
+            try { Apply("Bad"); } catch (FormatException) { invalid = true; }
             Require(invalid);
             CheckOrder("z", "b");
             store.Save("AllMissing", [new Mod("Missing", "", "", "gone", false)]);
-            Require(manager.ApplyPreset("AllMissing").Missing.Count == 1);
+            Require(Apply("AllMissing").Missing.Count == 1);
             CheckOrder();
-            manager.ApplyPreset("Saved");
-            manager.ApplyPreset("Empty");
+            Apply("Saved");
+            Apply("Empty");
             CheckOrder();
             store.Rename("Saved", "Renamed");
             manager.RefreshPresets("Renamed");
             Require(list.SelectedItem as string == "Renamed");
             manager.FindControl<Button>("loadPreset")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            ModActivationSmokeTest.Pump(manager.PendingActivation);
             CheckOrder("z", "b");
             foreach (var name in store.List()) store.Delete(name);
             manager.FindControl<Button>("refresh")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));

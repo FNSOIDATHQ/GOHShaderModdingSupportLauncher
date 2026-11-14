@@ -22,14 +22,34 @@ public sealed class ModInspectionService
     }
 
     public Task<ModScanResult> ScanAsync(string? workshopDirectory, string? localDirectory,
-        CancellationToken cancellationToken = default, IProgress<ModScanProgress>? progress = null, bool refresh = true) =>
-        Task.Run(() => Scan(workshopDirectory, localDirectory, cancellationToken, progress, refresh), cancellationToken);
+        CancellationToken cancellationToken = default, IProgress<ModScanProgress>? progress = null, bool refresh = true,
+        IProgress<ModScanResult>? discovery = null, IProgress<ModInspectionResult>? inspected = null) =>
+        Task.Run(() => Scan(workshopDirectory, localDirectory, cancellationToken, progress, refresh, discovery, inspected), cancellationToken);
 
     public ModScanResult Scan(string? workshopDirectory, string? localDirectory,
-        CancellationToken cancellationToken = default, IProgress<ModScanProgress>? progress = null, bool refresh = true)
+        CancellationToken cancellationToken = default, IProgress<ModScanProgress>? progress = null, bool refresh = true,
+        IProgress<ModScanResult>? discovery = null, IProgress<ModInspectionResult>? inspected = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (refresh) ClearCache();
+        var candidates = Discover(workshopDirectory, localDirectory, cancellationToken);
+        discovery?.Report(candidates);
+        var results = new List<ModInspectionResult>();
+        foreach (var candidate in candidates.Mods)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var result = InspectCandidate(candidate, cancellationToken);
+            results.Add(result);
+            inspected?.Report(result);
+            progress?.Report(new(results.Count, candidate.DirectoryPath));
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        return new(Frozen(results), candidates.Issues);
+    }
+
+    // Enumerates only immediate directories. Metadata and PAK reads happen in the subsequent inspection pass.
+    internal ModScanResult Discover(string? workshopDirectory, string? localDirectory, CancellationToken cancellationToken = default)
+    {
         var results = new List<ModInspectionResult>();
         var issues = new List<ModInspectionIssue>();
         ReadRoot(workshopDirectory, ModSourceKind.Workshop);
@@ -62,12 +82,20 @@ public sealed class ModInspectionService
                     cancellationToken.ThrowIfCancellationRequested();
                     if (child.Name.Equals(".gohsms", StringComparison.OrdinalIgnoreCase)) continue;
                     if (results.Count >= MaxEntries) { issues.Add(new(ModInspectionReason.ScanLimit, path)); break; }
-                    results.Add(InspectDirectory(child.FullName, source, cancellationToken));
-                    progress?.Report(new(results.Count, child.FullName));
+                    string id = source == ModSourceKind.Workshop ? "mod_" + child.Name : child.Name.ToLowerInvariant();
+                    results.Add(new(child.FullName, source, source + ":" + child.FullName.ToUpperInvariant(),
+                        IsValidLoadId(id) ? id : null, child.Name, ModStructureState.Unconfirmed, false, [],
+                        new(false, false, [], 0), new(false, false, [], 0), [], 0));
                 }
             }
             catch (Exception ex) when (IsReadError(ex)) { issues.Add(new(ModInspectionReason.UnreadablePath, path, ex.GetType().Name)); }
         }
+    }
+
+    internal ModInspectionResult InspectCandidate(ModInspectionResult candidate, CancellationToken cancellationToken)
+    {
+        var result = InspectDirectory(candidate.DirectoryPath, candidate.Source, cancellationToken);
+        return result with { Issues = Frozen(result.Issues.Concat(candidate.Issues.Where(issue => issue.Reason == ModInspectionReason.DuplicateLoadId))) };
     }
 
     public ModInspectionResult InspectDirectory(string directory, ModSourceKind source, CancellationToken cancellationToken = default)
