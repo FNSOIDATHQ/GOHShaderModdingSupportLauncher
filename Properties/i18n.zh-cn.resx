@@ -840,7 +840,7 @@
     <value>：含着色器资源，需要全程依赖启动器运行</value>
   </data>
   <data name="MI_FeatureHintOther" xml:space="preserve">
-    <value>：结构待确认/无效，或检查未完成</value>
+    <value>：附加或未分类内容；可与常规共存，本身不影响激活</value>
   </data>
   <data name="MI_Other" xml:space="preserve">
     <value>其它</value>
@@ -904,6 +904,9 @@
   </data>
   <data name="MI_ContentEvidence" xml:space="preserve">
     <value>常规内容：命中 {0} 项</value>
+  </data>
+  <data name="MI_OtherEvidence" xml:space="preserve">
+    <value>其它内容：命中 {0} 项</value>
   </data>
   <data name="MI_Evidence" xml:space="preserve">
     <value>命中文件：{0} 项</value>
@@ -984,7 +987,7 @@
     <value>常规＋DLL：其中的普通内容符合激活条件。激活不会执行安装脚本或部署 DLL，也不代表 DLL 功能已经生效。</value>
   </data>
   <data name="MI_HelpUnknown" xml:space="preserve">
-    <value>其它：统一表示结构待确认、结构无效或检查未完成；已确认的 DLL、着色器仍会同时显示。具体原因与相对路径保留在检查详情中，可打开目录核对后重新检查。检查未完成不代表没有 DLL 或着色器。</value>
+    <value>其它：表示附加或未分类内容，也用于尚未确认正常加载结构的目录。可与常规、DLL、着色器共存，其存在本身不阻止激活。局部读取失败或检查未完成不会撤销已确认的常规内容；检查未完成不代表没有 DLL 或着色器。</value>
   </data>
   <data name="MI_HelpDisable" xml:space="preserve">
     <value>停用：从普通 Mod 启用列表移除内容。另行安装到游戏目录的 DLL，需要按作者说明处理，不会随此操作卸载。</value>

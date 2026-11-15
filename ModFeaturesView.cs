@@ -64,10 +64,8 @@ public sealed class ModFeaturesView : UserControl
         if (Mod?.IsMissingReference == true) AddBadge("Other");
         else if (result is null)
             badges.Children.Add(new TextBlock { Text = ModInspectionPresentation.Text("NotInspected"), FontSize = 11 });
-        else if (ModInspectionPresentation.IsOther(result)) AddBadge("Other");
-        else AddBadge("Regular");
-        if (result?.ExternalPrograms.Detected == true) AddBadge("Dll");
-        if (result?.Shaders.Detected == true) AddBadge("Shader");
+        else
+            foreach (string key in ModInspectionPresentation.FeatureKeys(result)) AddBadge(key);
         string name = (Mod?.DisplayName is { } title ? title + ": " : "") +
             (Mod?.IsMissingReference == true ? ModInspectionPresentation.Text("Other") : ModInspectionPresentation.Summary(result));
         AutomationProperties.SetName(this, name);

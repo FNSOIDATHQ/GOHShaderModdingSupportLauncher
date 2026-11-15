@@ -1,4 +1,6 @@
 using System.Text;
+using SharpCompress.Archives;
+using SharpCompress.Readers;
 
 namespace GOHShaderModdingSupportLauncher;
 
@@ -14,7 +16,7 @@ public sealed class ModInspectionService
     private static readonly HashSet<string> ExternalExtensions = new(StringComparer.OrdinalIgnoreCase)
         { ".dll", ".exe", ".asi", ".com", ".scr", ".msi", ".msp", ".bat", ".cmd", ".ps1", ".vbs", ".vbe", ".wsf" };
     private static readonly HashSet<string> NestedArchives = new(StringComparer.OrdinalIgnoreCase)
-        { ".zip", ".rar", ".7z", ".pat" };
+        { ".zip", ".rar", ".7z" };
 
     public void ClearCache()
     {
@@ -109,16 +111,30 @@ public sealed class ModInspectionService
         var content = new List<ModInspectionEvidence>();
         var programs = new List<ModInspectionEvidence>();
         var shaders = new List<ModInspectionEvidence>();
+        var other = new List<ModInspectionEvidence>();
         bool treeComplete = true, programsComplete = true, shadersComplete = true;
         bool metadataSeen = false, metadataReadable = false, metadataValid = false, nestedRoot = false, unsupportedContent = false;
         string displayName = root.Name;
-        int entries = 0, contentCount = 0, programCount = 0, shaderCount = 0;
+        int entries = 0, contentCount = 0, programCount = 0, shaderCount = 0, otherCount = 0;
         if (loadId is null) issues.Add(new(ModInspectionReason.InvalidLoadId, root.Name));
 
         try
         {
             if (HasLinkAncestor(root)) MarkIncomplete(ModInspectionReason.ReparsePoint, "");
-            else Walk(root, 0);
+            else
+            {
+                // Metadata is critical and must not lose its budget to large resource/source trees.
+                var metadata = new FileInfo(Path.Combine(root.FullName, "mod.info"));
+                try
+                {
+                    var attributes = File.GetAttributes(metadata.FullName);
+                    if ((attributes & FileAttributes.ReparsePoint) != 0) MarkIncomplete(ModInspectionReason.ReparsePoint, "mod.info");
+                    else ReadMetadata(metadata);
+                }
+                catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException) { }
+                catch (Exception ex) when (IsReadError(ex)) { MarkIncomplete(ModInspectionReason.UnreadablePath, "mod.info", ex.GetType().Name); }
+                Walk(root, 0);
+            }
         }
         catch (Exception ex) when (IsReadError(ex)) { MarkIncomplete(ModInspectionReason.UnreadablePath, "", ex.GetType().Name); }
 
@@ -137,14 +153,15 @@ public sealed class ModInspectionService
         else
         {
             // Metadata-only / dependency-only layouts are not yet established as content rules.
-            structure = programs.Count > 0 && !unsupportedContent ? ModStructureState.Invalid : ModStructureState.Unconfirmed;
-            structureComplete = structure == ModStructureState.Invalid;
-            issues.Add(new(structureComplete ? ModInspectionReason.NoContent : ModInspectionReason.UnrecognizedLayout, ""));
+            structure = ModStructureState.Unconfirmed;
+            structureComplete = false;
+            issues.Add(new(programs.Count > 0 && !unsupportedContent ? ModInspectionReason.NoContent : ModInspectionReason.UnrecognizedLayout, ""));
         }
         cancellationToken.ThrowIfCancellationRequested();
         return new(root.FullName, source, discoveryId, loadId, displayName, structure, structureComplete,
             Frozen(content), new(programCount > 0, programsComplete, Frozen(programs), programCount),
-            new(shaderCount > 0, shadersComplete, Frozen(shaders), shaderCount), Frozen(issues), contentCount);
+            new(shaderCount > 0, shadersComplete, Frozen(shaders), shaderCount), Frozen(issues), contentCount)
+            { OtherEvidence = Frozen(other), OtherMatchCount = otherCount };
 
         void MarkIncomplete(ModInspectionReason reason, string path, string detail = "")
         {
@@ -155,9 +172,13 @@ public sealed class ModInspectionService
         void Walk(DirectoryInfo current, int depth)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            // Three bounded passes avoid buffering an arbitrarily large directory just to sort it.
+            for (int priority = 0; priority < 3; priority++)
             foreach (var item in current.EnumerateFileSystemInfos())
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                if (Priority(item, depth) != priority) continue;
+                if (depth == 0 && item.Name.Equals("mod.info", StringComparison.OrdinalIgnoreCase)) continue;
                 if (++entries > MaxEntries) { MarkIncomplete(ModInspectionReason.ScanLimit, Relative(current.FullName)); return; }
                 string relative = Relative(item.FullName);
                 try
@@ -175,15 +196,16 @@ public sealed class ModInspectionService
                     var file = (FileInfo)item;
                     if (file.Name.Equals("mod.info", StringComparison.OrdinalIgnoreCase))
                     {
-                        if (depth == 0) ReadMetadata(file);
-                        else
+                        if (depth > 0)
                         {
                             nestedRoot = true;
                             if (issues.Count < 256) issues.Add(new(ModInspectionReason.NestedModRoot, relative));
                         }
                     }
-                    ProcessFile(relative, file.Length, false);
-                    if (file.Extension.Equals(".pak", StringComparison.OrdinalIgnoreCase)) ReadPak(file, relative);
+                    if (file.Extension.Equals(".pak", StringComparison.OrdinalIgnoreCase)) ReadGameArchive(file, relative, false);
+                    else if (file.Extension.Equals(".pat", StringComparison.OrdinalIgnoreCase)) ReadGameArchive(file, relative, true);
+                    else if (NestedArchives.Contains(file.Extension)) ReadAttachment(file, relative);
+                    else ProcessFile(relative, file.Length, false);
                 }
                 catch (Exception ex) when (IsReadError(ex)) { MarkIncomplete(ModInspectionReason.UnreadablePath, relative, ex.GetType().Name); }
             }
@@ -224,15 +246,30 @@ public sealed class ModInspectionService
             catch (Exception ex) when (IsReadError(ex)) { issues.Add(new(ModInspectionReason.UnreadablePath, "mod.info", ex.GetType().Name)); }
         }
 
-        void ReadPak(FileInfo file, string relative)
+        int Priority(FileSystemInfo item, int depth)
+        {
+            if (item is DirectoryInfo)
+                return depth > 0 || item.Name.Equals("resource", StringComparison.OrdinalIgnoreCase) ||
+                    item.Name.Equals("localizations", StringComparison.OrdinalIgnoreCase) ? 0 : 2;
+            string extension = item.Extension;
+            if (extension.Equals(".pak", StringComparison.OrdinalIgnoreCase) || extension.Equals(".pat", StringComparison.OrdinalIgnoreCase)) return 1;
+            return depth == 0 || NestedArchives.Contains(extension) ? 2 : 0;
+        }
+
+        void ReadGameArchive(FileInfo file, string relative, bool patch)
         {
             var index = ReadPakIndex(file, cancellationToken, out bool limitExceeded);
             if (index is null) { MarkIncomplete(limitExceeded ? ModInspectionReason.ScanLimit : ModInspectionReason.UnreadablePak, relative); return; }
-            bool resourcePak = relative.StartsWith("resource/", StringComparison.OrdinalIgnoreCase) && relative.Count(c => c == '/') == 1;
-            bool localizationPak = relative.StartsWith("localizations/", StringComparison.OrdinalIgnoreCase) && relative.Count(c => c == '/') == 2;
-            if (!resourcePak && !localizationPak)
+            string parent = relative[..(relative.LastIndexOf('/') + 1)];
+            bool mounted = !patch && IsContentPath(relative);
+            // This identifies the documented root patch container, not a resource mount or
+            // a promise that a patch-only package can be enabled by the game.
+            bool knownPatch = patch && parent.Length == 0 && index.Any(entry =>
+                entry.FullName.Equals(".patch", StringComparison.OrdinalIgnoreCase) && entry.Length > 0);
+            if (!mounted && !knownPatch)
             {
                 unsupportedContent = true;
+                AddOther(relative, patch ? "unrecognized-patch" : "unsupported-pak");
                 if (issues.Count < 256) issues.Add(new(ModInspectionReason.UnrecognizedLayout, relative));
             }
             foreach (var entry in index)
@@ -242,9 +279,67 @@ public sealed class ModInspectionService
                 string? entryPath = NormalizeEntry(entry.FullName);
                 if (entryPath is null) { MarkIncomplete(ModInspectionReason.UnsafeArchivePath, relative, entry.FullName); continue; }
                 string evidencePath = relative + "!/" + entryPath;
-                ProcessFile(evidencePath, entry.Length, true,
-                    resourcePak ? "resource/" + entryPath : localizationPak ? "localizations/language/" + entryPath : null);
+                string? virtualPath = null;
+                if (mounted)
+                {
+                    // Some packages already carry their full mount prefix; do not duplicate it or
+                    // silently move a nested package's entries into a different resource subtree.
+                    if (entryPath.StartsWith("resource/", StringComparison.OrdinalIgnoreCase) ||
+                        entryPath.StartsWith("localizations/", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (entryPath.StartsWith(parent, StringComparison.OrdinalIgnoreCase)) virtualPath = entryPath;
+                        else MarkIncomplete(ModInspectionReason.UnrecognizedLayout, evidencePath);
+                    }
+                    else virtualPath = parent + entryPath;
+                }
+                // PAT mounting is not inferred from an index alone. Retain unknown shader coverage
+                // for shader-shaped entries rather than inventing a deployed shader or its absence.
+                if (!mounted && (entryPath.StartsWith("shader/dx10/", StringComparison.OrdinalIgnoreCase) ||
+                    entryPath.StartsWith("resource/shader/dx10/", StringComparison.OrdinalIgnoreCase)))
+                {
+                    shadersComplete = false;
+                    if (issues.Count < 256) issues.Add(new(ModInspectionReason.UnrecognizedLayout, evidencePath));
+                }
+                ProcessFile(evidencePath, entry.Length, true, virtualPath);
             }
+        }
+
+        void ReadAttachment(FileInfo file, string relative)
+        {
+            var index = ReadPakIndex(file, cancellationToken, out bool limitExceeded);
+            if (index is null)
+            {
+                AddOther(relative, "attachment");
+                programsComplete = shadersComplete = false;
+                unsupportedContent = true;
+                if (issues.Count < 256) issues.Add(new(limitExceeded ? ModInspectionReason.ScanLimit : ModInspectionReason.UninspectedArchive, relative));
+                return;
+            }
+            bool textBackup = true;
+            void RecordAttachment()
+            {
+                if (!textBackup) return;
+                textBackup = false;
+                unsupportedContent = true;
+                AddOther(relative, "attachment");
+            }
+            foreach (var entry in index)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (++entries > MaxEntries) { MarkIncomplete(ModInspectionReason.ScanLimit, relative); return; }
+                string? entryPath = NormalizeEntry(entry.FullName);
+                if (entryPath is null) { MarkIncomplete(ModInspectionReason.UnsafeArchivePath, relative, entry.FullName); RecordAttachment(); continue; }
+                string extension = Path.GetExtension(entryPath);
+                // Indexing an attachment describes its contents, not files mounted into the game.
+                ProcessFile(relative + "!/" + entryPath, entry.Length, true);
+                if (extension.ToLowerInvariant() is not (".po" or ".pot" or ".lng" or ".txt" or ".md") && !IsDocumentation(entryPath)) RecordAttachment();
+            }
+        }
+
+        void AddOther(string relative, string kind)
+        {
+            otherCount++;
+            AddEvidence(other, relative, kind);
         }
 
         void ProcessFile(string relative, long length, bool inPak, string? virtualPath = null)
@@ -252,10 +347,11 @@ public sealed class ModInspectionService
             string extension = Path.GetExtension(relative);
             bool external = ExternalExtensions.Contains(extension);
             if (external) { programCount++; AddEvidence(programs, relative, extension); }
-            if (NestedArchives.Contains(extension) || (inPak && extension.Equals(".pak", StringComparison.OrdinalIgnoreCase)))
+            if (NestedArchives.Contains(extension) || (inPak && (extension.Equals(".pak", StringComparison.OrdinalIgnoreCase) || extension.Equals(".pat", StringComparison.OrdinalIgnoreCase))))
             {
                 programsComplete = shadersComplete = false;
                 unsupportedContent = true;
+                AddOther(relative, "nested-archive");
                 if (issues.Count < 256) issues.Add(new(ModInspectionReason.UninspectedArchive, relative));
                 return;
             }
@@ -268,8 +364,11 @@ public sealed class ModInspectionService
             bool resource = contentPath.StartsWith("resource/", StringComparison.OrdinalIgnoreCase);
             bool localization = contentPath.StartsWith("localizations/", StringComparison.OrdinalIgnoreCase) && contentPath.Count(c => c == '/') >= 2;
             if (resource || localization) { contentCount++; AddEvidence(content, relative, inPak ? "pak-content" : localization ? "localization" : "resource"); }
-            else if (!relative.Equals("mod.info", StringComparison.OrdinalIgnoreCase) && !IsDocumentation(relative) && !external)
+            else if (!relative.Equals("mod.info", StringComparison.OrdinalIgnoreCase) && !IsSupplementaryDocument(relative) && !external)
+            {
                 unsupportedContent = true;
+                AddOther(relative, "additional-content");
+            }
         }
 
         string Relative(string path) => Path.GetRelativePath(root.FullName, path).Replace('\\', '/');
@@ -289,7 +388,9 @@ public sealed class ModInspectionService
             generation = cacheGeneration;
             if (pakCache.TryGetValue(file.FullName, out var cached) && cached.Length == length && cached.Modified == modified) return cached.Entries;
         }
-        var entries = FileManager.TryReadPakIndex(file.FullName, token, MaxEntries, out limitExceeded);
+        var entries = file.Extension.Equals(".7z", StringComparison.OrdinalIgnoreCase)
+            ? ReadAttachmentIndex(file, token, out limitExceeded)
+            : FileManager.TryReadPakIndex(file.FullName, token, MaxEntries, out limitExceeded);
         token.ThrowIfCancellationRequested();
         file.Refresh();
         if (file.Length != length || file.LastWriteTimeUtc.Ticks != modified) return null;
@@ -304,6 +405,34 @@ public sealed class ModInspectionService
             }
         return entries;
     }
+
+    private static FileManager.PakEntry[]? ReadAttachmentIndex(FileInfo file, CancellationToken token, out bool limitExceeded)
+    {
+        limitExceeded = false;
+        try
+        {
+            using var stream = file.OpenRead();
+            using var archive = ArchiveFactory.OpenArchive(stream, ReaderOptions.ForExternalStream);
+            var entries = new List<FileManager.PakEntry>();
+            int count = 0;
+            foreach (var entry in archive.Entries)
+            {
+                token.ThrowIfCancellationRequested();
+                if (++count > MaxEntries) { limitExceeded = true; return null; }
+                if (entry.IsEncrypted || !entry.IsComplete) return null;
+                if (!entry.IsDirectory) entries.Add(new(entry.Key ?? "", entry.Size, DateTimeOffset.UnixEpoch));
+            }
+            return archive.IsComplete ? entries.ToArray() : null;
+        }
+        catch (Exception ex) when (ex is not (OutOfMemoryException or OperationCanceledException))
+        { AppDiagnostics.Log("Skipping unreadable attachment index: " + file.FullName, ex); return null; }
+    }
+
+    private static bool IsContentPath(string path) => path.StartsWith("resource/", StringComparison.OrdinalIgnoreCase) ||
+        path.StartsWith("localizations/", StringComparison.OrdinalIgnoreCase) && path.Count(c => c == '/') >= 2;
+
+    private static bool IsSupplementaryDocument(string path) => IsDocumentation(path) ||
+        !IsContentPath(path) && Path.GetExtension(path).ToLowerInvariant() is ".txt" or ".md" or ".pdf" or ".rtf" or ".html" or ".url" or ".png" or ".jpg" or ".jpeg";
 
     private static bool HasLinkAncestor(DirectoryInfo root)
     {

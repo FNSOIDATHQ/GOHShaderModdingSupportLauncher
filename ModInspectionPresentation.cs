@@ -7,17 +7,22 @@ internal static class ModInspectionPresentation
     internal static string Text(string key) => LocalizedStrings.Instance.Get("MI_" + key);
     internal static string Format(string key, params object[] args) => string.Format(CultureInfo.CurrentCulture, Text(key), args);
 
-    internal static bool IsOther(ModInspectionResult result) => !result.HasRegularFeature;
+    internal static bool IsOther(ModInspectionResult result) => result.HasOtherFeature;
 
-    internal static string Qualification(ModInspectionResult result) => Text(result.CanActivate ? "Eligible" : "Other");
+    internal static string Qualification(ModInspectionResult result) => Text(result.CanActivate ? "Eligible" : "ActivationBlocked");
+
+    internal static IEnumerable<string> FeatureKeys(ModInspectionResult result)
+    {
+        if (result.HasRegularFeature) yield return "Regular";
+        if (result.ExternalPrograms.Detected) yield return "Dll";
+        if (result.Shaders.Detected) yield return "Shader";
+        if (result.HasOtherFeature) yield return "Other";
+    }
 
     internal static string Summary(ModInspectionResult? result)
     {
         if (result is null) return Text("NotInspected");
-        var labels = new List<string> { Text(IsOther(result) ? "Other" : "Regular") };
-        if (result.ExternalPrograms.Detected) labels.Add(Text("Dll"));
-        if (result.Shaders.Detected) labels.Add(Text("Shader"));
-        return string.Join(" · ", labels);
+        return string.Join(" · ", FeatureKeys(result).Select(Text));
     }
 
     internal static string Details(Mod? mod)
@@ -33,6 +38,7 @@ internal static class ModInspectionPresentation
         if (mod.hasLoad && !result.CanActivate) lines.Add(Text("AlreadyEnabled"));
         lines.Add(Format("StructureCheck", Text(result.StructureComplete ? "Complete" : "Incomplete")));
         AddEvidence("ContentEvidence", result.ContentEvidence, result.ContentMatchCount);
+        if (result.OtherMatchCount > 0) AddEvidence("OtherEvidence", result.OtherEvidence, result.OtherMatchCount);
         AddFeature("Dll", result.ExternalPrograms);
         AddFeature("Shader", result.Shaders);
         if (result.Issues.Count > 0)

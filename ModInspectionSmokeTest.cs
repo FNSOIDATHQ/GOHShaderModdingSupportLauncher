@@ -41,6 +41,19 @@ internal static class ModInspectionSmokeTest
                 writer.Write("fixture");
             }
         }
+        static void TextArchive(string path, string relative, params (string Path, string Text)[] entries)
+        {
+            string file = Path.Combine(path, relative);
+            Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+            using var archive = ZipFile.Open(file, ZipArchiveMode.Create);
+            foreach (var entry in entries)
+            {
+                var item = archive.CreateEntry(entry.Path);
+                if (entry.Path.EndsWith('/')) continue;
+                using var writer = new StreamWriter(item.Open());
+                writer.Write(entry.Text);
+            }
+        }
         ModInspectionResult Inspect(string path) => inspector.InspectDirectory(path, ModSourceKind.Local);
 
         string loose = Make("loose", "\uFEFF; {name \"comment\"}\n{MOD {desc \"{name \\\"wrong\\\"} ; //\"} {NAME \"Actual \\\"name\\\"\"} {unknown {child 1}}}");
@@ -55,6 +68,82 @@ internal static class ModInspectionSmokeTest
         string localizedPak = Make("localizedpak");
         Pak(localizedPak, "localizations/default/text.pak", "interface/text/main.po");
         Require(Inspect(localizedPak).IsRegular, "localization PAK content");
+        string nestedLocalization = Make("nestedlocalization");
+        Pak(nestedLocalization, "localizations/ch/interface/text/messages.pak", "desc/main.po");
+        Require(Inspect(nestedLocalization) is { HasRegularFeature: true, HasOtherFeature: false, CanActivate: true },
+            "localization PAK below the language root remains regular");
+
+        string nestedPak = Make("nestedpak");
+        Pak(nestedPak, "resource/entity/-vehicle.pak", "-vehicle/test/model.mdl", "-vehicle/test/body.mtl");
+        result = Inspect(nestedPak);
+        Require(result is { HasRegularFeature: true, HasOtherFeature: false, CanActivate: true, ContentMatchCount: 2 } &&
+            result.ContentEvidence.All(item => item.RelativePath.StartsWith("resource/entity/-vehicle.pak!/", StringComparison.Ordinal)),
+            "deep game PAK preserves both resource evidence and physical archive paths");
+        string nestedShaderBoundary = Make("nestedshaderboundary");
+        Pak(nestedShaderBoundary, "resource/entity/content.pak", "shader/dx10/test.fx");
+        Require(Inspect(nestedShaderBoundary) is { HasRegularFeature: true, Shaders.Detected: false },
+            "shader-like entry below entity does not mount at the resource shader root");
+        string prefixedPak = Make("prefixedpak");
+        Pak(prefixedPak, "resource/content.pak", "resource/entity/test/model.def", "resource/shader/dx10/known.fx");
+        Require(Inspect(prefixedPak) is { HasRegularFeature: true, HasOtherFeature: false, ContentMatchCount: 2, Shaders: { Detected: true, Complete: true } },
+            "a complete resource prefix within its mount is recognized without duplicating the mount path");
+        string crossMountPak = Make("crossmountpak");
+        Write(crossMountPak, "resource/entity/normal.def");
+        Pak(crossMountPak, "resource/entity/content.pak", "resource/shader/dx10/not-mounted.fx");
+        result = Inspect(crossMountPak);
+        Require(result is { HasRegularFeature: true, CanActivate: true, ContentMatchCount: 1, Shaders: { Detected: false, Complete: false } } &&
+            result.Issues.Any(item => item.Reason == ModInspectionReason.UnrecognizedLayout),
+            "cross-mount shader prefix remains uncertain instead of relocating an entity package into the shader root");
+
+        string template = Make("templatepatch");
+        Write(template, "resource/map/template.inc");
+        TextArchive(template, "1.pat", (".patch", "{Patch {id 1}}"), ("set/", ""));
+        Require(Inspect(template) is { HasRegularFeature: true, HasOtherFeature: false, CanActivate: true,
+            ExternalPrograms.Complete: true, Shaders.Complete: true }, "normal PAT companion does not remove ordinary content or invent Other");
+        string markerlessPatch = Make("markerlesspatch");
+        Write(markerlessPatch, "resource/normal.set");
+        TextArchive(markerlessPatch, "1.pat", ("set/change.set", "fixture"));
+        Require(Inspect(markerlessPatch) is { HasRegularFeature: true, HasOtherFeature: true, CanActivate: true, ContentMatchCount: 1 },
+            "root PAT without a patch marker is additional content and cannot invent a mounted resource");
+        string emptyMarkerPatch = Make("emptymarkerpatch");
+        Write(emptyMarkerPatch, "resource/normal.set");
+        TextArchive(emptyMarkerPatch, "1.pat", (".patch", ""));
+        Require(Inspect(emptyMarkerPatch) is { HasRegularFeature: true, HasOtherFeature: true, CanActivate: true },
+            "empty patch marker does not silently qualify an arbitrary PAT as a normal game patch");
+        string nestedPatch = Make("nestedpatch");
+        Write(nestedPatch, "resource/normal.set");
+        TextArchive(nestedPatch, "file/backup.pat", (".patch", "{Patch {id 1}}"), ("set/change.set", "fixture"));
+        Require(Inspect(nestedPatch) is { HasRegularFeature: true, HasOtherFeature: true, CanActivate: true, ContentMatchCount: 1 },
+            "PAT with a marker outside the Mod root remains an attachment without removing ordinary eligibility");
+        string patchOnly = Make("patchonly");
+        TextArchive(patchOnly, "1.pat", (".patch", "{Patch {id 1}}"), ("set/", ""), ("bin/plugin.dll", "static fixture"));
+        Require(Inspect(patchOnly) is { HasRegularFeature: false, CanActivate: false, ExternalPrograms: { Detected: true, Complete: true } },
+            "PAT marker alone does not establish an unverified load mechanism and program entries remain visible");
+        string patchShader = Make("patchshader");
+        Write(patchShader, "resource/normal.set");
+        TextArchive(patchShader, "1.pat", (".patch", "{Patch {id 1}}"), ("resource/shader/dx10/example.fx", "fixture"));
+        Require(Inspect(patchShader) is { HasRegularFeature: true, CanActivate: true, Shaders: { Detected: false, Complete: false } },
+            "unverified PAT mount retains shader uncertainty without denying ordinary activation");
+
+        string localizationBackup = Make("localizationbackup");
+        Write(localizationBackup, "localizations/ch/interface/text/main.po", "msgid \"Unit\"\nmsgstr \"单位\"");
+        TextArchive(localizationBackup, "localizations/ch/interface/text/desc.zip", ("desc/main.po", "msgid \"Unit\"\nmsgstr \"单位\""));
+        Require(Inspect(localizationBackup) is { HasRegularFeature: true, HasOtherFeature: false, CanActivate: true, Shaders.Detected: false },
+            "recognized localization text backup does not manufacture Other");
+        string sourcePackage = Make("sourcepackage");
+        Write(sourcePackage, "resource/entity/model.def");
+        Write(sourcePackage, "file/base/source.max");
+        Write(sourcePackage, "file/base/converter.exe");
+        TextArchive(sourcePackage, "extras.zip", ("resource/shader/dx10/not-deployed.fx", "fixture"));
+        result = Inspect(sourcePackage);
+        Require(result is { HasRegularFeature: true, HasOtherFeature: true, CanActivate: true,
+            ExternalPrograms.Detected: true, Shaders.Detected: false } && result.OtherEvidence.Count > 0,
+            "ordinary content, development material and external tools coexist without treating an attachment shader as deployed");
+        string undeployedAttachment = Make("undeployedattachment");
+        TextArchive(undeployedAttachment, "tools.zip", ("bin/tool.dll", "static fixture"), ("resource/shader/dx10/not-deployed.fx", "fixture"));
+        Require(Inspect(undeployedAttachment) is { HasRegularFeature: false, HasOtherFeature: true, CanActivate: false, ContentMatchCount: 0,
+            ExternalPrograms: { Detected: true, MatchCount: 1 }, Shaders.Detected: false },
+            "valid ZIP indexing detects its program while neither deploying shader entries nor inventing ordinary content");
 
         string packed = Make("packed");
         Pak(packed, "resource/content.pak", "texture/asset.dds", "bin/loader.DLL", "./SHADER\\DX10\\nested\\example.fx");
@@ -81,7 +170,8 @@ internal static class ModInspectionSmokeTest
         {
             string only = Make("only_" + extension);
             Write(only, "bin/tool." + extension);
-            Require(Inspect(only) is { Structure: ModStructureState.Invalid, ExternalPrograms.Detected: true, CanActivate: false }, "external-only " + extension);
+            Require(Inspect(only) is { Structure: ModStructureState.Unconfirmed, HasRegularFeature: false, ExternalPrograms.Detected: true, CanActivate: false },
+                "external-only remains ineligible without claiming an unrecognized load mechanism is invalid: " + extension);
         }
         string fakeResource = Make("fakeresource");
         Write(fakeResource, "resource/plugin.dll");
@@ -127,7 +217,20 @@ internal static class ModInspectionSmokeTest
         result = Inspect(broken);
         Require(result is { Structure: ModStructureState.Unconfirmed, ExternalPrograms.Complete: false, Shaders.Complete: false }, "unreadable sole PAK does not invent absence");
         Write(broken, "resource/map/valid.set");
-        Require(Inspect(broken) is { IsRegular: true, StructureComplete: true, Shaders.Complete: false }, "unreadable optional sibling retains positive ordinary evidence");
+        Require(Inspect(broken) is { HasRegularFeature: true, HasOtherFeature: false, CanActivate: true,
+            StructureComplete: true, Shaders.Complete: false }, "unreadable optional sibling retains ordinary activation without manufacturing Other");
+        string brokenPatch = Make("brokenpatch");
+        Write(brokenPatch, "resource/map/valid.set");
+        Write(brokenPatch, "1.pat", "broken patch");
+        Require(Inspect(brokenPatch) is { HasRegularFeature: true, HasOtherFeature: false, CanActivate: true,
+            ExternalPrograms.Complete: false, Shaders.Complete: false }, "unreadable PAT reports its coverage separately from ordinary activation");
+        string limitedSibling = Make("limitedsibling");
+        Write(limitedSibling, "resource/map/valid.set");
+        string branch = limitedSibling;
+        for (int i = 0; i < 67; i++) branch = Directory.CreateDirectory(Path.Combine(branch, "deep")).FullName;
+        File.WriteAllText(Path.Combine(branch, "unseen.dll"), "static fixture");
+        Require(Inspect(limitedSibling) is { HasRegularFeature: true, CanActivate: true, HasOtherFeature: false,
+            ExternalPrograms.Complete: false, Shaders.Complete: false }, "depth-limited optional subtree does not erase prioritized metadata and resource evidence");
         string attachment = Make("attachment");
         Write(attachment, "installer.zip");
         Require(Inspect(attachment) is { Structure: ModStructureState.Unconfirmed, ExternalPrograms.Complete: false }, "nested archives have an explicit uninspected scope");
@@ -153,7 +256,8 @@ internal static class ModInspectionSmokeTest
             "PAK index budget stops oversized indexes");
         string invalidId = Make("contains space");
         Write(invalidId, "resource/test.set");
-        Require(Inspect(invalidId) is { IsRegular: true, LoadId: null, CanActivate: false }, "display identity differs from load ID");
+        Require(Inspect(invalidId) is { HasRegularFeature: true, HasOtherFeature: false, LoadId: null, CanActivate: false },
+            "invalid load ID independently blocks activation without erasing ordinary content");
         string duplicate = Make("mod_123");
         string workshopMod = Directory.CreateDirectory(Path.Combine(workshop, "123")).FullName;
         Write(workshopMod, "mod.info", "{mod {name \"Workshop\"}}");
@@ -162,7 +266,8 @@ internal static class ModInspectionSmokeTest
         Make(".gohsms");
         var scan = inspector.Scan(workshop, local);
         Require(scan.Mods.Count(item => item.LoadId == "mod_123") == 2 && scan.Mods.Where(item => item.LoadId == "mod_123").All(item =>
-            !item.CanActivate && item.Issues.Any(issue => issue.Reason == ModInspectionReason.DuplicateLoadId)), "duplicate IDs retained with reasons");
+            item.HasRegularFeature && !item.CanActivate && item.Issues.Any(issue => issue.Reason == ModInspectionReason.DuplicateLoadId)),
+            "duplicate IDs independently block activation while retaining ordinary labels");
         Require(scan.Mods.All(item => Path.GetFileName(item.DirectoryPath) != ".gohsms"), "launcher internals excluded");
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();

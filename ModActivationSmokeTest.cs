@@ -36,13 +36,19 @@ internal static class ModActivationSmokeTest
         string fixture = Directory.CreateDirectory(Path.Combine(root, "activation-ui")).FullName;
         string game = Directory.CreateDirectory(Path.Combine(fixture, "game")).FullName;
         var mods = Directory.CreateDirectory(Path.Combine(game, "mods"));
-        foreach (string id in new[] { "regular", "mixed", "loader", "unknown", "enabled_bad" })
+        foreach (string id in new[] { "regular", "mixed", "partial", "extras", "contains space", "loader", "unknown", "enabled_bad" })
         {
             string dir = Directory.CreateDirectory(Path.Combine(mods.FullName, id)).FullName;
             File.WriteAllText(Path.Combine(dir, "mod.info"), "{mod {name \"" + id + "\"}}");
-            if (id is "regular" or "mixed")
+            if (id is "regular" or "mixed" or "partial" or "extras" or "contains space")
                 File.WriteAllText(Path.Combine(Directory.CreateDirectory(Path.Combine(dir, "resource")).FullName, "content.set"), "fixture");
             if (id is "mixed" or "loader" or "enabled_bad") File.WriteAllText(Path.Combine(dir, "loader.dll"), "static fixture");
+            if (id == "partial") File.WriteAllText(Path.Combine(dir, "resource", "broken.pak"), "unreadable optional fixture");
+            if (id == "extras")
+            {
+                string source = Directory.CreateDirectory(Path.Combine(dir, "file")).FullName;
+                File.WriteAllText(Path.Combine(source, "source.max"), "development fixture");
+            }
         }
         string options = Path.Combine(fixture, "options.set");
         File.WriteAllText(options, "{options\n{mods\n\"regular:0\"\n\"enabled_bad:0\"\n}\n{after 1}\n}\n");
@@ -119,6 +125,36 @@ internal static class ModActivationSmokeTest
                 "a repeated click while Checking still rejects with the activation message");
             Pump(firstActivation);
             Require(window.universalVars.modLoaded.Last().folderName == "mixed", "mixed regular/DLL activation allowed");
+
+            // All entry points use eligibility, independently of Other or optional inspection coverage.
+            var partial = window.universalVars.modDic["partial"];
+            var extras = window.universalVars.modDic["extras"];
+            Require(partial.HasRegularFeature && partial.CanActivate && partial.Inspection!.Shaders.Complete == false &&
+                extras.HasRegularFeature && extras.CanActivate && extras.Inspection!.HasOtherFeature,
+                "incomplete optional PAK and positive Other facts both retain ordinary eligibility");
+            Pump(manager.ActivateModsAsync([partial]));
+            Pump(manager.ActivateModsAsync([extras, window.universalVars.modDic["mixed"]]));
+            Require(window.universalVars.modLoaded.Any(mod => mod.folderName == "partial") &&
+                window.universalVars.modLoaded.Any(mod => mod.folderName == "extras"), "single and batch activation permit incomplete and Regular/Other content");
+            manager.PresetStore.Save("Compatible", [partial, extras]);
+            Pump(manager.ApplyPresetAsync("Compatible"));
+            Require(window.universalVars.modLoaded.Select(mod => mod.folderName).SequenceEqual(new[] { "partial", "extras" }),
+                "preset reinspection uses the same compatible eligibility");
+            var launchCheck = window.CheckEnabledModsForLaunchAsync(); Pump(launchCheck);
+            Require(launchCheck.Result, "prelaunch qualification permits ordinary content with Other and optional incomplete coverage");
+            var compatibleLocked = window.universalVars.modLoaded.ToArray();
+            File.WriteAllText(options, "{options\n{mods\n}\n}\n");
+            window.RestoreLockedModList(compatibleLocked);
+            Require(window.universalVars.modLoaded.Select(mod => mod.folderName).SequenceEqual(new[] { "partial", "extras" }) &&
+                File.ReadAllText(options).Contains("\"partial:0\"") && File.ReadAllText(options).Contains("\"extras:0\""),
+                "locked-list restoration preserves eligible combinations");
+            var invalidId = window.universalVars.modDic.Values.Single(mod => Path.GetFileName(mod.path) == "contains space");
+            string invalidIdBefore = File.ReadAllText(options);
+            bool invalidIdRejected = false;
+            try { Pump(manager.ActivateModsAsync([invalidId])); } catch (ModActivationRejectedException) { invalidIdRejected = true; }
+            Require(invalidId.HasRegularFeature && !invalidId.CanActivate && invalidIdRejected && File.ReadAllText(options) == invalidIdBefore,
+                "an ordinary badge cannot bypass an invalid ID activation blocker");
+
             File.Delete(Path.Combine(mods.FullName, "regular", "resource", "content.set"));
             // Applying a preset rechecks files instead of trusting the old Regular badge.
             manager.PresetStore.Save("Changed", [window.universalVars.modDic["regular"]]);
@@ -156,7 +192,7 @@ internal static class ModActivationSmokeTest
             before = File.ReadAllText(options);
             refused = false;
             try { window.RestoreLockedModList(locked); } catch (ModActivationRejectedException) { refused = true; }
-            Require(refused && File.ReadAllText(options) == before, "locked-list restoration cannot reenable Other");
+            Require(refused && File.ReadAllText(options) == before, "locked-list restoration cannot reenable a pure external tool");
 
             // The launch guard runs before touching shader files or attempting a process start.
             File.WriteAllText(options, "{options\n{mods\n\"loader:0\"\n}\n}\n");
@@ -195,7 +231,7 @@ internal static class ModActivationSmokeTest
             foreach (var dialog in window.OwnedWindows.ToArray()) dialog.Close();
             window.Close(); LocalizedStrings.Instance.SetCulture(originalCulture);
         }
-        AppDiagnostics.Log("Mod activation self-test passed: asynchronous discovery and progressive Checking labels, responsive reorder/disable, exact bilingual rejection, batch atomicity, mixed activation, fresh presets, locked restoration and pre-shader launch guard.");
+        AppDiagnostics.Log("Mod activation self-test passed: asynchronous discovery and progressive Checking labels, responsive reorder/disable, exact bilingual rejection, ID blockers, batch atomicity, compatible incomplete/Regular-Other activation through single, batch, preset, launch-check and locked-list entry points, fresh rejection and pre-shader launch guard.");
         ModListRestorationSmokeTest.Run(root);
     }
 }

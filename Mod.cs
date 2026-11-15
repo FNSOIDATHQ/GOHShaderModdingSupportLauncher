@@ -77,17 +77,17 @@ public sealed class Mod : INotifyPropertyChanged
         {
             if (inspectionPending == value) return;
             inspectionPending = value;
-            PropertyChanged?.Invoke(this, new(nameof(IsInspectionPending)));
-            PropertyChanged?.Invoke(this, new(nameof(FeatureSortKey)));
+            NotifyInspectionState();
         }
     }
     internal void SetActivationCheckPending(bool value)
     {
+        if (activationCheckPending == value) return;
         activationCheckPending = value;
-        PropertyChanged?.Invoke(this, new(nameof(IsInspectionPending)));
-        PropertyChanged?.Invoke(this, new(nameof(FeatureSortKey)));
+        NotifyInspectionState();
     }
     public bool HasRegularFeature => !IsInspectionPending && Inspection?.HasRegularFeature == true;
+    public bool CanActivate => !IsInspectionPending && !IsMissingReference && Inspection?.CanActivate == true;
     private ModInspectionResult? inspection;
     private string? inspectionDiscoveryId;
     public ModInspectionResult? Inspection
@@ -101,13 +101,14 @@ public sealed class Mod : INotifyPropertyChanged
                 !value.DirectoryPath.Equals(link.DirectoryPath, SubscriptionPaths.Comparison))
                 SetSubscriptionLink(null);
             PropertyChanged?.Invoke(this, new(nameof(Inspection)));
-            PropertyChanged?.Invoke(this, new(nameof(FeatureSortKey)));
+            NotifyInspectionState();
             RefreshSourceDisplay();
         }
     }
     // Sort by the combination of facts, independently of translated badge labels.
-    public int FeatureSortKey => IsInspectionPending ? 16 : Inspection is { } result
-        ? (ModInspectionPresentation.IsOther(result) ? 8 : 1) + (result.ExternalPrograms.Detected ? 2 : 0) + (result.Shaders.Detected ? 4 : 0)
+    public int FeatureSortKey => IsInspectionPending ? 16 : IsMissingReference ? 8 : Inspection is { } result
+        ? (result.HasRegularFeature ? 1 : 0) + (result.ExternalPrograms.Detected ? 2 : 0) +
+            (result.Shaders.Detected ? 4 : 0) + (result.HasOtherFeature ? 8 : 0)
         : hasShader ? 4 : 0;
     internal bool IsMissingReference { get; init; }
     public string DiscoveryId => inspectionDiscoveryId ?? (IsMissingReference ? "missing:" + folderName : path);
@@ -136,6 +137,14 @@ public sealed class Mod : INotifyPropertyChanged
     {
         PropertyChanged?.Invoke(this, new(nameof(DisplayName)));
         PropertyChanged?.Invoke(this, new(nameof(HasAlias)));
+    }
+
+    private void NotifyInspectionState()
+    {
+        PropertyChanged?.Invoke(this, new(nameof(IsInspectionPending)));
+        PropertyChanged?.Invoke(this, new(nameof(HasRegularFeature)));
+        PropertyChanged?.Invoke(this, new(nameof(CanActivate)));
+        PropertyChanged?.Invoke(this, new(nameof(FeatureSortKey)));
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

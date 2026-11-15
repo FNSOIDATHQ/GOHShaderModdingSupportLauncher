@@ -36,11 +36,11 @@ internal static class ModInspectionUiSmokeTest
         string game = Path.Combine(fixture, "game");
         var mods = Directory.CreateDirectory(Path.Combine(game, "mods"));
         string options = Path.Combine(fixture, "options.set");
-        foreach (string id in new[] { "regular", "mixed", "shader", "all", "program", "missing", "unknown" })
+        foreach (string id in new[] { "regular", "mixed", "shader", "all", "extra", "program", "missing", "unknown" })
         {
             string dir = Directory.CreateDirectory(Path.Combine(mods.FullName, id)).FullName;
             if (id != "missing") File.WriteAllText(Path.Combine(dir, "mod.info"), "{mod {name \"" + id + "\"}}");
-            if (id is "regular" or "mixed" or "shader" or "all")
+            if (id is "regular" or "mixed" or "shader" or "all" or "extra")
             {
                 string resource = Directory.CreateDirectory(Path.Combine(dir, "resource")).FullName;
                 File.WriteAllText(Path.Combine(resource, "game.set"), "fixture");
@@ -50,6 +50,11 @@ internal static class ModInspectionUiSmokeTest
             {
                 string shader = Directory.CreateDirectory(Path.Combine(dir, "resource", "shader", "dx10")).FullName;
                 File.WriteAllText(Path.Combine(shader, "example.fx"), "fixture");
+            }
+            if (id is "all" or "extra")
+            {
+                string source = Directory.CreateDirectory(Path.Combine(dir, "file")).FullName;
+                File.WriteAllText(Path.Combine(source, "source.max"), "development fixture");
             }
         }
         File.WriteAllText(options, "{options\n{mods\n\"all:0\"\n\"program:0\"\n}\n}\n");
@@ -127,21 +132,26 @@ internal static class ModInspectionUiSmokeTest
                     string legendText = string.Join("\n", lines);
                     Require(legendText == LocalizedStrings.Instance.MI_FeatureHint && AutomationProperties.GetName(tip) == legendText,
                         "visual and accessible legend text agree");
-                    if (language == "zh-CN") Require(legendText ==
-                        "常规：已确认的常规Mod 结构\nDLL：含DLL、可执行程序或外部安装脚本\n着色器：含着色器资源，需要全程依赖启动器运行\n其它：结构待确认/无效，或检查未完成",
-                        "exact requested four-line Chinese copy");
+                    Require(descriptions.All(description => !string.IsNullOrWhiteSpace(description)), "each independent feature has a description");
                     ToolTip.SetIsOpen(hint, false);
                 }
-                foreach (string id in new[] { "regular", "mixed", "shader", "all", "program", "missing", "unknown" })
+                foreach (string id in new[] { "regular", "mixed", "shader", "all", "extra", "program", "missing", "unknown" })
                 {
                     var mod = window.universalVars.modDic[id];
                     var view = new ModFeaturesView { Mod = mod };
                     view.Measure(new Size(105, double.PositiveInfinity));
                     view.Arrange(new Rect(0, 0, 105, view.DesiredSize.Height));
                     var labels = view.GetLogicalDescendants().OfType<TextBlock>().Where(text => text.FontSize == 11 && text.Parent is Border).Select(text => text.Text).ToArray();
-                    int expected = 1 + (mod.Inspection!.ExternalPrograms.Detected ? 1 : 0) + (mod.hasShader ? 1 : 0);
-                    Require(labels.Length == expected && labels[0] == ModInspectionPresentation.Text(
-                        ModInspectionPresentation.IsOther(mod.Inspection) ? "Other" : "Regular"), "combination " + id);
+                    var expected = new List<string>();
+                    if (mod.Inspection!.HasRegularFeature) expected.Add(ModInspectionPresentation.Text("Regular"));
+                    if (mod.Inspection.ExternalPrograms.Detected) expected.Add(ModInspectionPresentation.Text("Dll"));
+                    if (mod.Inspection.Shaders.Detected) expected.Add(ModInspectionPresentation.Text("Shader"));
+                    if (mod.Inspection.HasOtherFeature) expected.Add(ModInspectionPresentation.Text("Other"));
+                    Require(labels.SequenceEqual(expected) && AutomationProperties.GetName(view) == mod.DisplayName + ": " + string.Join(" · ", expected),
+                        "ordered independent badges and accessible summary " + id);
+                    if (id == "all") Require(labels.Length == 4 && mod.CanActivate, "all four features coexist and remain eligible");
+                    if (id == "extra") Require(labels.SequenceEqual(new[] { ModInspectionPresentation.Text("Regular"), ModInspectionPresentation.Text("Other") }) && mod.CanActivate,
+                        "ordinary and Other coexist without an external program or activation denial");
                     Require(!view.Focusable && !view.GetLogicalDescendants().OfType<Button>().Any() && ToolTip.GetTip(view) is null &&
                         AutomationProperties.GetName(view)!.Contains(labels[0]!), "passive badges with accessible names and no inspection button");
                 }
@@ -152,22 +162,32 @@ internal static class ModInspectionUiSmokeTest
                     { ExternalPrograms = mixed.Inspection.ExternalPrograms with { Complete = false, MatchCount = 200 } }
                 };
                 var partialView = new ModFeaturesView { Mod = partial };
-                Require(AutomationProperties.GetName(partialView)!.Contains(ModInspectionPresentation.Text("Other")) &&
+                Require(!AutomationProperties.GetName(partialView)!.Contains(ModInspectionPresentation.Text("Other")) &&
                     AutomationProperties.GetName(partialView)!.Contains(ModInspectionPresentation.Text("Dll")) &&
-                    !AutomationProperties.GetName(partialView)!.Contains(ModInspectionPresentation.Text("Regular")) && partial.Inspection!.CanActivate &&
+                    AutomationProperties.GetName(partialView)!.Contains(ModInspectionPresentation.Text("Regular")) && partial.CanActivate &&
                     ModInspectionPresentation.Details(partial).Contains(ModInspectionPresentation.Format("Truncated", 1, 200)), "positive incomplete result and evidence truncation");
                 foreach (var inspection in new[]
                 {
                     mixed.Inspection! with { Structure = ModStructureState.Invalid },
-                    mixed.Inspection! with { Structure = ModStructureState.Unconfirmed },
+                    mixed.Inspection! with { Structure = ModStructureState.Unconfirmed }
+                })
+                {
+                    var other = new ModFeaturesView { Mod = new Mod("other", "", mixed.path, "", false) { Inspection = inspection } };
+                    Require(AutomationProperties.GetName(other) == "other: " + ModInspectionPresentation.Text("Dll") + " · " + ModInspectionPresentation.Text("Other"),
+                        "unconfirmed structures use the fallback independently of the DLL feature");
+                }
+                foreach (var inspection in new[]
+                {
                     mixed.Inspection! with { StructureComplete = false },
                     mixed.Inspection! with { Shaders = mixed.Inspection.Shaders with { Complete = false } },
                     mixed.Inspection! with { LoadId = null }
                 })
                 {
-                    var other = new ModFeaturesView { Mod = new Mod("other", "", mixed.path, "", false) { Inspection = inspection } };
-                    Require(AutomationProperties.GetName(other) == "other: " + ModInspectionPresentation.Text("Other") + " · " + ModInspectionPresentation.Text("Dll"),
-                        "invalid, unconfirmed and incomplete results share Other while retaining DLL");
+                    var ordinary = new Mod("ordinary", "", mixed.path, "", false) { Inspection = inspection };
+                    var ordinaryView = new ModFeaturesView { Mod = ordinary };
+                    Require(AutomationProperties.GetName(ordinaryView) == "ordinary: " + ModInspectionPresentation.Text("Regular") + " · " + ModInspectionPresentation.Text("Dll") &&
+                        ordinary.HasRegularFeature && ordinary.CanActivate == (inspection.LoadId is not null),
+                        "coverage and invalid IDs do not erase ordinary content; only the invalid ID blocks activation");
                 }
                 var uninspected = new ModFeaturesView { Mod = new Mod("remote", "", "", "", true) };
                 Require(AutomationProperties.GetName(uninspected)!.Contains(ModInspectionPresentation.Text("NotInspected")) &&
@@ -191,7 +211,7 @@ internal static class ModInspectionUiSmokeTest
             foreach (var dialog in window.OwnedWindows.ToArray()) dialog.Close();
             window.Close(); LocalizedStrings.Instance.SetCulture(culture);
         }
-        AppDiagnostics.Log("Mod inspection UI self-test passed: passive combination badges, four-line bilingual legends matching actual badge styles, exact Chinese copy, unified Other states, narrow layout, removed detail/help UI, internal debug evidence, local installation association and read-only refresh.");
+        AppDiagnostics.Log("Mod inspection UI self-test passed: independent four-feature combinations and eligible Regular/Other rows, bilingual accessible legends matching actual badge styles, separate coverage/ID facts, narrow layout, removed detail/help UI, internal debug evidence, local installation association and read-only refresh.");
         ModActivationSmokeTest.Run(root);
     }
 }

@@ -24,10 +24,16 @@ public sealed record ModInspectionResult(
     ModFeatureInspection ExternalPrograms, ModFeatureInspection Shaders, IReadOnlyList<ModInspectionIssue> Issues, int ContentMatchCount)
 {
     public bool IsRegular => Structure == ModStructureState.Regular;
+    public bool HasRegularContent => ContentMatchCount > 0;
     public bool ContentEvidenceTruncated => ContentMatchCount > ContentEvidence.Count;
+    public IReadOnlyList<ModInspectionEvidence> OtherEvidence { get; init; } = [];
+    public int OtherMatchCount { get; init; }
+    public bool OtherEvidenceTruncated => OtherMatchCount > OtherEvidence.Count;
     public bool CanActivate => IsRegular && LoadId is not null &&
         !Issues.Any(issue => issue.Reason == ModInspectionReason.DuplicateLoadId);
-    public bool HasRegularFeature => CanActivate && StructureComplete && ExternalPrograms.Complete && Shaders.Complete;
+    // Content, coverage and activation are independent. An optional attachment cannot erase a positive hit.
+    public bool HasRegularFeature => IsRegular;
+    public bool HasOtherFeature => OtherMatchCount > 0 || !HasRegularFeature;
 }
 
 public sealed record ModScanProgress(int InspectedDirectories, string DirectoryPath);

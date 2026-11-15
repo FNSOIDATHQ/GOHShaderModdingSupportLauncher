@@ -840,7 +840,7 @@ Manual changes outside mods cannot be undone here.</value></data>
     <value>: Contains shader resources; requires the launcher to remain running throughout</value>
   </data>
   <data name="MI_FeatureHintOther" xml:space="preserve">
-    <value>: Structure unconfirmed/invalid, or inspection incomplete</value>
+    <value>: Extra or unclassified content; can coexist with Regular and does not itself block activation</value>
   </data>
   <data name="MI_Other" xml:space="preserve">
     <value>Other</value>
@@ -904,6 +904,9 @@ Manual changes outside mods cannot be undone here.</value></data>
   </data>
   <data name="MI_ContentEvidence" xml:space="preserve">
     <value>Ordinary content: {0} match(es)</value>
+  </data>
+  <data name="MI_OtherEvidence" xml:space="preserve">
+    <value>Other content: {0} matches</value>
   </data>
   <data name="MI_Evidence" xml:space="preserve">
     <value>Matching files: {0}</value>
@@ -984,7 +987,7 @@ Manual changes outside mods cannot be undone here.</value></data>
     <value>Regular + DLL — Ordinary content is eligible for activation. Activation does not run installation scripts, deploy DLLs or prove that the DLL features work.</value>
   </data>
   <data name="MI_HelpUnknown" xml:space="preserve">
-    <value>Other — Groups unconfirmed or invalid structures and incomplete checks. Known DLL and Shader features remain visible alongside it. Inspection details retain the reasons and relative paths; open the folder to review it, then recheck. An incomplete check never proves that DLLs or shaders are absent.</value>
+    <value>Other — Identifies extra or unclassified content and folders whose normal loading structure has not been confirmed. It can coexist with Regular, DLL and Shader; its presence does not itself block activation. Local read failures or incomplete checks do not remove confirmed regular content. An incomplete check never proves that DLLs or shaders are absent.</value>
   </data>
   <data name="MI_HelpDisable" xml:space="preserve">
     <value>Disabling — Removes ordinary content from the enabled Mod list. DLLs installed separately in the game directory must be removed according to the author's instructions.</value>

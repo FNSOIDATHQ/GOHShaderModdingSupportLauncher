@@ -12,7 +12,7 @@ internal static class ModActivationGuard
 {
     internal static void RequireRegular(IEnumerable<Mod> mods)
     {
-        var rejected = mods.Where(mod => !mod.HasRegularFeature).ToArray();
+        var rejected = mods.Where(mod => !mod.CanActivate).ToArray();
         if (rejected.Length > 0) throw new ModActivationRejectedException(rejected);
     }
 }
