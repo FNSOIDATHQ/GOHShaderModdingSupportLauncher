@@ -109,9 +109,11 @@ internal sealed class SubscriptionStore
                 !document.RootElement.TryGetProperty("schemaVersion", out var schema) ||
                 schema.ValueKind != JsonValueKind.Number || !schema.TryGetInt32(out int version))
                 throw new InvalidDataException("The subscription schema version is missing or invalid.");
-            if (version is not (1 or 2 or 3 or 4 or SubscriptionLibrary.CurrentSchemaVersion)) throw new UnsupportedSubscriptionSchemaException(version);
+            if (version is not (1 or 2 or 3 or 4 or 5 or SubscriptionLibrary.CurrentSchemaVersion)) throw new UnsupportedSubscriptionSchemaException(version);
             var parsed = JsonSerializer.Deserialize(bytes, SubscriptionJsonContext.Default.SubscriptionLibrary)
                 ?? throw new InvalidDataException("The subscription library is empty.");
+            // Schema 6 adds an optional payload filename. Older downloads keep their paths,
+            // checksums and ownership; they are rechecked, never silently adopted or installed.
             // Shared file notes are additive to schema 5. Generated init setters assign null
             // when older libraries omit this optional array; retain all existing tracking.
             if (parsed.Subscriptions is not null)
@@ -338,6 +340,20 @@ internal sealed class SubscriptionStore
                 { State = DownloadState.Downloaded, Error = null, UpdatedAt = DateTimeOffset.UtcNow } : item).ToArray()
             };
         });
+
+    // Only the filesystem service calls this after removing this download's verified content.
+    // Keep the Mod's update tracking and every other file, even when its last download is removed.
+    internal void CommitDownloadRemoval(Guid subscriptionId, Guid downloadId) => ChangeSubscription(subscriptionId, value =>
+    {
+        var download = value.Downloads.Single(item => item.Id == downloadId);
+        if (download.State is DownloadState.Pending or DownloadState.Downloading)
+            throw new InvalidOperationException("The selected file is not ready for cleanup.");
+        return value with
+        {
+            Downloads = value.Downloads.Where(item => item.Id != downloadId).ToArray(),
+            Installations = value.Installations.Where(item => item.DownloadId != downloadId).ToArray()
+        };
+    });
 
     internal void CommitRemoval(Guid subscriptionId) => Change(value =>
     {

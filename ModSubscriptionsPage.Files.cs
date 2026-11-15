@@ -170,7 +170,6 @@ public sealed partial class ModSubscriptionsPage
         if (file is not null)
         {
             if (file.IsSourceSnapshot) fileReader.Children.Add(Text(T("SourceSnapshot")));
-            if (file.DownloadOnly) fileReader.Children.Add(Text(T("GitHubDownloadOnly")));
             if (string.IsNullOrWhiteSpace(file.Description) && (!ModDocumentParser.HasDocument(file.Document) || file.Document!.Blocks.Length == 0))
                 fileReader.Children.Add(Text(T("NoFileDescription")));
             else AddContextDocument(fileReader, fileDocument, FileContext());

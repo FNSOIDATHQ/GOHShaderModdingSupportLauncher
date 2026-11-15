@@ -6,6 +6,7 @@ namespace GOHShaderModdingSupportLauncher;
 
 public partial class MainWindow
 {
+    internal void OpenSubscriptionModManager() => SelectNavigationPage(PageId.ModManager);
     private ModSubscriptionRuntime? subscriptionRuntime;
     private bool subscriptionShutdownStarted, subscriptionShutdownFinished;
     internal ModSubscriptionRuntime SubscriptionRuntime => subscriptionRuntime ??= CreateSubscriptionRuntime();

@@ -50,4 +50,20 @@ internal static class SubscriptionPaths
             throw new ArgumentException("The owned file path is invalid.", nameof(path));
         return normalized;
     }
+    internal static string SafeFileName(string value, string fallback, int maxLength = 120)
+    {
+        string name = new(value.Select(c => char.IsControl(c) || Path.GetInvalidFileNameChars().Contains(c) ? '_' : c).ToArray());
+        name = name.Trim().TrimEnd('.');
+        if (name.Length > maxLength) name = name[..maxLength].TrimEnd(' ', '.');
+        return name.Length == 0 || name is "." or ".." || name.Equals(".gohsms", StringComparison.OrdinalIgnoreCase) || IsReservedFileName(name) ? fallback : name;
+    }
+
+    internal static bool IsReservedFileName(string part)
+    {
+        string stem = part.Split('.')[0].ToUpperInvariant();
+        return stem is "CON" or "PRN" or "AUX" or "NUL" or "CLOCK$" or "CONIN$" or "CONOUT$" ||
+            (stem.Length == 4 && (stem.StartsWith("COM", StringComparison.Ordinal) || stem.StartsWith("LPT", StringComparison.Ordinal)) &&
+                (stem[3] is >= '0' and <= '9' or '¹' or '²' or '³'));
+    }
+
 }

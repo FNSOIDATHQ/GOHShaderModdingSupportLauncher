@@ -49,7 +49,7 @@ internal sealed class ModFileTransferClient : IDisposable
     internal int MaxRetries => options.MaxRetries;
     internal TimeSpan RetryDelay => options.RetryDelay;
 
-    internal async Task TransferAsync(ModDownloadLink link, string partialPath, string resumePath,
+    internal async Task<string?> TransferAsync(ModDownloadLink link, string partialPath, string resumePath,
         Action<long, long?> progress, CancellationToken token)
     {
         ManagedModFiles.EnsureSafe(partialPath);
@@ -190,7 +190,9 @@ internal sealed class ModFileTransferClient : IDisposable
                 destination.Flush(flushToDisk: true);
                 if (received == 0 || total is { } finalTotal && received != finalTotal)
                     throw new EndOfStreamException("The download ended before the declared file size.");
-                return;
+                string? name = response.Content.Headers.ContentDisposition?.FileNameStar ?? response.Content.Headers.ContentDisposition?.FileName?.Trim('"');
+                name ??= Uri.UnescapeDataString(current.Segments.LastOrDefault() ?? "");
+                return name.Length > 0 && Path.HasExtension(name) && name == SubscriptionPaths.SafeFileName(name, "", 240) ? name : null;
             }
             finally { host.Gate.Release(); }
         }

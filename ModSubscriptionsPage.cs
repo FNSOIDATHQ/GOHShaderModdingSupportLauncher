@@ -57,6 +57,8 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
         timer.Tick += (_, _) => RefreshTasks();
     }
 
+    internal ModSubscriptionsPage(MainWindow main, ModSubscriptionRuntime diagnosticRuntime) : this(main) => runtime = diagnosticRuntime;
+
     private static string T(string key) => LocalizedStrings.Instance.Get("MS_" + key);
     private static TextBlock Text(string value, double size = 14) => new()
     { Text = value, FontSize = size, TextWrapping = TextWrapping.Wrap };
@@ -81,7 +83,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
         if (disposed) return;
         if (active) { _ = ResumeAfterCacheClearAsync(); return; }
         active = true;
-        runtime = main.SubscriptionRuntime;
+        runtime ??= main.SubscriptionRuntime;
         runtime.Changed += RuntimeChanged;
         runtime.CachesClearing += CachesClearing;
         runtime.Verification.Changed += RuntimeChanged;
@@ -91,6 +93,9 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
 
     public void OnGameChanged()
     {
+        if (!string.Equals(workflowGame, main.SubscriptionGameDirectory, SubscriptionPaths.Comparison))
+        { workflowCancellation?.Cancel(); workflowCancellation?.Dispose(); workflowCancellation = null; }
+        renderedTaskSignature = null;
         cacheReturn = null;
         CancelRefresh(); ResetStatus();
         ClearDetail();
@@ -123,6 +128,9 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
     {
         if (args.PropertyName != nameof(LocalizedStrings.Tab_ModSubscriptions)) return;
         var previousMod = selected;
+        var previousWorkflow = details.SelectedIndex == 2 ? workflowView : WorkflowView.None;
+        var previousSubscription = workflowSubscription;
+        var previousDownload = workflowDownload;
         CancelLinkNavigation();
         CancelRefresh(); CancelTranslation(); ResetStatus();
         SaveReadingPosition(); detailCancellation?.Cancel(); listCancellation?.Cancel(); selected = null; snapshot = null; session = null; CloseOperation();
@@ -131,7 +139,16 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
         BuildView();
         if (runtime?.Ready.IsCompletedSuccessfully == true) LoadGitHubOptions();
         RefreshVerification();
-        if (active) _ = ExecuteAsync(async () => { await LoadListAsync(); if (previousMod is not null) await OpenModAsync(previousMod); });
+        if (active) _ = ExecuteAsync(async () =>
+        {
+            await LoadListAsync(); if (previousMod is not null) await OpenModAsync(previousMod);
+            if (previousWorkflow == WorkflowView.None) return;
+            await ShowTasksAsync();
+            if (operationBusy) return;
+            if (previousWorkflow == WorkflowView.Cleanup && previousSubscription is { } cleanup) await ReviewUnsubscribeAsync(cleanup, previousDownload);
+            else if (previousWorkflow == WorkflowView.Install && runtime!.Library.Subscriptions.SingleOrDefault(item => item.Id == previousSubscription) is { } sub &&
+                sub.Downloads.SingleOrDefault(item => item.Id == previousDownload) is { } download) await InstallAsync(sub, download);
+        });
     }
 
     private void RuntimeChanged() => Dispatcher.UIThread.Post(() =>
@@ -141,7 +158,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
             RefreshTasks(); RefreshTracking();
             RefreshVerification();
             _ = RefreshRecoveryAsync();
-            if (view.SelectedIndex != 0) RenderLibraryList();
+            RenderModList(view.SelectedIndex == 0 ? browseItems : LibraryItems());
         }
     });
 
@@ -242,15 +259,17 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
     private void RenderModList(RemoteMod[] items)
     {
         rebuilding = true;
-        var rows = items.Select(mod => new ModRow(mod, NoticeCount(mod), Subscription(mod) is not null)).ToArray();
+        var rows = items.Select(mod => new ModRow(mod, NoticeCount(mod), Subscription(mod) is not null,
+            runtime?.Library.Favorites.Any(item => item.Source == mod.Id) == true)).ToArray();
         mods.ItemsSource = rows;
         mods.SelectedItem = rows.SingleOrDefault(row => row.Mod.Id == selected?.Id);
         rebuilding = false;
     }
 
-    private sealed record ModRow(RemoteMod Mod, int Count, bool Subscribed)
+    private sealed record ModRow(RemoteMod Mod, int Count, bool Subscribed, bool Favorited)
     {
         public override string ToString() => Mod.Title + (Subscribed ? "\n" + T("Subscribed") : "") +
+            (Favorited ? "\n" + T("Favorited") : "") +
             (Mod.Id.Provider == "github" ? "\n" + T("Kind_" + Mod.Kind) : "") +
             (Count > 0 ? " · " + T("Updates") + $" ({Count})" : "");
     }
@@ -323,6 +342,8 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
         favorite.IsEnabled = selected is not null;
         favorite.Content = selected is { } mod && runtime.Library.Favorites.Any(f => f.Source == mod.Id) ? T("Unfavorite") : T("Favorite");
         var sub = Subscription();
+        FillStateBadges(titleBadges, sub is not null,
+            selected is { } item && runtime.Library.Favorites.Any(f => f.Source == item.Id));
         unsubscribe.IsVisible = sub is not null;
         unsubscribe.Content = T(sub?.State is SubscriptionState.RemovalPending or SubscriptionState.RemovalFailed ? "ContinueCleanup" : "Unsubscribe");
         foreach (var pair in fileChoices)
@@ -343,6 +364,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
         if (disposed) return;
         CancelRefresh(); CancelTranslation();
         disposed = true; timer.Stop(); lifetime.Cancel(); detailCancellation?.Cancel(); verificationCancellation?.Cancel();
+        workflowCancellation?.Cancel(); workflowCancellation?.Dispose();
         LocalizedStrings.Instance.PropertyChanged -= LanguageChanged;
         if (runtime is not null)
         {

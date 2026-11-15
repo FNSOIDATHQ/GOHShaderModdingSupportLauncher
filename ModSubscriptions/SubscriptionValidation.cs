@@ -147,6 +147,8 @@ internal static class SubscriptionValidation
                 Require(download is not null && download.Id != Guid.Empty && taskIds.Add(download.Id) &&
                     downloads.Add(download.Id) && Enum.IsDefined(download.State) && download.ReceivedBytes >= 0);
                 File(download.File);
+                Require(download.FileName is null || download.FileName.Length is > 0 and <= 240 &&
+                    download.FileName == SubscriptionPaths.SafeFileName(download.FileName, "", 240));
                 Require(download.ContentSha256 is null || (download.ContentSha256.Length == 64 &&
                     download.ContentSha256.All(c => c is >= '0' and <= '9' or >= 'a' and <= 'f')));
                 if (download.LocalPath is not null)

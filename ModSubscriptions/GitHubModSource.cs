@@ -91,7 +91,7 @@ internal sealed class GitHubModSource : IModSource, IDisposable
             catch (ModSourceException ex) when (ex.Failure.Kind == ModSourceError.NotFound) { }
             using var releasePage = await JsonAsync(RepoApi(mod.PageUrl, "/releases?per_page=1&page=1"), ct).ConfigureAwait(false);
             if (RequireArray(releasePage.RootElement).GetArrayLength() == 0 && mod.Kind != RemoteProjectKind.Tool)
-                mod = mod with { Kind = RemoteProjectKind.SourceOnly, InstallationHint = "Source snapshots are download-only. The launcher never builds or generates resources." };
+                mod = mod with { Kind = RemoteProjectKind.SourceOnly, InstallationHint = "Source snapshots can be placed in mods. Builds, generated resources and extra deployment remain manual." };
             return mod;
         }, ModContentJsonContext.Default.CachedModContentRemoteMod, mode, token);
 

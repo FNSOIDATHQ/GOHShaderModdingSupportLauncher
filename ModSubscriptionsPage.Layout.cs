@@ -6,6 +6,7 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.LogicalTree;
+using Avalonia.Controls.Templates;
 
 namespace GOHShaderModdingSupportLauncher;
 
@@ -22,9 +23,11 @@ public sealed partial class ModSubscriptionsPage
     private ContentControl operation = null!;
     private TextBlock pageNumber = null!, listNotice = null!, activity = null!;
     private Button unsubscribe = null!, backToList = null!, refresh = null!, modListToggle = null!;
+    private Button taskShortcut = null!;
     private bool listOnly = true;
     private Expander githubConfiguration = null!;
     private TextBlock mowHint = null!;
+    private WrapPanel titleBadges = null!;
 
     private void BuildView()
     {
@@ -85,6 +88,17 @@ public sealed partial class ModSubscriptionsPage
         var list = listPane = new Grid { Name = "subscriptionListPane", RowDefinitions = new("Auto,*") };
         listNotice = Text(""); list.Children.Add(listNotice);
         mods = new ListBox { Name = "subscriptionMods", Focusable = true }; Grid.SetRow(mods, 1); list.Children.Add(mods);
+        mods.ItemTemplate = new FuncDataTemplate<ModRow>((item, _) =>
+        {
+            if (item is null) return new TextBlock();
+            var row = Column(); row.Spacing = 4;
+            row.Children.Add(Text(item.Mod.Title));
+            row.Children.Add(StateBadges(item.Subscribed, item.Favorited));
+            if (item.Mod.Id.Provider == "github") row.Children.Add(Text(T("Kind_" + item.Mod.Kind), 12));
+            if (item.Count > 0) row.Children.Add(Text(T("Updates") + $" ({item.Count})", 12));
+            Avalonia.Automation.AutomationProperties.SetName(row, item.ToString());
+            return row;
+        });
         mods.SelectionChanged += async (_, _) => { if (!rebuilding && mods.SelectedItem is ModRow item) await OpenModAsync(item.Mod); };
         // Returning to the narrow list retains selection, so selecting the same row must work too.
         mods.Tapped += async (_, args) =>
@@ -105,7 +119,10 @@ public sealed partial class ModSubscriptionsPage
         backToList.Name = "subscriptionBackToList"; heading.Children.Add(backToList);
         Avalonia.Automation.AutomationProperties.SetName(backToList, T("BackToList"));
         title = Text(T("ChooseMod"), 20); title.MaxLines = 2; title.TextTrimming = TextTrimming.CharacterEllipsis;
-        title.VerticalAlignment = VerticalAlignment.Center; Grid.SetColumn(title, 1); heading.Children.Add(title);
+        title.VerticalAlignment = VerticalAlignment.Center;
+        var titleGroup = Column(); titleGroup.Spacing = 4; titleGroup.Children.Add(title);
+        titleBadges = StateBadges(false, false); titleBadges.Name = "subscriptionTitleBadges"; titleGroup.Children.Add(titleBadges);
+        Grid.SetColumn(titleGroup, 1); heading.Children.Add(titleGroup);
         var actions = detailActions = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
         favorite = Action(T("Favorite"), ToggleFavoriteAsync); favorite.IsEnabled = false; actions.Children.Add(favorite);
         original = new Button { Name = "subscriptionOriginal", Content = T("Original"), IsEnabled = false };
@@ -127,7 +144,7 @@ public sealed partial class ModSubscriptionsPage
         Grid.SetRow(fileNavigationScroll, 1); fileContent.Children.Add(fileNavigationScroll);
         fileReader = Column(); fileReader.Name = "subscriptionFileReader";
         fileReader.AddHandler(PointerPressedEvent, (_, _) => { if (!fileImageExpanded) { CancelLinkNavigation(); SetReadingContext(FileContext()); } }, RoutingStrategies.Tunnel);
-        var fileBody = Column(); fileBody.Children.Add(fileReader); fileBody.Children.Add(tasks);
+        var fileBody = Column(); fileBody.Children.Add(fileReader);
         fileScroll = Scroll(fileBody); fileScroll.Name = "subscriptionFileReading";
         fileReadingSurface = ReadingSurface(fileScroll); Grid.SetColumn(fileReadingSurface, 2); Grid.SetRow(fileReadingSurface, 1); fileContent.Children.Add(fileReadingSurface);
         var fileActions = new WrapPanel { Name = "subscriptionFileActions", ItemSpacing = 8, LineSpacing = 6, Margin = new Thickness(0, 8, 0, 0) };
@@ -137,31 +154,27 @@ public sealed partial class ModSubscriptionsPage
         fileActions.Children.Add(selectedFileCount); fileActions.Children.Add(downloadSelected);
         BuildFileNavigationLayout(fileActions);
         Grid.SetRow(fileActions, 2); Grid.SetColumnSpan(fileActions, 3); fileContent.Children.Add(fileActions);
-        var recoveryScroll = new ScrollViewer { Content = recovery, MaxHeight = 120 };
-        Grid.SetRow(recoveryScroll, 3); Grid.SetColumnSpan(recoveryScroll, 3); fileContent.Children.Add(recoveryScroll);
         operation = new ContentControl { Name = "subscriptionOperation", IsVisible = false };
-        operationScroll = Scroll(operation); operationScroll.IsVisible = false;
-        var fileRoot = new Grid(); fileRoot.Children.Add(operationScroll); fileRoot.Children.Add(fileContent);
+        operationScroll = Scroll(operation); operationScroll.Name = "subscriptionWorkflow"; operationScroll.IsVisible = false;
+        operationScroll.Padding = new Thickness(0, 0, 16, 8);
+        var fileRoot = new Grid(); fileRoot.Children.Add(fileContent);
         details = new TabControl { Name = "subscriptionDetails", ItemsSource = new[] {
-            new TabItem { Header = T("Description"), Content = description }, new TabItem { Header = T("Files"), Content = fileRoot } }, SelectedIndex = 0 };
+            new TabItem { Header = T("Description"), Content = description }, new TabItem { Header = T("Files"), Content = fileRoot },
+            new TabItem { Name = "subscriptionTasksTab", Header = T("DownloadInstall"), Content = operationScroll } }, SelectedIndex = 0 };
         details.SelectionChanged += async (sender, args) =>
         {
-            if (args.Source != details || rebuilding || session is null) return;
-            CancelLinkNavigation();
-            SaveReadingPosition();
-            session.Tab = details.SelectedIndex;
-            CancelRefresh(); CancelTranslation();
-            if (details.SelectedIndex == 1) await ExecuteAsync(() => EnsureFilesAsync());
-            else RerenderTranslation();
-            SelectVisibleContext();
+            if (args.Source != details || rebuilding) return;
+            await ChangeDetailTabAsync();
         };
         Grid.SetRow(details, 1); detail.Children.Add(details); body.Children.Add(detail);
         Grid.SetRow(body, 5); root.Children.Add(body);
 
-        var footer = new Grid { Name = "subscriptionFooter", ColumnDefinitions = new("Auto,*,Auto"), Margin = new Thickness(0, 8, 0, 0) };
-        var listActions = Row();
+        var footer = new Grid { Name = "subscriptionFooter", ColumnDefinitions = new("*,Auto,Auto"), Margin = new Thickness(0, 8, 0, 0) };
+        var listActions = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
         linkBack = Action(T("BackFromLink"), BackFromLinkAsync, independent: true); linkBack.Name = "subscriptionLinkBack";
         linkBack.IsEnabled = linkHistory.Count > 0; listActions.Children.Add(linkBack);
+        taskShortcut = Action(T("DownloadInstall"), ShowTasksAsync, independent: true); taskShortcut.Name = "subscriptionTasks";
+        listActions.Children.Add(taskShortcut);
         modListToggle = new Button { Name = "subscriptionModListToggle", VerticalAlignment = VerticalAlignment.Center };
         modListToggle.Click += (_, _) => ToggleModList(); listActions.Children.Add(modListToggle);
         var paging = Row(); paging.Name = "subscriptionPagination";
@@ -220,8 +233,9 @@ public sealed partial class ModSubscriptionsPage
         Grid.SetRow(translationToolbar, wrapTranslation ? 1 : 0);
         subscriptionHeader.ColumnDefinitions[1].Width = wrapTranslation ? new GridLength(0) : GridLength.Auto;
         translationToolbar.Margin = new Thickness(0, wrapTranslation ? 6 : 0, 0, 0);
-        bool showList = selected is null || (narrow ? listOnly : !main.InterfacePreferences.ModListCollapsed);
-        bool showDetail = !narrow || selected is not null && !listOnly;
+        bool taskTab = details.SelectedIndex == 2;
+        bool showList = narrow ? listOnly || selected is null && !taskTab : selected is null || !main.InterfacePreferences.ModListCollapsed;
+        bool showDetail = !narrow || !listOnly && (selected is not null || taskTab);
         bool focusList = !showDetail && detail.IsKeyboardFocusWithin;
         bool focusDetail = !showList && listPane.IsKeyboardFocusWithin;
         body.ColumnDefinitions[0].Width = narrow ? new GridLength(1, GridUnitType.Star) : new GridLength(showList ? 260 : 0);
@@ -232,6 +246,8 @@ public sealed partial class ModSubscriptionsPage
         Grid.SetColumn(detail, narrow ? 0 : 2);
         backToList.IsVisible = narrow && showDetail;
         modListToggle.IsVisible = !narrow && selected is not null;
+        taskShortcut.IsVisible = !showDetail;
+        translationToolbar.IsVisible = !taskTab;
         string toggleText = T(showList ? "CollapseModList" : "ExpandModList");
         modListToggle.Content = toggleText; ToolTip.SetTip(modListToggle, toggleText);
         Avalonia.Automation.AutomationProperties.SetName(modListToggle, toggleText);
@@ -249,6 +265,27 @@ public sealed partial class ModSubscriptionsPage
         if (statusDetails is not null) statusDetails.MaxHeight = Bounds.Height is > 0 and < 600 ? 80 : 182;
         UpdateFileNavigationLayout();
         UpdateOriginal();
+    }
+
+    private static WrapPanel StateBadges(bool subscribed, bool favorited)
+    {
+        var badges = new WrapPanel { ItemSpacing = 4, LineSpacing = 3 };
+        FillStateBadges(badges, subscribed, favorited);
+        return badges;
+    }
+
+    private static void FillStateBadges(WrapPanel badges, bool subscribed, bool favorited)
+    {
+        badges.Children.Clear();
+        foreach (string key in new[] { subscribed ? "Subscribed" : null, favorited ? "Favorited" : null }.OfType<string>())
+            badges.Children.Add(new Border
+            {
+                Name = "subscriptionBadge" + key, CornerRadius = new CornerRadius(3), Padding = new Thickness(5, 1),
+                Background = Brush.Parse(key == "Subscribed" ? "#25483E" : "#574222"),
+                Child = new TextBlock { Text = T(key), Foreground = Brushes.White, FontSize = 11 },
+                VerticalAlignment = VerticalAlignment.Center
+            });
+        badges.IsVisible = badges.Children.Count > 0;
     }
 
     private void ToggleModList()

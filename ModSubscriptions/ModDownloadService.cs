@@ -27,6 +27,7 @@ internal sealed class ModDownloadService : IAsyncDisposable
     private readonly Channel<Job> queue = Channel.CreateUnbounded<Job>(new() { SingleReader = true });
     private readonly ConcurrentDictionary<Guid, Job> jobs = new();
     private readonly object sync = new();
+    private readonly HashSet<Guid> pausedSubscriptions = [];
     private readonly Task worker;
     private bool disposed;
 
@@ -74,6 +75,8 @@ internal sealed class ModDownloadService : IAsyncDisposable
             if (subscription.State != SubscriptionState.Active || subscription.Source.Provider != source.Provider)
                 throw new InvalidOperationException("The subscription is being removed or has another source provider.");
             var selected = subscription.Downloads.Single(item => item.Id == downloadId);
+            if (onlyPending && pausedSubscriptions.Contains(subscriptionId)) return Task.FromResult(selected);
+            if (!onlyPending) pausedSubscriptions.Remove(subscriptionId);
             if (!selected.File.CanDownload)
                 throw new InvalidOperationException("The selected file has no supported anonymous download resolver.");
             var job = new Job(subscriptionId, downloadId, cancellationToken, onlyPending);
@@ -118,10 +121,41 @@ internal sealed class ModDownloadService : IAsyncDisposable
     }
 
     // Recovery is caller initiated, scoped to the selected game; it never invents selected files.
-    internal Task<ModDownload[]> ResumePendingAsync(string gameDirectory, CancellationToken cancellationToken = default) =>
-        Task.WhenAll(store.GetSubscriptions(gameDirectory).Where(item => item.State == SubscriptionState.Active && item.Source.Provider == source.Provider)
+    internal Task<ModDownload[]> ResumePendingAsync(string gameDirectory, CancellationToken cancellationToken = default,
+        Func<Guid, bool>? canResume = null) =>
+        Task.WhenAll(store.GetSubscriptions(gameDirectory).Where(item => item.State == SubscriptionState.Active && item.Source.Provider == source.Provider &&
+            (canResume?.Invoke(item.Id) ?? true))
             .SelectMany(subscription => subscription.Downloads.Where(item => item.State is DownloadState.Pending or DownloadState.Downloading)
                 .Select(item => QueueAsync(subscription.Id, item.Id, cancellationToken, onlyPending: true))));
+
+    internal async Task CancelSubscriptionAsync(Guid subscriptionId, CancellationToken token = default)
+    {
+        Job[] pending;
+        lock (sync)
+        {
+            pausedSubscriptions.Add(subscriptionId);
+            pending = jobs.Values.Where(job => job.SubscriptionId == subscriptionId).ToArray();
+        }
+        foreach (var job in pending) Cancel(job.DownloadId);
+        foreach (var job in pending)
+        {
+            try { await job.Completion.Task.WaitAsync(token).ConfigureAwait(false); }
+            catch (Exception) when (!token.IsCancellationRequested) { /* The persisted result is shown in the task view. */ }
+        }
+        await Task.Run(() =>
+        {
+            var sub = GetSubscription(subscriptionId);
+            if (!sub.Downloads.Any(item => item.State is DownloadState.Pending or DownloadState.Downloading)) return;
+            using var lease = GameOperationLock.Acquire(sub.GameDirectory);
+            token.ThrowIfCancellationRequested(); store.Reload(); sub = GetSubscription(subscriptionId);
+            foreach (var download in sub.Downloads.Where(item => item.State is DownloadState.Pending or DownloadState.Downloading))
+            {
+                var cancelled = download with { State = DownloadState.Cancelled, Error = null, UpdatedAt = DateTimeOffset.UtcNow };
+                store.SaveDownload(sub.Id, cancelled);
+                progress?.Report(new(sub.Id, download.Id, cancelled.State, cancelled.ReceivedBytes, cancelled.File.SizeBytes));
+            }
+        }, token).ConfigureAwait(false);
+    }
 
     private async Task WorkAsync()
     {
@@ -215,7 +249,7 @@ internal sealed class ModDownloadService : IAsyncDisposable
                     } };
                     store.SaveDownload(job.SubscriptionId, download);
                     DateTimeOffset lastSaved = DateTimeOffset.UtcNow;
-                    await transfer.TransferAsync(link, partial, resume, (received, total) =>
+                    string? fileName = await transfer.TransferAsync(link, partial, resume, (received, total) =>
                     {
                         download = download with { ReceivedBytes = received, UpdatedAt = DateTimeOffset.UtcNow };
                         Report(job, DownloadState.Downloading, received, total);
@@ -227,7 +261,7 @@ internal sealed class ModDownloadService : IAsyncDisposable
                     }, token).ConfigureAwait(false);
                     string sha256 = await VerifyAsync(partial, download.File, token).ConfigureAwait(false);
                     // Persist the proof before moving, so recovery never adopts a changed same-size payload.
-                    download = download with { ContentSha256 = sha256 };
+                    download = download with { ContentSha256 = sha256, FileName = fileName ?? download.FileName };
                     store.SaveDownload(job.SubscriptionId, download);
                     token.ThrowIfCancellationRequested();
                     ManagedModFiles.EnsureSafe(artifact);

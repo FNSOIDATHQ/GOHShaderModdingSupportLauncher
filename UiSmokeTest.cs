@@ -30,6 +30,7 @@ internal static class UiSmokeTest
             if (Application.Current?.Styles.Count != 2)
                 throw new InvalidOperationException("Avalonia theme or DataGrid styles did not load.");
             CheckSubscriptionMedia();
+            ModSubscriptionWorkflowSmokeTest.Run(fixture);
             LauncherUpdateSmokeTest.Run(fixture);
             LauncherUpdateUiSmokeTest.Run(fixture);
             DonationUiSmokeTest.Run(fixture);
@@ -268,7 +269,7 @@ internal static class UiSmokeTest
                 .Single(control => control.Name == "subscriptionDetails");
             var subscriptionSources = subscriptionsPage.GetLogicalDescendants().OfType<Avalonia.Controls.Primitives.TabStrip>()
                 .Single(control => control.Name == "subscriptionSource");
-            if (subscriptionViews.Items.Count != 4 || subscriptionTabs.Items.Count != 2 || subscriptionSources.Items.Count != 3 ||
+            if (subscriptionViews.Items.Count != 4 || subscriptionTabs.Items.Count != 3 || subscriptionSources.Items.Count != 3 ||
                 primary.Items.IndexOf(subscriptionsItem) != primary.Items.OfType<ListBoxItem>().ToList().FindIndex(item => item.Tag as string == "ModManager") + 1 ||
                 subscriptionsPage.GetLogicalDescendants().OfType<TextBlock>().Single(control => control.Name == "subscriptionStatus").Text != LocalizedStrings.Instance.Get("MS_Ready") ||
                 subscriptionsPage.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "subscriptionUnsubscribe").IsVisible)

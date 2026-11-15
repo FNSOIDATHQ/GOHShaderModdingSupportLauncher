@@ -642,7 +642,9 @@
   <data name="MS_Install" xml:space="preserve"><value>安装到 mods</value></data>
   <data name="MS_ConfirmPackage" xml:space="preserve"><value>请先选择目录并确认完整包。</value></data>
   <data name="MS_CancelBeforeRemoval" xml:space="preserve"><value>请先取消排队或正在下载的任务，等待停止后再取消订阅。</value></data>
-  <data name="MS_CleanupBoundary" xml:space="preserve"><value>仅删除已核实归属的订阅文件与下载缓存。手动添加内容及收藏会保留。此操作无法撤销 mods 之外的手动安装步骤。</value></data>
+  <data name="MS_CleanupBoundary" xml:space="preserve"><value>仅删除已核实归属的订阅文件与下载缓存。
+手动添加内容及收藏会保留。
+此操作无法撤销 mods 之外的手动安装步骤。</value></data>
   <data name="MS_WillDelete" xml:space="preserve"><value>将删除的文件</value></data>
   <data name="MS_WillKeep" xml:space="preserve"><value>将保留的路径</value></data>
   <data name="MS_Blocked" xml:space="preserve"><value>清理受阻</value></data>
@@ -711,7 +713,7 @@
   <data name="MS_Kind_Mod" xml:space="preserve"><value>Mod 候选项目</value></data>
   <data name="MS_Kind_Tool" xml:space="preserve"><value>工具或资料</value></data>
   <data name="MS_Kind_SourceOnly" xml:space="preserve"><value>源码项目</value></data>
-  <data name="MS_GitHubInstallHint" xml:space="preserve"><value>选择文件前请阅读 README 和 Release notes。项目 topic 不能证明附件是完整 Mod；工具和需要构建的文件仅供下载后手动使用。</value></data>
+  <data name="MS_GitHubInstallHint" xml:space="preserve"><value>选择文件前请阅读 README 和 Release notes。所有可下载文件均可放入 mods；构建和额外部署由你自行完成。</value></data>
   <data name="MS_SourceSnapshot" xml:space="preserve"><value>源码快照已固定到 commit SHA，可能需要构建或生成资源；启动器不会执行构建或生成器。</value></data>
   <data name="MS_GitHubDownloadOnly" xml:space="preserve"><value>此文件仅供下载后手动使用，不提供标准 Mod 安装。</value></data>
   <data name="MS_RetryAfter" xml:space="preserve"><value>可重试时间</value></data>
@@ -967,7 +969,7 @@
     <value>当前没有可用的检查结果。目录可能已移除、所选游戏已变更，或本次扫描已被替代。</value>
   </data>
   <data name="MI_LocalInspection" xml:space="preserve">
-    <value>本地检查：{0}</value>
+    <value>mod内容检查结果：</value>
   </data>
   <data name="MI_HelpRegular" xml:space="preserve">
     <value>常规：目录具有可识别的元数据与普通游戏内容。激活会将其加入游戏的普通 Mod 列表。</value>
@@ -1080,4 +1082,45 @@
   <data name="D_AlipayHint" xml:space="preserve"><value>使用支付宝扫描二维码捐赠。</value></data>
   <data name="D_OpenSidebar" xml:space="preserve"><value>展开捐赠侧栏</value></data>
   <data name="D_CloseSidebar" xml:space="preserve"><value>收起捐赠侧栏</value></data>
+  <data name="MS_DownloadInstall" xml:space="preserve"><value>下载与安装</value></data>
+  <data name="MS_Favorited" xml:space="preserve"><value>已收藏</value></data>
+  <data name="MS_TaskSteps" xml:space="preserve"><value>选择文件 → 下载 → 自动检查 → 确认安装 → 结果</value></data>
+  <data name="MS_NoTasks" xml:space="preserve"><value>此游戏暂无任务。请在 Mod 的文件页选择文件并创建任务。</value></data>
+  <data name="MS_ReviewPlacement" xml:space="preserve"><value>查看安装方案</value></data>
+  <data name="MS_PlacementBoundary" xml:space="preserve"><value>内容将安装到游戏mods目录，特定mod的额外安装步骤需要手动执行</value></data>
+  <data name="MS_PlacementLayout" xml:space="preserve"><value>选择放置内容</value></data>
+  <data name="MS_EntirePackage" xml:space="preserve"><value>整个文件包</value></data>
+  <data name="MS_TargetFolder" xml:space="preserve"><value>mods 内的文件夹名称</value></data>
+  <data name="MS_Destination" xml:space="preserve"><value>目标目录：</value></data>
+  <data name="MS_PlacementScope" xml:space="preserve"><value>放置 {0} 个文件 · {1} · 替换 {2} 个已有受管文件</value></data>
+  <data name="MS_StoredWithoutUnpacking" xml:space="preserve"><value>保留原文件，未解包。此操作不会运行安装程序。</value></data>
+  <data name="MS_UnpackPlacement" xml:space="preserve"><value>将所选内容解包到目标目录。</value></data>
+  <data name="MS_ReplacementBoundary" xml:space="preserve"><value>将完整替换所列受管安装。增量补丁建议使用独立文件夹；只有确实需要完整替换时才确认。</value></data>
+  <data name="MS_FileDetails" xml:space="preserve"><value>展开文件明细</value></data>
+  <data name="MS_ConfirmInstall" xml:space="preserve"><value>确认安装</value></data>
+  <data name="MS_Installing" xml:space="preserve"><value>正在安装…你可以返回阅读，稍后在任务中查看结果。</value></data>
+  <data name="MS_AuthorNotes" xml:space="preserve"><value>原作者说明</value></data>
+  <data name="MS_NoAuthorNotes" xml:space="preserve"><value>此文件未提供说明，可在 Mod 描述页查看通用说明。</value></data>
+  <data name="MS_PlacementComplete" xml:space="preserve"><value>安装完成</value></data>
+  <data name="MS_ActivationSeparate" xml:space="preserve"><value>内容已放入 mods。激活前请在 Mod 管理器查看检测特征；DLL 或工具的额外部署仍需自行完成。</value></data>
+  <data name="MS_OpenInstallation" xml:space="preserve"><value>打开安装目录</value></data>
+  <data name="MS_ViewManager" xml:space="preserve"><value>在管理器中查看</value></data>
+  <data name="MS_AutoChecking" xml:space="preserve"><value>正在自动检查放置方案…</value></data>
+  <data name="MS_AwaitingInstall" xml:space="preserve"><value>等待确认安装</value></data>
+  <data name="MS_Recheck" xml:space="preserve"><value>重新检查</value></data>
+  <data name="MS_NextRetry" xml:space="preserve"><value>下一步：重试任务以继续下载。</value></data>
+  <data name="MS_NextReview" xml:space="preserve"><value>下一步：查看目标目录与变更范围，再确认安装。</value></data>
+  <data name="MS_TargetConflict" xml:space="preserve"><value>多个任务使用相同建议目标：</value></data>
+  <data name="MS_ConflictResolution" xml:space="preserve"><value>请选择独立文件夹，或明确替换已核实归属的受管安装。任务不会自动合并或覆盖。</value></data>
+  <data name="MS_CleanupSteps" xml:space="preserve"><value>停止相关任务 → 预览删除与保留范围 → 确认 → 清理结果</value></data>
+  <data name="MS_StopTasksFirst" xml:space="preserve"><value>此订阅仍有排队或进行中的下载。请先停止相关任务，再预览清理范围。</value></data>
+  <data name="MS_StopAndPreview" xml:space="preserve"><value>取消相关任务并预览清理</value></data>
+  <data name="MS_StoppingTasks" xml:space="preserve"><value>正在取消相关任务并等待停止…</value></data>
+  <data name="MS_RefreshCleanup" xml:space="preserve"><value>刷新清理范围</value></data>
+  <data name="MS_Cleaning" xml:space="preserve"><value>正在清理已确认的文件…</value></data>
+  <data name="MS_CleanupComplete" xml:space="preserve"><value>订阅取消完成</value></data>
+  <data name="MS_CleanupKept" xml:space="preserve"><value>已清理核实归属的文件与下载缓存；收藏和手动添加的文件已保留。</value></data>
+  <data name="MS_PlacementCheckFailed" xml:space="preserve"><value>安装检查未通过</value></data>
+  <data name="MS_Back" xml:space="preserve"><value>返回</value></data>
+  <data name="MS_OriginalFilePlacement" xml:space="preserve"><value>原文件（不解包）</value></data>
 </root>

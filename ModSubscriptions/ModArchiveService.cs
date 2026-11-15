@@ -1,11 +1,11 @@
-using System.Text;
 using SharpCompress.Archives;
 using SharpCompress.Common;
 using SharpCompress.Readers;
 
 namespace GOHShaderModdingSupportLauncher.ModSubscriptions;
 
-internal sealed record ModArchiveCandidate(string RootPath, string? DirectoryName, string[] Files, long SizeBytes);
+internal sealed record ModArchiveCandidate(string RootPath, string DirectoryName, string[] Files, long SizeBytes,
+    bool PreserveAsFile = false);
 internal sealed record ModArchiveInspection(ModArchiveCandidate[] Candidates, string AuthorInstructions,
     string? ManualInstallReason, bool RequiresRootSelection);
 internal sealed record ModArchiveExtraction(string DirectoryPath, string[] OwnedFiles, long SizeBytes);
@@ -17,13 +17,10 @@ internal sealed record ModArchiveOptions
     internal int MaxCompressionRatio { get; init; } = 1000;
 }
 
-// Discovering mod.info identifies a layout, not a complete package or permission to run author scripts.
+// Placement only: metadata helps choose a directory, never authorizes execution or activation.
 internal sealed class ModArchiveService
 {
-    private const int MaxModInfoBytes = 1024 * 1024;
     private readonly ModArchiveOptions options;
-    private static readonly HashSet<string> Executables = new(StringComparer.OrdinalIgnoreCase)
-    { ".exe", ".dll", ".com", ".msi", ".msp", ".bat", ".cmd", ".ps1", ".vbs", ".vbe", ".js", ".jse", ".wsf", ".scr", ".sh", ".py" };
     private static readonly HashSet<string> Documents = new(StringComparer.OrdinalIgnoreCase)
     { ".txt", ".md", ".pdf", ".url", ".html", ".htm", ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp" };
     private static readonly uint[] CrcTable = CreateCrcTable();
@@ -39,24 +36,27 @@ internal sealed class ModArchiveService
     {
         cancellationToken.ThrowIfCancellationRequested();
         ManagedModFiles.EnsureSafe(archivePath);
-        if (file.DownloadOnly || file.IsSourceSnapshot)
-            return new([], file.Description,
-                "This source snapshot or tool is download-only. Follow the author's instructions; the launcher does not run builds or generators.", false);
         try
         {
             using var source = new FileStream(archivePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            if (!IsSupportedArchive(source, file.Name))
+            {
+                if (source.Length > options.MaxExpandedBytes) throw new InvalidDataException("The file exceeds the placement size limit.");
+                string name = SubscriptionPaths.SafeFileName(file.Name, "download.bin", 240);
+                return new([new("", SuggestedDirectory(name), [name], source.Length, true)], file.Description, null, false);
+            }
             using var archive = Open(source);
             var entries = ReadEntries(archive, source.Length, cancellationToken);
-            return Describe(entries, file.Description, cancellationToken);
+            return Describe(entries, file.Description, file.Name);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            return new([], file.Description, "This file cannot be installed as a standard Mod: " + ex.Message, false);
+            return new([], file.Description, "The file could not be prepared for placement: " + ex.Message, false);
         }
     }
 
-    // The caller chooses a root and separately confirms it is a complete standard package.
+    // The caller reviews the placement target; no author program is executed.
     // No archive path is ever passed to an extraction helper that chooses filesystem paths itself.
     internal ModArchiveExtraction Extract(string archivePath, ModArchiveCandidate candidate, string stagingDirectory,
         CancellationToken cancellationToken = default)
@@ -67,16 +67,17 @@ internal sealed class ModArchiveService
         ManagedModFiles.EnsureSafe(staging);
         if (Directory.Exists(staging) || File.Exists(staging)) throw new IOException("The staging directory already exists.");
         using var source = new FileStream(archivePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        if (candidate.PreserveAsFile) return CopyFile(source, candidate, staging, cancellationToken);
         using var archive = Open(source);
         var entries = ReadEntries(archive, source.Length, cancellationToken);
-        var inspection = Describe(entries, "", cancellationToken);
+        var inspection = Describe(entries, "", candidate.DirectoryName);
         if (inspection.ManualInstallReason is not null) throw new InvalidDataException(inspection.ManualInstallReason);
         var selected = inspection.Candidates.SingleOrDefault(item => item.RootPath.Equals(candidate.RootPath, StringComparison.Ordinal));
-        if (selected is null || selected.DirectoryName is null || selected.SizeBytes != candidate.SizeBytes ||
+        if (selected is null || selected.SizeBytes != candidate.SizeBytes ||
             !selected.Files.SequenceEqual(candidate.Files, StringComparer.Ordinal))
             throw new InvalidDataException("The selected archive layout changed. Inspect and select it again.");
         ManagedModFiles.EnsureSpace(staging, selected.SizeBytes);
-        string prefix = selected.RootPath + Path.DirectorySeparatorChar;
+        string prefix = selected.RootPath.Length == 0 ? "" : selected.RootPath + Path.DirectorySeparatorChar;
         var wanted = entries.Where(item => !item.Entry.IsDirectory && item.Path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             .ToDictionary(item => item.Path, StringComparer.OrdinalIgnoreCase);
         var createdFiles = new List<string>();
@@ -138,7 +139,6 @@ internal sealed class ModArchiveService
             }
             if (extracted.Count != wanted.Count || total != selected.SizeBytes)
                 throw new InvalidDataException("The archive is incomplete.");
-            ValidateModInfo(Path.Combine(staging, "mod.info"));
             return new(staging, selected.Files, total);
         }
         catch
@@ -156,7 +156,7 @@ internal sealed class ModArchiveService
     {
         var archive = ArchiveFactory.OpenArchive(source, ReaderOptions.ForExternalStream);
         if (archive.Type is not (ArchiveType.Zip or ArchiveType.Rar or ArchiveType.SevenZip))
-        { archive.Dispose(); throw new InvalidDataException("Only ZIP, RAR and 7z standard packages are supported."); }
+        { archive.Dispose(); throw new InvalidDataException("This archive format cannot be unpacked."); }
         return archive;
     }
 
@@ -204,8 +204,6 @@ internal sealed class ModArchiveService
                 total = checked(total + entry.Size);
                 if (total > options.MaxExpandedBytes || total / Math.Max(1, compressedBytes) > options.MaxCompressionRatio)
                     throw new InvalidDataException("The archive exceeds the extraction size or compression ratio limit.");
-                if (Path.GetFileName(path).Equals("mod.info", StringComparison.OrdinalIgnoreCase) && entry.Size is <= 0 or > MaxModInfoBytes)
-                    throw new InvalidDataException("The Mod metadata file is empty or too large.");
             }
             entries.Add(new(path, entry));
         }
@@ -223,36 +221,78 @@ internal sealed class ModArchiveService
         return entries;
     }
 
-    private static ModArchiveInspection Describe(List<ArchiveItem> entries, string instructions, CancellationToken token)
+    private static ModArchiveInspection Describe(List<ArchiveItem> entries, string instructions, string packageName)
     {
+        var payload = entries.Where(item => !item.Entry.IsDirectory).ToArray();
+        if (payload.Length == 0) throw new InvalidDataException("The archive contains no files.");
         var roots = entries.Where(item => !item.Entry.IsDirectory && Path.GetFileName(item.Path).Equals("mod.info", StringComparison.OrdinalIgnoreCase))
             .Select(item => Path.GetDirectoryName(item.Path) ?? "").ToArray();
         if (roots.Length > 64) throw new InvalidDataException("The package has too many separate Mod roots to inspect safely.");
+        bool nested = roots.Any(root => roots.Any(other => root != other &&
+            (other.Length == 0 || root.StartsWith(other + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))));
+        bool outside = payload.Any(item => !roots.Any(root => root.Length == 0 || item.Path.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) &&
+            !Documents.Contains(Path.GetExtension(item.Path)));
+        // Preserve mixed/nested packages as a whole instead of dropping tools or guessing patch targets.
+        if (roots.Length == 0 || nested || outside)
+        {
+            string first = payload[0].Path.Split(Path.DirectorySeparatorChar)[0];
+            roots = payload.All(item => item.Path.StartsWith(first + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) ? [first] : [""];
+        }
         var candidates = roots.Select(root =>
         {
             string prefix = root.Length == 0 ? "" : root + Path.DirectorySeparatorChar;
             var files = entries.Where(item => !item.Entry.IsDirectory && item.Path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).ToArray();
-            return new ModArchiveCandidate(root, root.Length == 0 ? null : Path.GetFileName(root),
+            return new ModArchiveCandidate(root, root.Length == 0 ? SuggestedDirectory(packageName) : SubscriptionPaths.SafeFileName(Path.GetFileName(root), SuggestedDirectory(packageName)),
                 files.Select(item => item.Path[prefix.Length..]).Order(StringComparer.Ordinal).ToArray(), files.Sum(item => item.Entry.Size));
         }).ToArray();
-        string? reason = null;
-        if (roots.Length == 0) reason = "No standard Mod root was found. Keep the download and follow the author's instructions.";
-        else if (roots.Any(root => root.Length == 0)) reason = "The package has a bare mod.info and no original Mod directory name. Choose manual installation.";
-        else if (candidates.Any(item => item.DirectoryName!.Contains(' ') || item.DirectoryName.Equals(".gohsms", StringComparison.OrdinalIgnoreCase)))
-            reason = "An original Mod directory name cannot be used by the local Mod scanner. Rename it manually after reviewing dependencies.";
-        else if (roots.Any(root => roots.Any(other => root != other && root.StartsWith(other + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))))
-            reason = "Nested Mod roots have an ambiguous installation layout. Choose manual installation.";
-        else if (entries.Any(item => !item.Entry.IsDirectory && Executables.Contains(Path.GetExtension(item.Path))))
-            reason = "The package contains executable files or installation scripts. Keep it as a download and review the author's instructions.";
-        else if (entries.Any(item => !item.Entry.IsDirectory && !roots.Any(root => item.Path.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) && !Documents.Contains(Path.GetExtension(item.Path))))
-            reason = "The package contains additional content outside its Mod directories. Review the author's installation instructions.";
-        foreach (var info in entries.Where(item => !item.Entry.IsDirectory && Path.GetFileName(item.Path).Equals("mod.info", StringComparison.OrdinalIgnoreCase)))
+        return new(candidates, instructions, null, candidates.Length > 1);
+    }
+
+    private static string SuggestedDirectory(string name) => SubscriptionPaths.SafeFileName(Path.GetFileNameWithoutExtension(SubscriptionPaths.SafeFileName(name, "download")), "download");
+
+    private static bool IsSupportedArchive(FileStream source, string name)
+    {
+        Span<byte> signature = stackalloc byte[8];
+        int length = source.Read(signature); source.Position = 0;
+        bool known = length >= 4 && (signature[..4].SequenceEqual("PK\u0003\u0004"u8) ||
+            signature[..4].SequenceEqual("PK\u0005\u0006"u8) || signature[..4].SequenceEqual("PK\u0007\u0008"u8)) ||
+            length >= 6 && signature[..6].SequenceEqual("Rar!\u001a\u0007"u8) ||
+            length >= 6 && signature[..6].SequenceEqual(new byte[] { 0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c });
+        if (!known && new[] { ".zip", ".rar", ".7z" }.Contains(Path.GetExtension(name), StringComparer.OrdinalIgnoreCase))
+            throw new InvalidDataException("The advertised archive header is damaged or missing.");
+        return known;
+    }
+
+    private ModArchiveExtraction CopyFile(FileStream source, ModArchiveCandidate candidate, string staging, CancellationToken token)
+    {
+        if (candidate.RootPath.Length != 0 || candidate.Files.Length != 1 ||
+            candidate.Files[0] != SubscriptionPaths.SafeFileName(candidate.Files[0], "", 240) || candidate.Files[0].Length == 0 ||
+            source.Length != candidate.SizeBytes || source.Length > options.MaxExpandedBytes || IsSupportedArchive(source, candidate.Files[0]))
+            throw new InvalidDataException("The selected file changed. Check it again.");
+        ManagedModFiles.EnsureSpace(staging, source.Length);
+        Directory.CreateDirectory(staging);
+        string destination = Path.Combine(staging, candidate.Files[0]);
+        bool created = false;
+        try
         {
-            token.ThrowIfCancellationRequested();
-            using var stream = info.Entry.OpenEntryStream();
-            ValidateModInfo(stream, token);
+            using (var output = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                created = true;
+                byte[] buffer = new byte[128 * 1024];
+                int count; long total = 0;
+                while ((count = source.Read(buffer, 0, buffer.Length)) != 0)
+                { token.ThrowIfCancellationRequested(); output.Write(buffer, 0, count); total = checked(total + count); }
+                if (total != candidate.SizeBytes) throw new InvalidDataException("The file length changed during placement.");
+                output.Flush(true);
+            }
+            return new(staging, candidate.Files, candidate.SizeBytes);
         }
-        return new(candidates, instructions, reason, candidates.Length > 1);
+        catch
+        {
+            if (created) { ManagedModFiles.EnsureSafe(destination); File.Delete(destination); }
+            ManagedModFiles.EnsureSafe(staging); ManagedModFiles.RemoveEmptyDirectories(staging);
+            throw;
+        }
     }
 
     private static string EntryPath(IEntry entry)
@@ -263,19 +303,11 @@ internal sealed class ModArchiveService
         try
         {
             string normalized = SubscriptionPaths.RelativeFile(key);
-            if (normalized.Length > 2000 || normalized.Split(Path.DirectorySeparatorChar).Any(part => part.Length > 255 || ReservedName(part)))
+            if (normalized.Length > 2000 || normalized.Split(Path.DirectorySeparatorChar).Any(part => part.Length > 255 || SubscriptionPaths.IsReservedFileName(part)))
                 throw new InvalidDataException("The archive contains a reserved or oversized Windows name.");
             return normalized;
         }
         catch (ArgumentException ex) { throw new InvalidDataException("The archive contains an unsafe path.", ex); }
-    }
-
-    private static bool ReservedName(string part)
-    {
-        string stem = part.Split('.')[0].ToUpperInvariant();
-        return stem is "CON" or "PRN" or "AUX" or "NUL" or "CLOCK$" or "CONIN$" or "CONOUT$" ||
-            (stem.Length == 4 && (stem.StartsWith("COM", StringComparison.Ordinal) || stem.StartsWith("LPT", StringComparison.Ordinal)) &&
-                (stem[3] is >= '0' and <= '9' or '¹' or '²' or '³'));
     }
 
     private static void CreateDirectory(string path, string root, HashSet<string> created)
@@ -285,34 +317,6 @@ internal sealed class ModArchiveService
         if (!path.Equals(root, SubscriptionPaths.Comparison)) CreateDirectory(Path.GetDirectoryName(path)!, root, created);
         Directory.CreateDirectory(path);
         created.Add(path);
-    }
-
-    private static void ValidateModInfo(string path)
-    {
-        using var source = File.OpenRead(path);
-        ValidateModInfo(source, CancellationToken.None);
-    }
-
-    private static void ValidateModInfo(Stream source, CancellationToken token)
-    {
-        using var bytes = new MemoryStream();
-        byte[] buffer = new byte[4096];
-        int count;
-        while ((count = source.Read(buffer, 0, buffer.Length)) != 0)
-        {
-            token.ThrowIfCancellationRequested();
-            if (bytes.Length + count > MaxModInfoBytes) throw new InvalidDataException("The Mod metadata file is too large.");
-            bytes.Write(buffer, 0, count);
-        }
-        bytes.Position = 0;
-        using var reader = new StreamReader(bytes, new UTF8Encoding(false, true), detectEncodingFromByteOrderMarks: true);
-        string text = reader.ReadToEnd();
-        if (text.Contains('\0') || !text.Split('\n').Any(line =>
-        {
-            string content = line.Split(';')[0];
-            int start = content.IndexOf('"');
-            return content.Contains("name", StringComparison.OrdinalIgnoreCase) && content.Contains('{') && start >= 0 && content.LastIndexOf('"') > start + 1;
-        })) throw new InvalidDataException("mod.info is not readable Mod metadata with a display name.");
     }
 
     private static uint[] CreateCrcTable()

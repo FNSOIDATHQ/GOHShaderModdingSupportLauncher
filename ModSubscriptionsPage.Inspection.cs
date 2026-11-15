@@ -22,19 +22,12 @@ public sealed partial class ModSubscriptionsPage
     {
         var installations = subscription?.Installations.Where(item => item.DownloadId == downloadId)
             .DistinctBy(item => item.DirectoryPath, StringComparer.OrdinalIgnoreCase).ToArray() ?? [];
-        if (installations.Length == 0)
-        {
-            panel.Children.Add(Text(ModInspectionPresentation.Format("LocalInspection", ModInspectionPresentation.Text("NotInspected")), 12));
-            return;
-        }
         foreach (var installation in installations)
         {
             var mod = InstalledModInspection(subscription!.GameDirectory, installation);
-            panel.Children.Add(Text(ModInspectionPresentation.Format("LocalInspection", Path.GetFileName(installation.DirectoryPath)), 12));
-            if (mod is null)
-                panel.Children.Add(Text(ModInspectionPresentation.Text("NotInspected"), 12));
-            else
-                panel.Children.Add(new ModFeaturesView { Mod = mod });
+            if (mod is null) continue;
+            panel.Children.Add(Text(ModInspectionPresentation.Text("LocalInspection"), 12));
+            panel.Children.Add(new ModFeaturesView { Mod = mod });
         }
     }
 }

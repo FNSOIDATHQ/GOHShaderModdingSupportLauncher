@@ -642,7 +642,9 @@ Make sure Steam has finished downloading the item.</value>
   <data name="MS_Install" xml:space="preserve"><value>Install into mods</value></data>
   <data name="MS_ConfirmPackage" xml:space="preserve"><value>Select a folder and confirm the complete package first.</value></data>
   <data name="MS_CancelBeforeRemoval" xml:space="preserve"><value>Cancel queued/running downloads and wait for them to stop before unsubscribing.</value></data>
-  <data name="MS_CleanupBoundary" xml:space="preserve"><value>Only verified files owned by this subscription and its download cache will be deleted. Manual additions and favorites are kept. Manual changes outside mods cannot be undone here.</value></data>
+  <data name="MS_CleanupBoundary" xml:space="preserve"><value>Only verified files owned by this subscription and its download cache will be deleted.
+Manual additions and favorites are kept.
+Manual changes outside mods cannot be undone here.</value></data>
   <data name="MS_WillDelete" xml:space="preserve"><value>Files to delete</value></data>
   <data name="MS_WillKeep" xml:space="preserve"><value>Paths to preserve</value></data>
   <data name="MS_Blocked" xml:space="preserve"><value>Cleanup blocked</value></data>
@@ -711,7 +713,7 @@ Make sure Steam has finished downloading the item.</value>
   <data name="MS_Kind_Mod" xml:space="preserve"><value>Mod candidate</value></data>
   <data name="MS_Kind_Tool" xml:space="preserve"><value>Tool or resource</value></data>
   <data name="MS_Kind_SourceOnly" xml:space="preserve"><value>Source project</value></data>
-  <data name="MS_GitHubInstallHint" xml:space="preserve"><value>Read the README and release notes before choosing files. A project topic does not confirm that an attachment contains a complete mod. Tools and files that need building remain downloads for manual use.</value></data>
+  <data name="MS_GitHubInstallHint" xml:space="preserve"><value>Read the README and release notes before choosing files. All available files can be placed in mods; builds and extra deployment remain manual.</value></data>
   <data name="MS_SourceSnapshot" xml:space="preserve"><value>Source snapshot fixed to a commit SHA. It may need a build or generated resources; the launcher does not run builds or generators.</value></data>
   <data name="MS_GitHubDownloadOnly" xml:space="preserve"><value>This file is for download and manual use. It is not offered for standard mod installation.</value></data>
   <data name="MS_RetryAfter" xml:space="preserve"><value>Retry after</value></data>
@@ -967,7 +969,7 @@ Make sure Steam has finished downloading the item.</value>
     <value>No current inspection result is available. The folder may be missing, the selected game may have changed, or the scan was superseded.</value>
   </data>
   <data name="MI_LocalInspection" xml:space="preserve">
-    <value>Local inspection: {0}</value>
+    <value>Mod content inspection results:</value>
   </data>
   <data name="MI_HelpRegular" xml:space="preserve">
     <value>Regular — The folder has a recognized descriptor and ordinary game content. Activation adds it to the game's ordinary Mod list.</value>
@@ -1080,4 +1082,45 @@ Make sure Steam has finished downloading the item.</value>
   <data name="D_AlipayHint" xml:space="preserve"><value>Scan this QR code with Alipay to donate.</value></data>
   <data name="D_OpenSidebar" xml:space="preserve"><value>Expand donation sidebar</value></data>
   <data name="D_CloseSidebar" xml:space="preserve"><value>Collapse donation sidebar</value></data>
+  <data name="MS_DownloadInstall" xml:space="preserve"><value>Downloads and installation</value></data>
+  <data name="MS_Favorited" xml:space="preserve"><value>Favorited</value></data>
+  <data name="MS_TaskSteps" xml:space="preserve"><value>Select files → download → automatic check → confirm installation → result</value></data>
+  <data name="MS_NoTasks" xml:space="preserve"><value>No tasks for this game. Select files on a Mod’s Files page to begin.</value></data>
+  <data name="MS_ReviewPlacement" xml:space="preserve"><value>Review installation</value></data>
+  <data name="MS_PlacementBoundary" xml:space="preserve"><value>Content will be installed in the game's mods folder. Any extra installation steps required by a particular mod must be performed manually.</value></data>
+  <data name="MS_PlacementLayout" xml:space="preserve"><value>Content to place</value></data>
+  <data name="MS_EntirePackage" xml:space="preserve"><value>All package contents</value></data>
+  <data name="MS_TargetFolder" xml:space="preserve"><value>Folder name inside mods</value></data>
+  <data name="MS_Destination" xml:space="preserve"><value>Destination:</value></data>
+  <data name="MS_PlacementScope" xml:space="preserve"><value>{0} files · {1} · {2} existing managed files to replace</value></data>
+  <data name="MS_StoredWithoutUnpacking" xml:space="preserve"><value>Store the original file without unpacking. This does not run an installer.</value></data>
+  <data name="MS_UnpackPlacement" xml:space="preserve"><value>Unpack the selected contents into the destination.</value></data>
+  <data name="MS_ReplacementBoundary" xml:space="preserve"><value>The listed managed installation will be replaced in full. Incremental patches should use a separate folder unless you intend this replacement.</value></data>
+  <data name="MS_FileDetails" xml:space="preserve"><value>Show file paths</value></data>
+  <data name="MS_ConfirmInstall" xml:space="preserve"><value>Confirm installation</value></data>
+  <data name="MS_Installing" xml:space="preserve"><value>Installing… You can return to reading and check this task later.</value></data>
+  <data name="MS_AuthorNotes" xml:space="preserve"><value>Original author's instructions</value></data>
+  <data name="MS_NoAuthorNotes" xml:space="preserve"><value>No instructions were supplied for this file. See the Mod’s description for general guidance.</value></data>
+  <data name="MS_PlacementComplete" xml:space="preserve"><value>Installation complete</value></data>
+  <data name="MS_ActivationSeparate" xml:space="preserve"><value>The content has been placed in mods. Review its features in the Mod manager before activating it. Extra DLL or tool deployment remains manual.</value></data>
+  <data name="MS_OpenInstallation" xml:space="preserve"><value>Open installation folder</value></data>
+  <data name="MS_ViewManager" xml:space="preserve"><value>View in Mod manager</value></data>
+  <data name="MS_AutoChecking" xml:space="preserve"><value>Checking placement automatically…</value></data>
+  <data name="MS_AwaitingInstall" xml:space="preserve"><value>Waiting for installation confirmation</value></data>
+  <data name="MS_Recheck" xml:space="preserve"><value>Check again</value></data>
+  <data name="MS_NextRetry" xml:space="preserve"><value>Retry this task to continue downloading.</value></data>
+  <data name="MS_NextReview" xml:space="preserve"><value>Review the folder and change scope, then confirm installation.</value></data>
+  <data name="MS_TargetConflict" xml:space="preserve"><value>Multiple tasks suggest the same destination:</value></data>
+  <data name="MS_ConflictResolution" xml:space="preserve"><value>Choose a separate folder or explicitly replace a verified managed installation. Tasks are not merged or overwritten automatically.</value></data>
+  <data name="MS_CleanupSteps" xml:space="preserve"><value>Stop related tasks → review deletion and preservation → confirm → result</value></data>
+  <data name="MS_StopTasksFirst" xml:space="preserve"><value>This subscription still has queued or running downloads. Stop them before preparing a cleanup preview.</value></data>
+  <data name="MS_StopAndPreview" xml:space="preserve"><value>Cancel related tasks and preview cleanup</value></data>
+  <data name="MS_StoppingTasks" xml:space="preserve"><value>Cancelling related tasks and waiting for them to stop…</value></data>
+  <data name="MS_RefreshCleanup" xml:space="preserve"><value>Refresh cleanup preview</value></data>
+  <data name="MS_Cleaning" xml:space="preserve"><value>Cleaning up the confirmed files…</value></data>
+  <data name="MS_CleanupComplete" xml:space="preserve"><value>Subscription cancelled</value></data>
+  <data name="MS_CleanupKept" xml:space="preserve"><value>Verified managed files and download cache were removed. Favorites and manual additions were preserved.</value></data>
+  <data name="MS_PlacementCheckFailed" xml:space="preserve"><value>Unable to prepare installation</value></data>
+  <data name="MS_Back" xml:space="preserve"><value>Back</value></data>
+  <data name="MS_OriginalFilePlacement" xml:space="preserve"><value>Original file (not unpacked)</value></data>
 </root>

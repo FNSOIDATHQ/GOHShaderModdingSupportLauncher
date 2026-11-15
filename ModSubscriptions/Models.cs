@@ -129,6 +129,8 @@ internal sealed record ModDownload
     [JsonRequired]
     public long ReceivedBytes { get; init; }
     public string? ContentSha256 { get; init; }
+    // The final response's filename, independent of the remote display title and private download.bin path.
+    public string? FileName { get; init; }
     [JsonRequired]
     public DateTimeOffset UpdatedAt { get; init; }
     public string? Error { get; init; }
@@ -174,7 +176,7 @@ internal sealed record OwnedModFile(string RelativePath, long SizeBytes, string 
 
 internal sealed record SubscriptionLibrary
 {
-    internal const int CurrentSchemaVersion = 5;
+    internal const int CurrentSchemaVersion = 6;
     public required int SchemaVersion { get; init; }
     public required long Revision { get; init; }
     public required RemoteMod[] Mods { get; init; }

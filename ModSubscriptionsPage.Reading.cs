@@ -353,10 +353,13 @@ public sealed partial class ModSubscriptionsPage
             {
                 summary.Children.Clear();
                 renderedDocument = ReadingDocument(current.Mod.Document, current.Mod.Summary, current.Mod.PageUrl);
-                var installation = ModDocumentParser.Legacy(current.Mod.InstallationHint, current.Mod.PageUrl);
+                // Old caches can contain the former source-only installation restriction.
+                string hint = current.Mod.Id.Provider == "github" && current.Mod.Kind == RemoteProjectKind.SourceOnly
+                    ? T("SourceSnapshot") : current.Mod.InstallationHint;
+                var installation = ModDocumentParser.Legacy(hint, current.Mod.PageUrl);
                 if (details.SelectedIndex == 0) PrepareTranslationSource(renderedDocument, installation);
                 ShowSummary(current.Mod);
-                if (current.Mod.InstallationHint.Length > 0) AddDocument(summary, installation);
+                if (hint.Length > 0) AddDocument(summary, installation);
                 reading.Children.Add(galleryHost!); reading.Children.Add(summary);
             }
             RenderGallery(current, renderedDocument!, current.Mod.Images, overview: true);

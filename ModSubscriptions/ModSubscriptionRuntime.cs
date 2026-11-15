@@ -4,7 +4,7 @@ using System.Threading.Channels;
 namespace GOHShaderModdingSupportLauncher.ModSubscriptions;
 
 // One runtime per window. Disk recovery and all network work stay off the UI thread.
-internal sealed class ModSubscriptionRuntime : IDisposable
+internal sealed partial class ModSubscriptionRuntime : IDisposable
 {
     private readonly CancellationTokenSource lifetime = new();
     private readonly Channel<byte> wake = Channel.CreateBounded<byte>(new BoundedChannelOptions(1)
@@ -234,9 +234,9 @@ internal sealed class ModSubscriptionRuntime : IDisposable
     {
         try
         {
-            await Task.WhenAll(Downloads.ResumePendingAsync(game, lifetime.Token),
-                githubDownloads.ResumePendingAsync(game, lifetime.Token),
-                mowPortalDownloads.ResumePendingAsync(game, lifetime.Token)).ConfigureAwait(false);
+            await Task.WhenAll(Downloads.ResumePendingAsync(game, lifetime.Token, CanResumeSubscription),
+                githubDownloads.ResumePendingAsync(game, lifetime.Token, CanResumeSubscription),
+                mowPortalDownloads.ResumePendingAsync(game, lifetime.Token, CanResumeSubscription)).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
         catch (Exception ex) { SetGameError(game, ex.Message); }
@@ -252,6 +252,7 @@ internal sealed class ModSubscriptionRuntime : IDisposable
             var snapshot = await Task.Run(Store.Snapshot, token).ConfigureAwait(false);
             token.ThrowIfCancellationRequested();
             Volatile.Write(ref library, snapshot);
+            if (Volatile.Read(ref gameDirectory) is { } game) PrepareDownloadsForGame(game);
         }
         finally { libraryGate.Release(); }
     }
@@ -326,6 +327,9 @@ internal sealed class ModSubscriptionRuntime : IDisposable
         {
             await background.ConfigureAwait(false);
             await Ready.ConfigureAwait(false);
+            Task[] checking;
+            lock (preparationSync) checking = preparationJobs.Values.Select(job => job.Task).ToArray();
+            await Task.WhenAll(checking).ConfigureAwait(false);
             await Downloads.DisposeAsync().ConfigureAwait(false);
             await githubDownloads.DisposeAsync().ConfigureAwait(false);
             await mowPortalDownloads.DisposeAsync().ConfigureAwait(false);

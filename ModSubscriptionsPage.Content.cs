@@ -70,6 +70,7 @@ public sealed partial class ModSubscriptionsPage
         foreach (var download in subscription.Downloads.Where(download => chosen.Any(file => file.Id == download.File.Id && file.Revision == download.File.Revision)))
             _ = DownloadAsync(subscription.Id, download.Id);
         runtime.NotifyChanged(); RefreshTasks(); RefreshTracking(); ReportNotice(T("Queued"));
+        await ShowTasksAsync();
     }
 
     private async Task DownloadAsync(Guid subscriptionId, Guid downloadId)
@@ -79,6 +80,7 @@ public sealed partial class ModSubscriptionsPage
         try
         {
             var subscription = runtime!.Library.Subscriptions.Single(item => item.Id == subscriptionId);
+            runtime.AllowSubscriptionDownloads(subscriptionId);
             await runtime.GetDownloads(subscription.Source.Provider).EnqueueAsync(subscriptionId, downloadId, lifetime.Token);
         }
         catch (OperationCanceledException) { }
@@ -93,59 +95,111 @@ public sealed partial class ModSubscriptionsPage
         finally { runtime?.NotifyChanged(); }
     }
 
+    private string? renderedTaskSignature;
+    private readonly Dictionary<Guid, (ProgressBar Bar, TextBlock Bytes)> taskProgressViews = [];
+
+    private string ModTitle(GameModSubscription sub) => runtime!.Library.Mods.FirstOrDefault(mod => mod.Id == sub.Source)?.Title ?? sub.Source.RemoteId;
+
     private void RefreshTasks()
     {
         if (runtime is null || !runtime.Ready.IsCompletedSuccessfully || disposed) return;
-        tasks.Children.Clear();
         string? game = main.SubscriptionGameDirectory;
-        int running = runtime.Library.Subscriptions.Where(item => item.GameDirectory.Equals(game, SubscriptionPaths.Comparison))
-            .Sum(item => item.Downloads.Count(download => download.State is DownloadState.Pending or DownloadState.Downloading));
+        if (game is not null) runtime.PrepareDownloadsForGame(game);
+        var subscriptions = runtime.Library.Subscriptions.Where(item => item.GameDirectory.Equals(game, SubscriptionPaths.Comparison)).ToArray();
+        int running = subscriptions.Sum(sub => sub.Downloads.Count(download => DownloadProgress(download)?.State is DownloadState.Pending or DownloadState.Downloading ||
+            DownloadProgress(download) is null && download.State is DownloadState.Pending or DownloadState.Downloading));
         activity.Text = running > 0 ? string.Format(T("ActiveDownloads"), running) : "";
-        if (session?.File is not { } key || !key.StartsWith("file:", StringComparison.Ordinal)) return;
-        var sub = Subscription();
-        if (sub is not { Downloads.Length: > 0 }) { AddLocalInspection(tasks, sub, null); return; }
-        var downloads = sub.Downloads.Where(download => "file:" + download.File.Id == key).ToArray();
-        if (downloads.Length == 0) { AddLocalInspection(tasks, sub, null); return; }
-        tasks.Children.Add(Text(T("Downloads"), 16));
-        foreach (var download in downloads)
+        if (workflowView != WorkflowView.Tasks || !operation.IsVisible) return;
+        string signature = game + "|" + main.ModScan?.GetHashCode() + "|" + string.Join("|", subscriptions.SelectMany(sub => sub.Downloads.Select(download =>
         {
-            var progress = runtime.Progress.TryGetValue(download.Id, out var current) && download.State is DownloadState.Pending or DownloadState.Downloading ? current : null;
-            var state = progress?.State ?? download.State;
-            bool waitingForVerification = state == DownloadState.Pending && download.Error == nameof(ModSourceError.VerificationRequired);
-            var installed = sub.Installations.Where(installation => installation.DownloadId == download.Id).ToArray();
-            var label = waitingForVerification ? T("DownloadVerification") : installed.Length > 0
-                ? string.Join(", ", installed.Select(item => T("Install_" + item.State))) : T("Download_" + state);
-            var line = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 }; line.Children.Add(Text(download.File.Name + " · " + label));
-            tasks.Children.Add(line);
-            long received = progress?.ReceivedBytes ?? download.ReceivedBytes;
-            long? total = progress?.TotalBytes ?? download.File.SizeBytes;
-            tasks.Children.Add(new ProgressBar { Minimum = 0, Maximum = Math.Max(1, total ?? received), Value = received, IsIndeterminate = state == DownloadState.Downloading && total is null });
-            tasks.Children.Add(Text(FormatBytes(received) + " / " + FormatBytes(total)));
-            if (download.Error is { } error && state != DownloadState.NeedsManualInstall && !waitingForVerification) tasks.Children.Add(Text(T("Failed") + ": " + error));
-            if (state == DownloadState.NeedsManualInstall) tasks.Children.Add(Text(T("ManualInstructions")));
-            AddLocalInspection(tasks, sub, download.Id);
-            if (sub.State != SubscriptionState.Active) continue;
-            if (state is DownloadState.Pending or DownloadState.Downloading)
-                line.Children.Add(Action(T("Cancel"), async () =>
+            runtime.PreparedDownloads.TryGetValue(download.Id, out var prepared);
+            return $"{sub.Id}:{sub.State}:{download.Id}:{DownloadProgress(download)?.State ?? download.State}:{download.Error}:{prepared?.Checking}:{prepared?.Error}:{prepared?.Inspection?.ManualInstallReason}:{prepared?.DownloadUpdatedAt}:{installingDownloads.Contains(download.Id)}:{installationErrors.GetValueOrDefault(download.Id)}:" +
+                string.Join(",", sub.Installations.Where(item => item.DownloadId == download.Id).Select(item => item.Id + ":" + item.State));
+        })));
+        if (signature != renderedTaskSignature)
+        {
+            renderedTaskSignature = signature; tasks.Children.Clear(); taskProgressViews.Clear();
+            if (subscriptions.Length == 0) tasks.Children.Add(Text(T("NoTasks")));
+            foreach (var sub in subscriptions)
+                foreach (var download in sub.Downloads) tasks.Children.Add(TaskCard(sub, download));
+        }
+        foreach (var sub in subscriptions)
+            foreach (var download in sub.Downloads)
+                if (taskProgressViews.TryGetValue(download.Id, out var controls))
                 {
-                    await Task.Run(() => runtime.GetDownloads(sub.Source.Provider).CancelAsync(download.Id, lifetime.Token), lifetime.Token);
-                    runtime.NotifyChanged();
+                    var progress = DownloadProgress(download);
+                    long received = progress?.ReceivedBytes ?? download.ReceivedBytes;
+                    long? total = progress?.TotalBytes ?? download.File.SizeBytes;
+                    controls.Bar.Maximum = Math.Max(1, total ?? received); controls.Bar.Value = received;
+                    controls.Bar.IsIndeterminate = installingDownloads.Contains(download.Id) ||
+                        download.State is DownloadState.Downloaded or DownloadState.NeedsManualInstall &&
+                        runtime.PreparedDownloads.TryGetValue(download.Id, out var preparation) && preparation.Checking &&
+                        !sub.Installations.Any(item => item.DownloadId == download.Id) ||
+                        (progress?.State ?? download.State) == DownloadState.Downloading && total is null;
+                    controls.Bytes.Text = FormatBytes(received) + " / " + FormatBytes(total);
+                }
+    }
+
+    private ModDownloadProgress? DownloadProgress(ModDownload download) => download.State is DownloadState.Pending or DownloadState.Downloading &&
+        runtime!.Progress.TryGetValue(download.Id, out var progress) ? progress : null;
+
+    private Control TaskCard(GameModSubscription sub, ModDownload download)
+    {
+        var panel = Column();
+        var fileName = Text(download.File.Name, 16); fileName.Name = "subscriptionTaskFileName"; panel.Children.Add(fileName);
+        var state = DownloadProgress(download)?.State ?? download.State;
+        bool verifiedWait = state == DownloadState.Pending && download.Error == nameof(ModSourceError.VerificationRequired);
+        var installed = sub.Installations.Where(item => item.DownloadId == download.Id).ToArray();
+        runtime!.PreparedDownloads.TryGetValue(download.Id, out var prepared);
+        bool ready = state is DownloadState.Downloaded or DownloadState.NeedsManualInstall;
+        var bar = new ProgressBar { Minimum = 0, Maximum = 1 }; var bytes = Text("", 12);
+        bytes.IsVisible = !ready && installed.Length == 0;
+        bar.IsVisible = bytes.IsVisible || installingDownloads.Contains(download.Id) || ready && prepared?.Checking == true && installed.Length == 0;
+        panel.Children.Add(bar); panel.Children.Add(bytes);
+        taskProgressViews[download.Id] = (bar, bytes);
+        if (!verifiedWait && state != DownloadState.NeedsManualInstall && download.Error is { } error) panel.Children.Add(Text(T("Failed") + ": " + error));
+        if (installationErrors.TryGetValue(download.Id, out var installError)) panel.Children.Add(Text(T("Failed") + ": " + installError));
+        if (ready && (prepared?.Error ?? prepared?.Inspection?.ManualInstallReason) is { } checkError) panel.Children.Add(Text(checkError));
+        AddLocalInspection(panel, sub, download.Id);
+        var actions = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 }; panel.Children.Add(actions);
+        if (sub.State == SubscriptionState.Active)
+        {
+            if (state is DownloadState.Pending or DownloadState.Downloading)
+                actions.Children.Add(Action(T("Cancel"), async () =>
+                {
+                    await runtime.GetDownloads(sub.Source.Provider).CancelAsync(download.Id, lifetime.Token); runtime.NotifyChanged();
                 }, independent: true));
             if (state is DownloadState.Failed or DownloadState.Cancelled or DownloadState.LocalFileMissing)
-                line.Children.Add(Action(T("Retry"), () => { _ = DownloadAsync(sub.Id, download.Id); return Task.CompletedTask; }));
-            if (state is DownloadState.Downloaded or DownloadState.NeedsManualInstall)
             {
-                if (!download.File.DownloadOnly) line.Children.Add(Action(T("InspectInstall"), () => InstallAsync(sub, download)));
-                else tasks.Children.Add(Text(T("GitHubDownloadOnly")));
-                line.Children.Add(Action(T("DownloadOnly"), async () => { await Task.Run(() => runtime.Installer.MarkDownloadOnly(sub.Id, download.Id)); runtime.NotifyChanged(); }));
-                line.Children.Add(Action(T("OpenDownloads"), () =>
+                actions.Children.Add(Action(T("Retry"), () => { _ = DownloadAsync(sub.Id, download.Id); return Task.CompletedTask; }, independent: true));
+            }
+            if ((ready || installed.Length > 0) && !installingDownloads.Contains(download.Id))
+            {
+                if (ready && (installed.Length > 0 || prepared is { Checking: false, Error: null, Inspection.ManualInstallReason: null }))
                 {
-                    if (download.LocalPath is { } path && File.Exists(path))
-                    { ManagedModFiles.EnsureSafe(path); System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Path.GetDirectoryName(path)!) { UseShellExecute = true }); }
-                    return Task.CompletedTask;
-                }));
+                    var review = Action(T("ReviewPlacement"), () => InstallAsync(sub, download), independent: true);
+                    review.Name = "subscriptionReviewInstall"; review.IsEnabled = !operationBusy; actions.Children.Add(review);
+                }
+                var unsubscribe = Action(T("Unsubscribe"), () => ReviewUnsubscribeAsync(sub.Id, download.Id), independent: true);
+                unsubscribe.Name = "subscriptionUnsubscribeFile"; unsubscribe.IsEnabled = !operationBusy; actions.Children.Add(unsubscribe);
+                if (ready && prepared is not { Checking: true }) actions.Children.Add(Action(T("Recheck"), () =>
+                { runtime.RecheckDownload(download.Id); renderedTaskSignature = null; RefreshTasks(); return Task.CompletedTask; }, independent: true));
+                if (ready) actions.Children.Add(Action(T("OpenDownloads"), () =>
+                { if (download.LocalPath is { } path) OpenDirectory(Path.GetDirectoryName(path)!); return Task.CompletedTask; }, independent: true));
             }
         }
+        foreach (var installation in installed)
+        {
+            panel.Children.Add(Text(installation.DirectoryPath, 12));
+            actions.Children.Add(Action(T("OpenInstallation"), () => { OpenDirectory(installation.DirectoryPath); return Task.CompletedTask; }, independent: true));
+            actions.Children.Add(Action(T("ViewManager"), () => { if (SameGame(sub.GameDirectory)) main.OpenSubscriptionModManager(); return Task.CompletedTask; }, independent: true));
+        }
+        var card = new Border { Name = "subscriptionTaskCard", Tag = download.Id, Padding = new Thickness(12),
+            CornerRadius = new CornerRadius(4), Background = ReadingBrush("Background"), Child = panel };
+        string identity = ModTitle(sub) + " · " + download.File.Name;
+        Avalonia.Automation.AutomationProperties.SetName(card, identity);
+        ToolTip.SetTip(card, identity);
+        return card;
     }
 
     private static string FormatBytes(long? bytes) => bytes is null ? "?" : bytes >= 1024L * 1024 * 1024

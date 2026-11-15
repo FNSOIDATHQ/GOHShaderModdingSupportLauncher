@@ -4,10 +4,12 @@ using System.Text.Json.Serialization;
 namespace GOHShaderModdingSupportLauncher.ModSubscriptions;
 
 internal sealed record ModInstallRequest(Guid SubscriptionId, Guid DownloadId, string CandidateRoot,
-    bool ConfirmCompletePackage, Guid? ReplaceInstallationId = null);
+    bool ConfirmPlacement, Guid? ReplaceInstallationId = null, string? TargetDirectoryName = null,
+    ModArchiveCandidate? ReviewedCandidate = null);
+internal sealed record ModPlacementPlan(string Destination, ModArchiveCandidate Candidate, ModInstallation? Previous);
 internal sealed record ModCleanupFile(string Path, OwnedModFile Fingerprint);
 internal sealed record ModCleanupPlan(Guid SubscriptionId, string GameDirectory, ModCleanupFile[] Files,
-    string[] PreservedPaths, string[] BlockingReasons);
+    string[] PreservedPaths, string[] BlockingReasons, Guid? DownloadId = null);
 internal sealed record ModRecoveryOperation(string Kind, Guid SubscriptionId, string[] Paths, string JournalRevision);
 
 internal enum ModTransactionKind { Install, Remove }
@@ -19,6 +21,8 @@ internal sealed record ModFileTransaction
     public required string GameDirectory { get; init; }
     public required Guid SubscriptionId { get; init; }
     public required ModTransactionKind Kind { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? DownloadId { get; init; }
     public ModInstallation? Installation { get; init; }
     public ModInstallation? PreviousInstallation { get; init; }
     public ModFileMove[] Moves { get; init; } = [];
@@ -51,9 +55,13 @@ internal sealed class ModInstallService(SubscriptionStore store, IModInstallatio
     internal ModArchiveInspection Inspect(Guid subscriptionId, Guid downloadId, CancellationToken token = default)
     {
         var subscription = Subscription(subscriptionId);
-        using var lease = GameOperationLock.Acquire(subscription.GameDirectory);
-        var download = ReadyDownload(subscription, downloadId);
-        var inspection = archives.Inspect(download.LocalPath!, download.File, token);
+        // Read-only preparation must not wait behind another file's network transfer.
+        // Installation rechecks the payload and target under the per-game writer lease.
+        var download = ReadyDownload(subscription, downloadId, token);
+        var inspection = archives.Inspect(download.LocalPath!, PlacementFile(download), token);
+        if (inspection.ManualInstallReason is null)
+            ManagedModFiles.EnsureSpace(SubscriptionPaths.ModsDirectory(subscription.GameDirectory),
+                inspection.Candidates.Max(item => item.SizeBytes));
         var group = subscription.Files.Groups.FirstOrDefault(item => item.Id == download.File.GroupId);
         return inspection with { AuthorInstructions = string.Join("\n\n", new[]
             { inspection.AuthorInstructions, group?.Description ?? "", group?.InstallationInstructions ?? "" }.Where(text => text.Length > 0)) };
@@ -61,8 +69,8 @@ internal sealed class ModInstallService(SubscriptionStore store, IModInstallatio
 
     internal ModInstallation Install(ModInstallRequest request, CancellationToken token = default)
     {
-        if (!request.ConfirmCompletePackage)
-            throw new InvalidOperationException("Confirm that the selected directory is a complete standard Mod; patches require manual installation. Read the author's instructions first.");
+        if (!request.ConfirmPlacement)
+            throw new InvalidOperationException("Review and confirm the installation destination first.");
         var subscription = Subscription(request.SubscriptionId);
         string game = subscription.GameDirectory;
         using var lease = GameOperationLock.Acquire(game);
@@ -70,26 +78,14 @@ internal sealed class ModInstallService(SubscriptionStore store, IModInstallatio
         subscription = Subscription(request.SubscriptionId);
         if (subscription.State != SubscriptionState.Active) throw new InvalidOperationException("This subscription is being removed.");
         EnsureStopped(game);
-        var download = ReadyDownload(subscription, request.DownloadId);
-        var inspection = archives.Inspect(download.LocalPath!, download.File, token);
+        var download = ReadyDownload(subscription, request.DownloadId, token);
+        var inspection = archives.Inspect(download.LocalPath!, PlacementFile(download), token);
         if (inspection.ManualInstallReason is not null) throw new InvalidOperationException(inspection.ManualInstallReason);
-        var candidate = inspection.Candidates.SingleOrDefault(item => item.RootPath == request.CandidateRoot)
-            ?? throw new InvalidOperationException("Explicitly select one of the detected Mod directories.");
-        if (candidate.DirectoryName is null) throw new InvalidOperationException("The archive has no original Mod directory name. Keep it as a manual download.");
-        string destination = SubscriptionPaths.InstallationDirectory(game, Path.Combine(SubscriptionPaths.ModsDirectory(game), candidate.DirectoryName));
-        ManagedModFiles.EnsureSafe(destination);
-        var previous = request.ReplaceInstallationId is { } replacement
-            ? subscription.Installations.SingleOrDefault(item => item.Id == replacement)
-                ?? throw new InvalidOperationException("The selected managed installation no longer exists.")
-            : null;
-        if (previous is not null)
-        {
-            if (!previous.DirectoryPath.Equals(destination, SubscriptionPaths.Comparison))
-                throw new InvalidOperationException("A replacement must retain the original Mod directory name.");
-            RequireUnchangedDirectory(previous);
-        }
-        else if (Directory.Exists(destination) || File.Exists(destination))
-            throw new IOException("This Mod directory already exists. A manual Mod or another subscription cannot be overwritten.");
+        var plan = Placement(subscription, request, inspection);
+        var candidate = plan.Candidate;
+        string destination = plan.Destination;
+        var previous = plan.Previous;
+        ManagedModFiles.EnsureSpace(destination, candidate.SizeBytes);
 
         string transactionDirectory = NewTransactionDirectory(game, out Guid transactionId);
         string staging = Path.Combine(transactionDirectory, "staged");
@@ -137,13 +133,56 @@ internal sealed class ModInstallService(SubscriptionStore store, IModInstallatio
         }
     }
 
+    internal ModPlacementPlan PreviewPlacement(ModInstallRequest request, CancellationToken token = default)
+    {
+        var subscription = Subscription(request.SubscriptionId);
+        store.Reload(); subscription = Subscription(request.SubscriptionId);
+        if (subscription.State != SubscriptionState.Active) throw new InvalidOperationException("This subscription is being removed.");
+        var download = ReadyDownload(subscription, request.DownloadId, token);
+        var inspection = archives.Inspect(download.LocalPath!, PlacementFile(download), token);
+        var plan = Placement(subscription, request, inspection);
+        ManagedModFiles.EnsureSpace(plan.Destination, plan.Candidate.SizeBytes);
+        return plan;
+    }
+
+    private static ModPlacementPlan Placement(GameModSubscription subscription, ModInstallRequest request, ModArchiveInspection inspection)
+    {
+        if (inspection.ManualInstallReason is not null) throw new InvalidDataException(inspection.ManualInstallReason);
+        var candidate = inspection.Candidates.SingleOrDefault(item => item.RootPath == request.CandidateRoot)
+            ?? throw new InvalidOperationException("Select a placement layout first.");
+        if (request.ReviewedCandidate is { } reviewed && (candidate.RootPath != reviewed.RootPath ||
+            candidate.PreserveAsFile != reviewed.PreserveAsFile || candidate.SizeBytes != reviewed.SizeBytes ||
+            !candidate.Files.SequenceEqual(reviewed.Files, StringComparer.Ordinal)))
+            throw new InvalidDataException("The prepared layout changed. Check and review it again.");
+        string name = request.TargetDirectoryName ?? candidate.DirectoryName;
+        if (string.IsNullOrWhiteSpace(name) || Path.GetFileName(name) != name || name != SubscriptionPaths.SafeFileName(name, ""))
+            throw new ArgumentException("Choose a valid, separate folder name inside mods.");
+        string destination = SubscriptionPaths.InstallationDirectory(subscription.GameDirectory,
+            Path.Combine(SubscriptionPaths.ModsDirectory(subscription.GameDirectory), name));
+        ManagedModFiles.EnsureSafe(destination);
+        var previous = request.ReplaceInstallationId is { } replacement
+            ? subscription.Installations.SingleOrDefault(item => item.Id == replacement)
+                ?? throw new InvalidOperationException("The selected managed installation no longer exists.")
+            : null;
+        if (previous is not null)
+        {
+            if (!previous.DirectoryPath.Equals(destination, SubscriptionPaths.Comparison))
+                throw new InvalidOperationException("A replacement must use the reviewed managed destination.");
+            RequireUnchangedDirectory(previous);
+        }
+        else if (Directory.Exists(destination) || File.Exists(destination))
+            throw new IOException("This Mod directory already exists. A manual Mod or another subscription cannot be overwritten.");
+
+        return new(destination, candidate, previous);
+    }
+
     // A reviewable scope, including manual additions and anything that cannot safely be deleted.
-    internal ModCleanupPlan PreviewUnsubscribe(Guid subscriptionId)
+    internal ModCleanupPlan PreviewUnsubscribe(Guid subscriptionId, Guid? downloadId = null)
     {
         var subscription = Subscription(subscriptionId);
         using var lease = GameOperationLock.Acquire(subscription.GameDirectory);
         store.Reload();
-        return BuildCleanupPlan(Subscription(subscriptionId));
+        return BuildCleanupPlan(Subscription(subscriptionId), downloadId);
     }
 
     // A preview must never run recovery: a removal journal may already have crossed the deletion boundary.
@@ -170,7 +209,7 @@ internal sealed class ModInstallService(SubscriptionStore store, IModInstallatio
             if (!File.Exists(journal)) continue;
             var transaction = ReadJournal(directory, journal, game);
             var subscription = library.Subscriptions.SingleOrDefault(item => item.Id == transaction.SubscriptionId);
-            bool committed = transaction.Kind == ModTransactionKind.Remove ? subscription is null :
+            bool committed = transaction.Kind == ModTransactionKind.Remove ? RemovalCommitted(transaction, subscription) :
                 transaction.Installation is { } installation && subscription?.Installations.Any(item => item.Id == installation.Id) == true;
             string kind = transaction.Kind == ModTransactionKind.Remove && (transaction.RemovalStarted || committed)
                 ? "ContinueRemoval" : committed ? "FinishInstall" : "RollBack";
@@ -204,23 +243,24 @@ internal sealed class ModInstallService(SubscriptionStore store, IModInstallatio
         subscription = Subscription(subscription.Id);
         if (!game.Equals(reviewedPlan.GameDirectory, SubscriptionPaths.Comparison)) throw new InvalidOperationException("The cleanup belongs to a different game.");
         EnsureStopped(game);
-        var current = BuildCleanupPlan(subscription);
+        var current = BuildCleanupPlan(subscription, reviewedPlan.DownloadId);
         if (current.BlockingReasons.Length > 0) throw new IOException(string.Join("\n", current.BlockingReasons));
         if (reviewedPlan.BlockingReasons.Length > 0 || !SamePlan(current, reviewedPlan))
             throw new IOException("The cleanup scope changed. Review the current file list before retrying.");
 
         // With the game lock held, Downloading can only be an interrupted process's stale state.
-        foreach (var download in subscription.Downloads.Where(item => item.State == DownloadState.Downloading))
+        var scope = CleanupScope(subscription, current.DownloadId);
+        foreach (var download in scope.Downloads.Where(item => item.State == DownloadState.Downloading))
             store.SaveDownload(subscription.Id, download with { State = DownloadState.Cancelled, UpdatedAt = DateTimeOffset.UtcNow });
-        store.SetSubscriptionState(subscription.Id, SubscriptionState.RemovalPending);
+        if (current.DownloadId is null) store.SetSubscriptionState(subscription.Id, SubscriptionState.RemovalPending);
         string transactionDirectory = NewTransactionDirectory(game, out Guid transactionId);
         var transaction = new ModFileTransaction
         {
-            Version = 1, Id = transactionId, GameDirectory = game, SubscriptionId = subscription.Id,
-            Kind = ModTransactionKind.Remove,
+            Version = current.DownloadId is null ? 1 : 2, Id = transactionId, GameDirectory = game, SubscriptionId = subscription.Id,
+            Kind = ModTransactionKind.Remove, DownloadId = current.DownloadId,
             Moves = current.Files.Select((file, index) => new ModFileMove(file.Path, index.ToString("D8"), file.Fingerprint)).ToArray(),
             // This list is separate from file moves because directories can already be missing.
-            RemovedDirectories = subscription.Installations.Select(item => item.DirectoryPath).ToArray()
+            RemovedDirectories = scope.Installations.Select(item => item.DirectoryPath).ToArray()
         };
         WriteJournal(transactionDirectory, transaction);
         bool removalStarted = false;
@@ -247,9 +287,9 @@ internal sealed class ModInstallService(SubscriptionStore store, IModInstallatio
             if (!removalStarted)
             {
                 try { RollBack(transactionDirectory, transaction); }
-                finally { store.SetSubscriptionState(subscription.Id, SubscriptionState.RemovalFailed); }
+                finally { if (current.DownloadId is null) store.SetSubscriptionState(subscription.Id, SubscriptionState.RemovalFailed); }
             }
-            else if (store.Snapshot().Subscriptions.Any(item => item.Id == subscription.Id))
+            else if (current.DownloadId is null && store.Snapshot().Subscriptions.Any(item => item.Id == subscription.Id))
                 store.SetSubscriptionState(subscription.Id, SubscriptionState.RemovalFailed);
             throw;
         }
@@ -284,14 +324,14 @@ internal sealed class ModInstallService(SubscriptionStore store, IModInstallatio
             EnsureStopped(game);
             var transaction = ReadJournal(directory, journal, game);
             var subscription = store.Snapshot().Subscriptions.SingleOrDefault(item => item.Id == transaction.SubscriptionId);
-            bool committed = transaction.Kind == ModTransactionKind.Remove ? subscription is null :
+            bool committed = transaction.Kind == ModTransactionKind.Remove ? RemovalCommitted(transaction, subscription) :
                 transaction.Installation is { } installation && subscription?.Installations.Any(item => item.Id == installation.Id) == true;
             if (transaction.Kind == ModTransactionKind.Remove && (transaction.RemovalStarted || committed))
             {
                 try { FinishRemoval(directory, transaction); }
                 catch
                 {
-                    if (store.Snapshot().Subscriptions.Any(item => item.Id == transaction.SubscriptionId))
+                    if (transaction.DownloadId is null && store.Snapshot().Subscriptions.Any(item => item.Id == transaction.SubscriptionId))
                         store.SetSubscriptionState(transaction.SubscriptionId, SubscriptionState.RemovalFailed);
                     throw;
                 }
@@ -303,7 +343,9 @@ internal sealed class ModInstallService(SubscriptionStore store, IModInstallatio
 
     private GameModSubscription Subscription(Guid id) => store.Snapshot().Subscriptions.Single(item => item.Id == id);
 
-    private static ModDownload ReadyDownload(GameModSubscription subscription, Guid id)
+    private static RemoteModFile PlacementFile(ModDownload download) => download.FileName is { } name ? download.File with { Name = name } : download.File;
+
+    private static ModDownload ReadyDownload(GameModSubscription subscription, Guid id, CancellationToken token = default)
     {
         var download = subscription.Downloads.Single(item => item.Id == id);
         if (download.State is not (DownloadState.Downloaded or DownloadState.NeedsManualInstall) || download.LocalPath is null ||
@@ -316,10 +358,18 @@ internal sealed class ModInstallService(SubscriptionStore store, IModInstallatio
         // Revalidate the payload, including its original source checksum, before every inspection/install.
         using var stream = new FileStream(download.LocalPath, FileMode.Open, FileAccess.Read, FileShare.Read);
         if (download.File.SizeBytes is { } size && stream.Length != size) throw new InvalidDataException("The downloaded file size changed.");
-        if (download.File.Md5 is { } md5 && !Convert.ToHexStringLower(System.Security.Cryptography.MD5.HashData(stream)).Equals(md5, StringComparison.OrdinalIgnoreCase))
+        using var sha = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.SHA256);
+        using var md5 = download.File.Md5 is null ? null : System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.MD5);
+        byte[] buffer = new byte[128 * 1024];
+        int count;
+        while ((count = stream.Read(buffer, 0, buffer.Length)) != 0)
+        {
+            token.ThrowIfCancellationRequested(); sha.AppendData(buffer, 0, count); md5?.AppendData(buffer, 0, count);
+        }
+        token.ThrowIfCancellationRequested();
+        if (md5 is not null && !Convert.ToHexStringLower(md5.GetHashAndReset()).Equals(download.File.Md5, StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("The downloaded file checksum changed.");
-        stream.Position = 0;
-        if (download.ContentSha256 is { } sha && Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(stream)) != sha)
+        if (download.ContentSha256 is { } expectedSha && Convert.ToHexStringLower(sha.GetHashAndReset()) != expectedSha)
             throw new InvalidDataException("The downloaded file content changed.");
         return download;
     }
@@ -343,8 +393,26 @@ internal sealed class ModInstallService(SubscriptionStore store, IModInstallatio
             throw new IOException("The directory contains added, missing or modified files. Preserve those files before replacing this complete package.");
     }
 
-    private static ModCleanupPlan BuildCleanupPlan(GameModSubscription subscription)
+    private static GameModSubscription CleanupScope(GameModSubscription subscription, Guid? downloadId)
     {
+        if (downloadId is not { } id) return subscription;
+        if (subscription.State != SubscriptionState.Active)
+            throw new InvalidOperationException("Resolve the pending Mod cleanup before removing an individual file.");
+        var download = subscription.Downloads.Single(item => item.Id == id);
+        if (download.State is DownloadState.Pending or DownloadState.Downloading)
+            throw new InvalidOperationException("The selected file has not completed downloading.");
+        return subscription with
+        {
+            Downloads = [download], Installations = subscription.Installations.Where(item => item.DownloadId == id).ToArray()
+        };
+    }
+
+    private static bool RemovalCommitted(ModFileTransaction transaction, GameModSubscription? subscription) =>
+        subscription is null || transaction.DownloadId is { } id && !subscription.Downloads.Any(item => item.Id == id);
+
+    private static ModCleanupPlan BuildCleanupPlan(GameModSubscription subscription, Guid? downloadId = null)
+    {
+        subscription = CleanupScope(subscription, downloadId);
         var files = new List<ModCleanupFile>();
         var preserved = new List<string>();
         var blocked = new List<string>();
@@ -388,11 +456,12 @@ internal sealed class ModInstallService(SubscriptionStore store, IModInstallatio
                 blocked.Add("The download path is outside its recorded task directory: " + download.LocalPath);
         }
         return new(subscription.Id, subscription.GameDirectory, files.OrderBy(file => file.Path, StringComparer.OrdinalIgnoreCase).ToArray(),
-            preserved.Order(StringComparer.OrdinalIgnoreCase).ToArray(), blocked.ToArray());
+            preserved.Order(StringComparer.OrdinalIgnoreCase).ToArray(), blocked.ToArray(), downloadId);
     }
 
     private static bool SamePlan(ModCleanupPlan first, ModCleanupPlan second) =>
-        first.Files.SequenceEqual(second.Files) && first.PreservedPaths.SequenceEqual(second.PreservedPaths, StringComparer.OrdinalIgnoreCase);
+        first.DownloadId == second.DownloadId && first.Files.SequenceEqual(second.Files) &&
+        first.PreservedPaths.SequenceEqual(second.PreservedPaths, StringComparer.OrdinalIgnoreCase);
 
     private static string NewTransactionDirectory(string game, out Guid id)
     {
@@ -443,8 +512,15 @@ internal sealed class ModInstallService(SubscriptionStore store, IModInstallatio
             RemoveEmptyParents(Path.GetDirectoryName(move.SourcePath)!, transaction.GameDirectory);
         }
         host.RemoveEnabledMods(transaction.GameDirectory, transaction.RemovedDirectories);
-        if (store.Snapshot().Subscriptions.Any(item => item.Id == transaction.SubscriptionId))
-            store.CommitRemoval(transaction.SubscriptionId);
+        var subscription = store.Snapshot().Subscriptions.SingleOrDefault(item => item.Id == transaction.SubscriptionId);
+        if (subscription is not null)
+        {
+            if (transaction.DownloadId is { } id)
+            {
+                if (subscription.Downloads.Any(item => item.Id == id)) store.CommitDownloadRemoval(transaction.SubscriptionId, id);
+            }
+            else store.CommitRemoval(transaction.SubscriptionId);
+        }
         host.RefreshMods(transaction.GameDirectory);
         FinishJournal(directory);
     }
@@ -546,7 +622,9 @@ internal sealed class ModInstallService(SubscriptionStore store, IModInstallatio
 
     private static void ValidateJournal(string directory, string game, ModFileTransaction transaction)
     {
-        if (transaction.Version != 1 || transaction.Id == Guid.Empty || transaction.SubscriptionId == Guid.Empty ||
+        if (transaction.Version is not (1 or 2) || transaction.Id == Guid.Empty || transaction.SubscriptionId == Guid.Empty ||
+            transaction.Version == 1 && transaction.DownloadId is not null ||
+            transaction.Version == 2 && (transaction.Kind != ModTransactionKind.Remove || transaction.DownloadId is null || transaction.DownloadId == Guid.Empty) ||
             !Enum.IsDefined(transaction.Kind) || !transaction.GameDirectory.Equals(game, SubscriptionPaths.Comparison) ||
             Path.GetFileName(directory) != transaction.Id.ToString("N") || transaction.Moves is null || transaction.RemovedDirectories is null)
             throw new InvalidDataException("The installation recovery journal is invalid.");

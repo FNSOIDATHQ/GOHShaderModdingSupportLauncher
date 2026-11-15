@@ -39,9 +39,10 @@ public sealed partial class ModSubscriptionsPage
     {
         SaveReadingPosition();
         if (linkHistory.Count >= 32) linkHistory.RemoveAt(0);
+        int readingTab = details.SelectedIndex == 2 ? session?.Tab ?? 0 : details.SelectedIndex;
         linkHistory.Add(new(session, source.SelectedIndex, view.SelectedIndex, sort.SelectedIndex, browsePage, keyword.Text ?? "",
-            appliedKeyword, browseItems, hasNext, listFresh, listOnly, details.SelectedIndex, session?.Article, session?.File,
-            session?.Context, details.SelectedIndex == 0 ? session?.DescriptionImage : session?.FileImage,
+            appliedKeyword, browseItems, hasNext, listFresh, listOnly, readingTab, session?.Article, session?.File,
+            session?.Context, readingTab == 0 ? session?.DescriptionImage : session?.FileImage,
             readingScroll.Offset, fileScroll.Offset, articleScroll.Offset, fileNavigationScroll.Offset, galleryScroll?.Offset.X ?? 0,
             session?.GallerySelections.GetValueOrDefault(ReadingKey), session?.FileNavigationOnly ?? false));
         UpdateOriginal();
