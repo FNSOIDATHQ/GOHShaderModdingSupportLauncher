@@ -858,7 +858,7 @@ Manual changes outside mods cannot be undone here.</value></data>
     <value>Regular</value>
   </data>
   <data name="MI_Dll" xml:space="preserve">
-    <value>DLL</value>
+    <value>Executable files</value>
   </data>
   <data name="MI_Shader" xml:space="preserve">
     <value>Shader</value>
@@ -978,16 +978,16 @@ Manual changes outside mods cannot be undone here.</value></data>
     <value>Regular — The folder has a recognized descriptor and ordinary game content. Activation adds it to the game's ordinary Mod list.</value>
   </data>
   <data name="MI_HelpDll" xml:space="preserve">
-    <value>DLL — Contains a DLL, executable program or external installation script. This label can appear alongside Regular and Shader; follow the author's instructions for any extra installation steps. It does not mean these files have been loaded or are malicious.</value>
+    <value>Executable files — Contains a DLL, executable program or external installation script. This label can appear alongside Regular and Shader; follow the author's instructions for any extra installation steps. It does not mean these files have been loaded or are malicious.</value>
   </data>
   <data name="MI_HelpShader" xml:space="preserve">
     <value>Shader — Contains game shader resources recognized by this launcher. Existing shader loading and cache actions continue to apply.</value>
   </data>
   <data name="MI_HelpMixed" xml:space="preserve">
-    <value>Regular + DLL — Ordinary content is eligible for activation. Activation does not run installation scripts, deploy DLLs or prove that the DLL features work.</value>
+    <value>Regular + Executable files — Ordinary content is eligible for activation. Activation does not run installation scripts, deploy DLLs or prove that these external programs work.</value>
   </data>
   <data name="MI_HelpUnknown" xml:space="preserve">
-    <value>Other — Identifies extra or unclassified content and folders whose normal loading structure has not been confirmed. It can coexist with Regular, DLL and Shader; its presence does not itself block activation. Local read failures or incomplete checks do not remove confirmed regular content. An incomplete check never proves that DLLs or shaders are absent.</value>
+    <value>Other — Identifies extra or unclassified content and folders whose normal loading structure has not been confirmed. It can coexist with Regular, Executable files and Shader; its presence does not itself block activation. Local read failures or incomplete checks do not remove confirmed regular content. An incomplete check never proves that DLLs or shaders are absent.</value>
   </data>
   <data name="MI_HelpDisable" xml:space="preserve">
     <value>Disabling — Removes ordinary content from the enabled Mod list. DLLs installed separately in the game directory must be removed according to the author's instructions.</value>

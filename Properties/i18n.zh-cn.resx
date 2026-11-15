@@ -858,7 +858,7 @@
     <value>常规</value>
   </data>
   <data name="MI_Dll" xml:space="preserve">
-    <value>DLL</value>
+    <value>可执行文件</value>
   </data>
   <data name="MI_Shader" xml:space="preserve">
     <value>着色器</value>
@@ -978,16 +978,16 @@
     <value>常规：目录具有可识别的元数据与普通游戏内容。激活会将其加入游戏的普通 Mod 列表。</value>
   </data>
   <data name="MI_HelpDll" xml:space="preserve">
-    <value>DLL：包含 DLL、可执行程序或外部安装脚本，可与常规、着色器同时出现。额外安装步骤请查看作者说明；此标记不表示文件已加载，也不表示恶意。</value>
+    <value>可执行文件：包含 DLL、可执行程序或外部安装脚本，可与常规、着色器同时出现。额外安装步骤请查看作者说明；此标记不表示文件已加载，也不表示恶意。</value>
   </data>
   <data name="MI_HelpShader" xml:space="preserve">
     <value>着色器：包含启动器支持识别的游戏着色器资源，沿用已有着色器加载和缓存操作。</value>
   </data>
   <data name="MI_HelpMixed" xml:space="preserve">
-    <value>常规＋DLL：其中的普通内容符合激活条件。激活不会执行安装脚本或部署 DLL，也不代表 DLL 功能已经生效。</value>
+    <value>常规＋可执行文件：其中的普通内容符合激活条件。激活不会执行安装脚本或部署 DLL，也不代表这些外部程序已经生效。</value>
   </data>
   <data name="MI_HelpUnknown" xml:space="preserve">
-    <value>其它：表示附加或未分类内容，也用于尚未确认正常加载结构的目录。可与常规、DLL、着色器共存，其存在本身不阻止激活。局部读取失败或检查未完成不会撤销已确认的常规内容；检查未完成不代表没有 DLL 或着色器。</value>
+    <value>其它：表示附加或未分类内容，也用于尚未确认正常加载结构的目录。可与常规、可执行文件、着色器共存，其存在本身不阻止激活。局部读取失败或检查未完成不会撤销已确认的常规内容；检查未完成不代表没有 DLL 或着色器。</value>
   </data>
   <data name="MI_HelpDisable" xml:space="preserve">
     <value>停用：从普通 Mod 启用列表移除内容。另行安装到游戏目录的 DLL，需要按作者说明处理，不会随此操作卸载。</value>
