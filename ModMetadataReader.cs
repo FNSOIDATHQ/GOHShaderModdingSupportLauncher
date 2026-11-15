@@ -2,8 +2,8 @@ using System.Text;
 
 namespace GOHShaderModdingSupportLauncher;
 
-// GEM's descriptor syntax: brace blocks, quoted strings and semicolon comments.
-// Unknown fields are retained syntactically; they do not establish loadable content.
+// Recognizes a Mod descriptor and its display name, not the game's complete command schema.
+// Other declaration blocks are skipped structurally; their commands are never evaluated.
 internal static class ModMetadataReader
 {
     internal sealed record Metadata(string? Name, bool Valid);
@@ -25,20 +25,34 @@ internal static class ModMetadataReader
 
         internal Metadata Read()
         {
-            Expect(Kind.Open);
-            var root = Expect(Kind.Word);
-            bool mod = root.Text.Equals("mod", StringComparison.OrdinalIgnoreCase);
-            // Keep display names from old/bad descriptors without granting regular status.
-            if (!mod && root.Text.Equals("name", StringComparison.OrdinalIgnoreCase))
+            bool mod = false;
+            while (true)
             {
-                Name = Expect(Kind.String).Text;
-                Expect(Kind.Close); Expect(Kind.End);
-                return new(Name, false);
+                var next = Next();
+                if (next.Kind == Kind.End) break;
+                if (next.Kind != Kind.Open) throw new FormatException();
+                var declaration = Expect(Kind.Word);
+                if (declaration.Text.Equals("mod", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (mod) throw new FormatException();
+                    mod = true;
+                    ReadBody(0);
+                }
+                else
+                {
+                    // Preserve a legacy display name, but do not impose a field schema on
+                    // unrelated declarations or let them overwrite the real Mod name.
+                    if (!mod && declaration.Text.Equals("name", StringComparison.OrdinalIgnoreCase))
+                    {
+                        int start = position;
+                        var value = Next();
+                        if (value.Kind == Kind.String) Name = value.Text;
+                        position = start;
+                    }
+                    SkipBody(1);
+                }
             }
-            if (!mod) throw new FormatException();
-            ReadBody(0);
-            Expect(Kind.End);
-            return new(Name, names == 1 && !string.IsNullOrWhiteSpace(Name) && !Name.Any(char.IsControl));
+            return new(Name, mod && names == 1 && !string.IsNullOrWhiteSpace(Name) && !Name.Any(char.IsControl));
         }
 
         private void ReadBody(int depth)
@@ -61,7 +75,19 @@ internal static class ModMetadataReader
                     names++;
                     Expect(Kind.Close);
                 }
-                else ReadBody(depth + 1);
+                else SkipBody(depth + 1);
+            }
+        }
+
+        private void SkipBody(int depth)
+        {
+            if (depth > 64) throw new FormatException();
+            while (true)
+            {
+                var next = Next();
+                if (next.Kind == Kind.Close) return;
+                if (next.Kind == Kind.End) throw new FormatException();
+                if (next.Kind == Kind.Open) SkipBody(depth + 1);
             }
         }
 

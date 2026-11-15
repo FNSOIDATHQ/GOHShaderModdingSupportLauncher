@@ -62,6 +62,33 @@ internal static class ModInspectionSmokeTest
         Require(result is { IsRegular: true, CanActivate: true, DisplayName: "Actual \"name\"", StructureComplete: true } &&
             result.ExternalPrograms is { Detected: false, Complete: true }, "loose content, metadata grammar or independent states");
 
+        string[] extendedDescriptors =
+        [
+            "{delete \"resource/entity/old/\"}\n{mod {name \"Extended\"}}\n{delete \"resource/set/old.set\"}",
+            "{future_extension arbitrary \"quoted } { content\" {nested {name \"Not the Mod\"}}}\n{mod {name \"Extended\"}}\n{another_extension {child 1}}",
+            "{future_extension {mod {name \"Nested decoy\"}}}\n{mod {name \"Extended\"}}",
+            "{name \"Unrelated top-level name\"}\n{mod {name \"Extended\"}}\n{unknown {name \"Also unrelated\"}}",
+            "{extension {\"opaque data\"} {}}\n{mod {name \"Extended\"} {future_field {\"opaque data\"} {}}}\n{name \"Do not replace the Mod name\"}",
+            "{name unrelated scalar values}\n{mod {name \"Extended\"}}",
+            "/* {mod {name \"Comment\"}} */ {delete \"../not-a-path-validation-task\"}\n{mod {name \"Extended\"} {delete \"inside-mod\"} {minGameVersion \"any\"} {require \"unresolved_dependency\"}} ; trailing comment\n"
+        ];
+        for (int i = 0; i < extendedDescriptors.Length; i++)
+        {
+            string extended = Make("extendedmeta_" + i, extendedDescriptors[i]);
+            Write(extended, "resource/normal.set");
+            Require(Inspect(extended) is { HasRegularFeature: true, CanActivate: true, DisplayName: "Extended" },
+                "balanced extension declarations around the unique Mod block do not invalidate metadata: " + i);
+        }
+        string sentinel = Path.Combine(root, "declaration-sentinel.txt");
+        File.WriteAllText(sentinel, "The inspection must retain this file unchanged.");
+        byte[] sentinelBytes = File.ReadAllBytes(sentinel);
+        string quotedSentinel = "\"" + sentinel.Replace("\\", "\\\\") + "\"";
+        string declarative = Make("declarativemeta", "{delete " + quotedSentinel + "}\n{mod {name \"Declarative\"} {delete " + quotedSentinel + "}}\n{future_action {target " + quotedSentinel + "}}");
+        Write(declarative, "resource/normal.set");
+        Require(Inspect(declarative) is { HasRegularFeature: true, CanActivate: true, DisplayName: "Declarative" } &&
+            File.Exists(sentinel) && File.ReadAllBytes(sentinel).SequenceEqual(sentinelBytes),
+            "extension and delete declarations remain passive data; inspection never executes author operations");
+
         string localization = Make("localization");
         Write(localization, "localizations/default/interface/text/main.pot", "msgctxt \"name\"\nmsgid \"Unit\"\nmsgstr \"\"");
         Require(Inspect(localization).IsRegular, "localization-only content");
@@ -197,12 +224,32 @@ internal static class ModInspectionSmokeTest
         Require(Inspect(noMetadata) is { Structure: ModStructureState.Invalid, CanActivate: false }, "missing metadata");
         Write(noMetadata, "inner/mod.info", "{mod {name \"Inner\"}}");
         Require(Inspect(noMetadata).Issues.Any(item => item.Reason == ModInspectionReason.NestedModRoot && item.RelativePath == "inner/mod.info"), "nested root evidence");
-        foreach (string text in new[] { "{mod {desc \"{name wrong}\"}}", "{mod {name \"A\"}", "{mod {name \"A\"}} trailing", "{mod {name \"A\"} {name \"B\"}}", "{name \"A\"}", "{mod {nested {name \"A\"}}}" })
+        foreach (string text in new[]
+        {
+            "{mod {desc \"{name wrong}\"}}", "{mod {name \"A\"}", "{mod {name \"A\"}} trailing",
+            "{mod {name \"A\"} {name \"B\"}}", "{name \"A\"}", "{mod {nested {name \"A\"}}}",
+            "{mod {name \"A\"}} {mod {name \"B\"}}", "{mod {name \"A\"}} {MOD {name \"A\"}}",
+            "{extension {mod {name \"Nested only\"}}}", "{extension {name \"Borrowed\"}} {mod {desc \"No direct name\"}}",
+            "; {mod {name \"Comment only\"}}\n{extension {name \"Borrowed\"}}",
+            "{mod {name \"A\"}} {delete \"unfinished\"", "{mod {name \"A\"}} {extra \"unfinished}",
+            "{mod {name \"A\"}} \"unwrapped tail\""
+        })
         {
             string invalid = Make("badmeta_" + checks, text);
             Write(invalid, "resource/mission.set");
             Require(Inspect(invalid).Structure == ModStructureState.Invalid, "malformed metadata must not borrow a nested or quoted name");
         }
+        string deepMetadata = Make("deepmetadata", "{mod {name \"Too deep\"}} {extension " +
+            string.Concat(Enumerable.Repeat("{layer ", 66)) + "value" + new string('}', 66) + "}");
+        Write(deepMetadata, "resource/normal.set");
+        Require(Inspect(deepMetadata) is { Structure: ModStructureState.Invalid, CanActivate: false },
+            "extension declarations retain the descriptor nesting-depth limit after a valid Mod block");
+        string largeMetadata = Make("largemetadata", "{mod {name \"Too large\"}} {extension \"" + new string('x', 1024 * 1024) + "\"}");
+        Write(largeMetadata, "resource/normal.set");
+        result = Inspect(largeMetadata);
+        Require(result is { Structure: ModStructureState.Unconfirmed, CanActivate: false } &&
+            result.Issues.Any(issue => issue.Reason == ModInspectionReason.ScanLimit && issue.RelativePath == "mod.info"),
+            "extension declarations do not bypass the metadata byte limit");
         string metadataOnly = Make("metadataonly", "{mod {name \"Collection\"} {require \"other_mod\"}}");
         Require(Inspect(metadataOnly) is { Structure: ModStructureState.Unconfirmed, StructureComplete: false }, "unverified metadata-only mechanism stays unconfirmed");
         string encoded = Make("encoding");
