@@ -31,6 +31,7 @@ internal static class UiSmokeTest
                 throw new InvalidOperationException("Avalonia theme or DataGrid styles did not load.");
             CheckSubscriptionMedia();
             ModSubscriptionWorkflowSmokeTest.Run(fixture);
+            ModOriginSmokeTest.Run(fixture);
             LauncherUpdateSmokeTest.Run(fixture);
             LauncherUpdateUiSmokeTest.Run(fixture);
             DonationUiSmokeTest.Run(fixture);

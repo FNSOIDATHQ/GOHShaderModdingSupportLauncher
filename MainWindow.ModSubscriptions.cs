@@ -6,7 +6,77 @@ namespace GOHShaderModdingSupportLauncher;
 
 public partial class MainWindow
 {
-    internal void OpenSubscriptionModManager() => SelectNavigationPage(PageId.ModManager);
+    internal void OpenSubscriptionModManager(string? directory = null) => _ = LocateSubscriptionModAsync(directory);
+    private bool openingInstalledSubscription;
+    private ModSubscriptionOrigins? modOrigins;
+    private SubscriptionLibrary? originLibrary;
+    private string? originCulture;
+    internal event Action? ModOriginsChanged;
+
+    private ModSubscriptionOrigins CurrentModOrigins()
+    {
+        var library = subscriptionRuntime?.Ready.IsCompletedSuccessfully == true ? subscriptionRuntime.Library : null;
+        string? game = SubscriptionGameDirectory;
+        if (modOrigins is null || originLibrary?.Revision != library?.Revision ||
+            !string.Equals(modOrigins.GameDirectory, game, SubscriptionPaths.Comparison))
+        {
+            originLibrary = library;
+            modOrigins = new(library ?? SubscriptionLibrary.Empty(), game, message => AppDiagnostics.Log(message));
+        }
+        return modOrigins;
+    }
+
+    internal void RefreshModOrigins()
+    {
+        var origins = CurrentModOrigins();
+        bool languageChanged = originCulture != LocalizedStrings.Instance.Culture.Name;
+        originCulture = LocalizedStrings.Instance.Culture.Name;
+        bool changed = false;
+        foreach (var mod in universalVars.modDic.Values.Concat(universalVars.modLoaded).Distinct())
+        {
+            changed |= origins.Apply(mod);
+            if (languageChanged)
+            {
+                if (mod.Inspection is { } inspection) mod.type = inspection.Source == ModSourceKind.Workshop
+                    ? Properties.i18n.Main_ModWorkshop : Properties.i18n.Main_ModLocal;
+                mod.RefreshSourceDisplay();
+            }
+        }
+        if (changed || languageChanged) ModOriginsChanged?.Invoke();
+    }
+
+    internal async Task OpenModSubscriptionAsync(Mod mod)
+    {
+        CurrentModOrigins().Apply(mod);
+        if (mod.SubscriptionLink is not { } link) return;
+        openingInstalledSubscription = true;
+        try { SelectNavigationPage(PageId.ModSubscriptions); }
+        finally { openingInstalledSubscription = false; }
+        if (pageHost.Content is ModSubscriptionsPage page)
+            await page.OpenInstalledSubscriptionAsync(link.SubscriptionId, link.InstallationId);
+    }
+
+    private async Task LocateSubscriptionModAsync(string? directory)
+    {
+        var context = ModDirectoryContext;
+        try
+        {
+            SelectNavigationPage(PageId.ModManager);
+            if (directory is null) return;
+            Task refresh;
+            do
+            {
+                refresh = PendingModRefresh;
+                await refresh;
+                if (context != ModDirectoryContext || pageHost.Content is not ModManager) return;
+            } while (!ReferenceEquals(refresh, PendingModRefresh));
+            if (pageHost.Content is not ModManager manager) return;
+            if (!manager.SelectInstalledDirectory(directory))
+                MessageBox.Show(LocalizedStrings.Instance.Get("MS_InstallationUnavailable"),
+                    Properties.i18n.Universal_Notice, MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex) { AppDiagnostics.Log("Unable to locate subscription installation.", ex); }
+    }
     private ModSubscriptionRuntime? subscriptionRuntime;
     private bool subscriptionShutdownStarted, subscriptionShutdownFinished;
     internal ModSubscriptionRuntime SubscriptionRuntime => subscriptionRuntime ??= CreateSubscriptionRuntime();
@@ -20,8 +90,15 @@ public partial class MainWindow
     {
         var runtime = new ModSubscriptionRuntime(CreateModInstallationHost(), diagnostic: entry => AppDiagnostics.Log("Mod source HTTP: " + entry),
             verificationDiagnostic: message => AppDiagnostics.Log("ModDB verification: " + message));
+        AttachSubscriptionRuntime(runtime);
+        return runtime;
+    }
+
+    private void AttachSubscriptionRuntime(ModSubscriptionRuntime runtime)
+    {
         runtime.Changed += () => Dispatcher.UIThread.Post(() =>
         {
+            if (!ReferenceEquals(subscriptionRuntime, runtime) || subscriptionShutdownStarted) return;
             if (runtime.Ready.IsCompletedSuccessfully)
             {
                 string? game = SubscriptionGameDirectory;
@@ -29,15 +106,35 @@ public partial class MainWindow
                     subscription.GameDirectory.Equals(game, SubscriptionPaths.Comparison))
                     .Sum(subscription => ModUpdateCheckService.GetNotices(subscription).Length);
                 UpdateSubscriptionBadge(count);
+                RefreshModOrigins();
             }
         });
         runtime.SelectGame(SubscriptionGameDirectory);
-        return runtime;
+        _ = RefreshOriginsWhenReadyAsync(runtime);
+    }
+
+    private async Task RefreshOriginsWhenReadyAsync(ModSubscriptionRuntime runtime)
+    {
+        try
+        {
+            // The factory returns before the lazy runtime field is assigned.
+            await Task.Yield();
+            await runtime.Ready;
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (ReferenceEquals(subscriptionRuntime, runtime) && !subscriptionShutdownStarted) RefreshModOrigins();
+            });
+        }
+        catch (Exception ex) { AppDiagnostics.Log("Unable to read subscription origins.", ex); }
     }
 
     private void StartSubscriptionRuntime() => _ = SubscriptionRuntime;
     private void DisposeSubscriptionRuntime() => subscriptionRuntime?.Dispose();
-    private void ChangeSubscriptionGame() => subscriptionRuntime?.SelectGame(SubscriptionGameDirectory);
+    private void ChangeSubscriptionGame()
+    {
+        subscriptionRuntime?.SelectGame(SubscriptionGameDirectory);
+        RefreshModOrigins();
+    }
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {

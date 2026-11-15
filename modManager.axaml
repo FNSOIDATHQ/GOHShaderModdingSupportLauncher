@@ -52,7 +52,7 @@
             </DataGridTemplateColumn.CellTemplate>
           </DataGridTemplateColumn>
           <DataGridTextColumn x:DataType="local:Mod" Header="{Binding MI_Source, Source={x:Static local:LocalizedStrings.Instance}}" CanUserSort="True"
-                              Binding="{Binding type}" />
+                              Binding="{Binding SourceLabel}" />
           <DataGridTemplateColumn Header="{Binding MI_Features, Source={x:Static local:LocalizedStrings.Instance}}" CanUserSort="True"
                                   HeaderTemplate="{StaticResource ModFeaturesHeaderTemplate}"
                                   SortMemberPath="FeatureSortKey" Width="210" MinWidth="100" CellTemplate="{StaticResource ModFeaturesTemplate}" />
@@ -80,7 +80,7 @@
             </DataGridTemplateColumn.CellTemplate>
           </DataGridTemplateColumn>
           <DataGridTextColumn x:DataType="local:Mod" Header="{Binding MI_Source, Source={x:Static local:LocalizedStrings.Instance}}"
-                              Binding="{Binding type}" />
+                              Binding="{Binding SourceLabel}" />
           <DataGridTemplateColumn Header="{Binding MI_Features, Source={x:Static local:LocalizedStrings.Instance}}"
                                   HeaderTemplate="{StaticResource ModFeaturesHeaderTemplate}"
                                   Width="210" MinWidth="100" CellTemplate="{StaticResource ModFeaturesTemplate}" />
@@ -90,6 +90,8 @@
     <TextBlock Grid.Row="2" Text="{Binding M_SelectedMod, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="24"
                FontWeight="Bold" Background="#4CA8B2BB" Margin="0,6" />
     <WrapPanel Grid.Row="3">
+      <Button x:Name="viewModSubscription" Click="viewModSubscription_Click" IsVisible="False"
+              Content="{Binding M_ViewSubscription, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" Margin="0,0,8,4" />
       <Button x:Name="openModFolder" Click="openModFolder_Click"
               Content="{Binding M_OpenFolder, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" Margin="0,0,8,4" />
       <Button x:Name="loadShaderCache" Click="loadShaderCache_Click"

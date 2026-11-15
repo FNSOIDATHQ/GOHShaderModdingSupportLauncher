@@ -8,7 +8,11 @@ namespace GOHShaderModdingSupportLauncher;
 
 public partial class ModManager
 {
-    private void UpdateAliasAction() => editModAlias.IsEnabled = selectedRow.mods?.Count == 1;
+    private void UpdateAliasAction()
+    {
+        editModAlias.IsEnabled = selectedRow.mods?.Count == 1;
+        UpdateSubscriptionAction();
+    }
 
     private void RefreshAliases()
     {

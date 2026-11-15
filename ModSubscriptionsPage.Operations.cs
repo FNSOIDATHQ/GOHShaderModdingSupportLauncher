@@ -10,7 +10,7 @@ public sealed partial class ModSubscriptionsPage
 {
     private bool operationBusy, recoveryLoading;
     private ReadingContext? operationContext;
-    private enum WorkflowView { None, Tasks, Install, Cleanup, Recovery, Result }
+    private enum WorkflowView { None, Tasks, Install, Cleanup, Recovery, Result, LocateInstallation }
     private WorkflowView workflowView;
     private Guid? workflowSubscription, workflowDownload;
     private int operationGeneration;
@@ -41,6 +41,7 @@ public sealed partial class ModSubscriptionsPage
         operationGeneration++;
         if (operation.IsVisible) SetReadingContext(operationContext);
         operationContext = null; workflowView = WorkflowView.None;
+        installationPicker = null; renderedInstallationPicker = null;
         workflowSubscription = workflowDownload = null;
         operation.Content = null; operation.IsVisible = false; operationScroll.IsVisible = false;
         if (details.SelectedIndex == 2)
@@ -91,6 +92,7 @@ public sealed partial class ModSubscriptionsPage
                 operationContext = session?.Context;
                 operation.IsVisible = operationScroll.IsVisible = true;
                 listOnly = false; SetReadingContext(operationContext); RefreshTasks();
+                RefreshInstallationPicker();
             }
         }
         else
@@ -141,6 +143,7 @@ public sealed partial class ModSubscriptionsPage
 
     internal Task ShowTasksAsync()
     {
+        installationPicker = null; renderedInstallationPicker = null;
         var panel = OperationPanel(taskBack: false);
         if (main.SubscriptionGameDirectory is not { } game) panel.Children.Add(Text(T("SelectGame")));
         else
@@ -274,7 +277,7 @@ public sealed partial class ModSubscriptionsPage
         var panel = OperationPanel(T("PlacementComplete"));
         panel.Children.Add(Text(installed.DirectoryPath));
         panel.Children.Add(Action(T("OpenInstallation"), () => { OpenDirectory(installed.DirectoryPath); return Task.CompletedTask; }, independent: true));
-        panel.Children.Add(Action(T("ViewManager"), () => { if (SameGame(sub.GameDirectory)) main.OpenSubscriptionModManager(); return Task.CompletedTask; }, independent: true));
+        panel.Children.Add(Action(T("ViewManager"), () => OpenInstallationInManagerAsync(sub.Id, installed.Id), independent: true));
         AddLocalInspection(panel, runtime!.Library.Subscriptions.SingleOrDefault(item => item.Id == sub.Id), download.Id);
         workflowView = WorkflowView.Result; SetOperationContent(panel, activate);
     }

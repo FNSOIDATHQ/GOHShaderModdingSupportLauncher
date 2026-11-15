@@ -159,6 +159,7 @@ public partial class MainWindow
         mod.type = result.Source == ModSourceKind.Workshop ? i18n.Main_ModWorkshop : i18n.Main_ModLocal;
         mod.folderName = result.LoadId ?? "";
         mod.Inspection = result;
+        CurrentModOrigins().Apply(mod);
         mod.hasShader = result.Shaders.Detected;
         mod.IsInspectionPending = pending;
         ModAliases.Apply(mod);

@@ -29,6 +29,7 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
         nameof(MI_Features),
         nameof(MI_FeatureHint),
         nameof(MI_Source),
+        nameof(M_ViewSubscription),
         nameof(MA_Title),
         nameof(MA_EditAlias),
         nameof(MA_OriginalName),
@@ -148,6 +149,7 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
     public string MI_FeatureHint => string.Join("\n", ModFeatureHintView.FeatureKeys.Select(key =>
         this["MI_" + key] + this["MI_FeatureHint" + key]));
     public string MI_Source => this[nameof(MI_Source)];
+    public string M_ViewSubscription => this[nameof(M_ViewSubscription)];
     public string MA_Title => this[nameof(MA_Title)];
     public string MA_EditAlias => this[nameof(MA_EditAlias)];
     public string MA_OriginalName => this[nameof(MA_OriginalName)];

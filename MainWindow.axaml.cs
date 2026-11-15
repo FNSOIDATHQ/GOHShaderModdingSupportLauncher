@@ -727,17 +727,10 @@ namespace GOHShaderModdingSupportLauncher
             var culture = CultureInfo.GetCultureInfo(code);
             if (LocalizedStrings.Instance.Culture.Name == culture.Name) return;
 
-            var oldLocalType = i18n.Main_ModLocal;
-            var oldWorkshopType = i18n.Main_ModWorkshop;
             LocalizedStrings.Instance.SetCulture(culture);
             UpdateSubscriptionBadge(subscriptionNoticeCount);
             UpdateNavigationLayout();
-            foreach (var mod in universalVars.modDic.Values)
-            {
-                if (mod.type == oldLocalType) mod.type = i18n.Main_ModLocal;
-                else if (mod.type == oldWorkshopType) mod.type = i18n.Main_ModWorkshop;
-            }
-            if (pageHost.Content is ModManager manager) manager.RefreshView();
+            RefreshModOrigins();
 
             SaveSettings();
         }
@@ -817,7 +810,7 @@ namespace GOHShaderModdingSupportLauncher
             }
             pageHost.Content = page;
             if (page is ModManager manager) manager.RefreshView();
-            if (!SuppressSubscriptionActivation && page is ModSubscriptionsPage subscriptions) subscriptions.Activate();
+            if (!SuppressSubscriptionActivation && !openingInstalledSubscription && page is ModSubscriptionsPage subscriptions) subscriptions.Activate();
         }
 
         public void RefreshModPage()

@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using GOHShaderModdingSupportLauncher.ModSubscriptions;
 
 namespace GOHShaderModdingSupportLauncher;
 
@@ -21,7 +22,50 @@ public sealed class Mod : INotifyPropertyChanged
     }
     public string DisplayName => alias ?? name;
     public bool HasAlias => alias is not null;
-    public string type { get; set; }
+    private string legacyType;
+    // Kept for existing physical-source callers; platform display is independent.
+    public string type
+    {
+        get => legacyType;
+        set
+        {
+            if (legacyType == value) return;
+            legacyType = value;
+            PropertyChanged?.Invoke(this, new(nameof(type)));
+            RefreshSourceDisplay();
+        }
+    }
+    internal ModSubscriptionLink? SubscriptionLink { get; private set; }
+    public string SourceLabel => Inspection?.Source == ModSourceKind.Workshop
+        ? LocalizedStrings.Instance.Get("Main_ModWorkshop")
+        : SubscriptionLink?.Source.Provider switch
+        {
+            "moddb" => "ModDB",
+            "github" => "GitHub",
+            "mowportal" => "Mow Portal",
+            _ => Inspection?.Source == ModSourceKind.Local
+                ? LocalizedStrings.Instance.Get("Main_ModLocal") : type
+        };
+    public int SourceSortKey => Inspection?.Source == ModSourceKind.Workshop ? 1 : SubscriptionLink?.Source.Provider switch
+    {
+        "moddb" => 2,
+        "github" => 3,
+        "mowportal" => 4,
+        _ => 0
+    };
+    internal bool SetSubscriptionLink(ModSubscriptionLink? value)
+    {
+        if (SubscriptionLink == value) return false;
+        SubscriptionLink = value;
+        PropertyChanged?.Invoke(this, new(nameof(SubscriptionLink)));
+        RefreshSourceDisplay();
+        return true;
+    }
+    internal void RefreshSourceDisplay()
+    {
+        PropertyChanged?.Invoke(this, new(nameof(SourceLabel)));
+        PropertyChanged?.Invoke(this, new(nameof(SourceSortKey)));
+    }
     public bool hasShader { get; set; }
     private bool inspectionPending;
     private bool activationCheckPending;
@@ -53,8 +97,12 @@ public sealed class Mod : INotifyPropertyChanged
         {
             inspection = value;
             if (value is not null) inspectionDiscoveryId = value.DiscoveryId;
+            if (value?.Source != ModSourceKind.Local || SubscriptionLink is { } link &&
+                !value.DirectoryPath.Equals(link.DirectoryPath, SubscriptionPaths.Comparison))
+                SetSubscriptionLink(null);
             PropertyChanged?.Invoke(this, new(nameof(Inspection)));
             PropertyChanged?.Invoke(this, new(nameof(FeatureSortKey)));
+            RefreshSourceDisplay();
         }
     }
     // Sort by the combination of facts, independently of translated badge labels.
@@ -71,7 +119,7 @@ public sealed class Mod : INotifyPropertyChanged
     public Mod(string n, string t, string p, string fn, bool hS)
     {
         originalName = n;
-        type = t;
+        legacyType = t;
         path = p;
         folderName = fn;
         hasShader = hS;

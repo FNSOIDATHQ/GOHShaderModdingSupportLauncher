@@ -57,7 +57,7 @@ namespace GOHShaderModdingSupportLauncher
             unloadedMods.Columns[0].CustomSortComparer = new ModSortComparer(
                 (left, right) => StringComparer.CurrentCultureIgnoreCase.Compare(left.DisplayName, right.DisplayName));
             unloadedMods.Columns[1].CustomSortComparer = new ModSortComparer(
-                (left, right) => StringComparer.CurrentCultureIgnoreCase.Compare(left.type, right.type));
+                (left, right) => left.SourceSortKey.CompareTo(right.SourceSortKey));
             unloadedMods.Columns[2].CustomSortComparer = new ModSortComparer(
                 (left, right) => left.FeatureSortKey.CompareTo(right.FeatureSortKey));
             loadedMods.ItemsSource = loadedItems;
@@ -74,6 +74,7 @@ namespace GOHShaderModdingSupportLauncher
             main.ModInspectionChanged += InspectionUpdated;
             unloadedMods.Columns[0].Sort(System.ComponentModel.ListSortDirection.Ascending);
             main.ModAliases.Changed += RefreshAliases;
+            main.ModOriginsChanged += RefreshSourceView;
 
             hasInit = true;
         }
@@ -242,7 +243,7 @@ namespace GOHShaderModdingSupportLauncher
                 return;
             }
 
-            if (selectedRow.mods[0].type == i18n.Main_ModLocal)
+            if (CanCollectShaderCache(selectedRow.mods[0]))
             {
                 string modCachePath = selectedRow.mods[0].path + "/resource/shader/shader_cache/dx11.0";
                 string gameCachePath = main.universalVars.cacheLoc + "/dx11.0";

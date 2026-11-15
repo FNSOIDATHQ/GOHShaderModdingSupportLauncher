@@ -104,6 +104,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
 
     private void ClearDetail()
     {
+        installedOriginLocation = null;
         CancelLinkNavigation(clearHistory: true);
         CancelTranslation();
         SaveReadingPosition();
@@ -128,9 +129,12 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
     {
         if (args.PropertyName != nameof(LocalizedStrings.Tab_ModSubscriptions)) return;
         var previousMod = selected;
+        var previousOrigin = CurrentInstalledOrigin();
+        int previousReadingTab = session?.Tab ?? 0;
         var previousWorkflow = details.SelectedIndex == 2 ? workflowView : WorkflowView.None;
         var previousSubscription = workflowSubscription;
         var previousDownload = workflowDownload;
+        var previousPicker = previousWorkflow == WorkflowView.LocateInstallation ? installationPicker : null;
         CancelLinkNavigation();
         CancelRefresh(); CancelTranslation(); ResetStatus();
         SaveReadingPosition(); detailCancellation?.Cancel(); listCancellation?.Cancel(); selected = null; snapshot = null; session = null; CloseOperation();
@@ -141,11 +145,21 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
         RefreshVerification();
         if (active) _ = ExecuteAsync(async () =>
         {
-            await LoadListAsync(); if (previousMod is not null) await OpenModAsync(previousMod);
+            if (previousOrigin is { } origin)
+            {
+                if (!await OpenInstalledSubscriptionCoreAsync(origin.SubscriptionId, origin.InstallationId)) return;
+                if (previousReadingTab == 0 && session is { } current)
+                {
+                    current.Tab = 0; rebuilding = true; details.SelectedIndex = 0; rebuilding = false;
+                    SelectVisibleContext(); RenderReading(); UpdateResponsiveLayout();
+                }
+            }
+            else { await LoadListAsync(); if (previousMod is not null) await OpenModAsync(previousMod); }
             if (previousWorkflow == WorkflowView.None) return;
             await ShowTasksAsync();
             if (operationBusy) return;
             if (previousWorkflow == WorkflowView.Cleanup && previousSubscription is { } cleanup) await ReviewUnsubscribeAsync(cleanup, previousDownload);
+            else if (previousPicker is not null) RestoreInstallationPicker(previousPicker);
             else if (previousWorkflow == WorkflowView.Install && runtime!.Library.Subscriptions.SingleOrDefault(item => item.Id == previousSubscription) is { } sub &&
                 sub.Downloads.SingleOrDefault(item => item.Id == previousDownload) is { } download) await InstallAsync(sub, download);
         });
@@ -155,7 +169,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
     {
         if (!disposed)
         {
-            RefreshTasks(); RefreshTracking();
+            RefreshTasks(); RefreshInstallationPicker(); RefreshTracking();
             RefreshVerification();
             _ = RefreshRecoveryAsync();
             RenderModList(view.SelectedIndex == 0 ? browseItems : LibraryItems());

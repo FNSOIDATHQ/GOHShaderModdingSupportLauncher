@@ -1123,4 +1123,7 @@ Manual changes outside mods cannot be undone here.</value></data>
   <data name="MS_PlacementCheckFailed" xml:space="preserve"><value>Unable to prepare installation</value></data>
   <data name="MS_Back" xml:space="preserve"><value>Back</value></data>
   <data name="MS_OriginalFilePlacement" xml:space="preserve"><value>Original file (not unpacked)</value></data>
+  <data name="M_ViewSubscription" xml:space="preserve"><value>View subscription</value></data>
+  <data name="MS_ChooseInstallation" xml:space="preserve"><value>Choose an installation directory</value></data>
+  <data name="MS_InstallationUnavailable" xml:space="preserve"><value>The installed Mod was not found. Refresh the Mod manager.</value></data>
 </root>

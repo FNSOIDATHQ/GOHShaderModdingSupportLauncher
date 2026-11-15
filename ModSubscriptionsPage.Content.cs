@@ -192,8 +192,9 @@ public sealed partial class ModSubscriptionsPage
         {
             panel.Children.Add(Text(installation.DirectoryPath, 12));
             actions.Children.Add(Action(T("OpenInstallation"), () => { OpenDirectory(installation.DirectoryPath); return Task.CompletedTask; }, independent: true));
-            actions.Children.Add(Action(T("ViewManager"), () => { if (SameGame(sub.GameDirectory)) main.OpenSubscriptionModManager(); return Task.CompletedTask; }, independent: true));
         }
+        if (installed.Any(item => item.State == InstallationState.Installed))
+            actions.Children.Add(Action(T("ViewManager"), () => ViewInstalledModsAsync(sub.Id, download.Id), independent: true));
         var card = new Border { Name = "subscriptionTaskCard", Tag = download.Id, Padding = new Thickness(12),
             CornerRadius = new CornerRadius(4), Background = ReadingBrush("Background"), Child = panel };
         string identity = ModTitle(sub) + " · " + download.File.Name;

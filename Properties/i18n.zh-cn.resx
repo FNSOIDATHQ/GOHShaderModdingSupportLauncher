@@ -1123,4 +1123,7 @@
   <data name="MS_PlacementCheckFailed" xml:space="preserve"><value>安装检查未通过</value></data>
   <data name="MS_Back" xml:space="preserve"><value>返回</value></data>
   <data name="MS_OriginalFilePlacement" xml:space="preserve"><value>原文件（不解包）</value></data>
+  <data name="M_ViewSubscription" xml:space="preserve"><value>查看订阅</value></data>
+  <data name="MS_ChooseInstallation" xml:space="preserve"><value>选择安装目录</value></data>
+  <data name="MS_InstallationUnavailable" xml:space="preserve"><value>未找到对应的已安装 Mod，请刷新 Mod 管理器。</value></data>
 </root>
