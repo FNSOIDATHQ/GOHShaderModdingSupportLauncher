@@ -1091,6 +1091,8 @@ Manual changes outside mods cannot be undone here.</value></data>
   <data name="MS_PlacementLayout" xml:space="preserve"><value>Content to place</value></data>
   <data name="MS_EntirePackage" xml:space="preserve"><value>All package contents</value></data>
   <data name="MS_TargetFolder" xml:space="preserve"><value>Folder name inside mods</value></data>
+  <data name="MS_InvalidLoadDirectory" xml:space="preserve"><value>This folder name cannot be enabled through the game's Mod list. Choose a name without spaces, quotation marks or braces to enable it there. Changing the author's folder name may affect dependencies.</value></data>
+  <data name="MS_ChooseInstallMode" xml:space="preserve"><value>The selected installation no longer exists. Choose a new installation or a current replacement.</value></data>
   <data name="MS_Destination" xml:space="preserve"><value>Destination:</value></data>
   <data name="MS_PlacementScope" xml:space="preserve"><value>{0} files · {1} · {2} existing managed files to replace</value></data>
   <data name="MS_StoredWithoutUnpacking" xml:space="preserve"><value>Store the original file without unpacking. This does not run an installer.</value></data>

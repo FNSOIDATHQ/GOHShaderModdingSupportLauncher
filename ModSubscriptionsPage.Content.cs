@@ -173,7 +173,7 @@ public sealed partial class ModSubscriptionsPage
             {
                 actions.Children.Add(Action(T("Retry"), () => { _ = DownloadAsync(sub.Id, download.Id); return Task.CompletedTask; }, independent: true));
             }
-            if ((ready || installed.Length > 0) && !installingDownloads.Contains(download.Id))
+            if (state is not (DownloadState.Pending or DownloadState.Downloading) && !installingDownloads.Contains(download.Id))
             {
                 if (ready && (installed.Length > 0 || prepared is { Checking: false, Error: null, Inspection.ManualInstallReason: null }))
                 {

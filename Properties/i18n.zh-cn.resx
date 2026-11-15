@@ -1091,6 +1091,8 @@
   <data name="MS_PlacementLayout" xml:space="preserve"><value>选择放置内容</value></data>
   <data name="MS_EntirePackage" xml:space="preserve"><value>整个文件包</value></data>
   <data name="MS_TargetFolder" xml:space="preserve"><value>mods 内的文件夹名称</value></data>
+  <data name="MS_InvalidLoadDirectory" xml:space="preserve"><value>此文件夹名称无法通过游戏的 Mod 列表启用。如需在列表中启用，请使用不含空格、引号或花括号的名称。修改作者的原目录名可能影响依赖关系。</value></data>
+  <data name="MS_ChooseInstallMode" xml:space="preserve"><value>所选安装已不存在，请重新选择新装或当前可替换的安装。</value></data>
   <data name="MS_Destination" xml:space="preserve"><value>目标目录：</value></data>
   <data name="MS_PlacementScope" xml:space="preserve"><value>放置 {0} 个文件 · {1} · 替换 {2} 个已有受管文件</value></data>
   <data name="MS_StoredWithoutUnpacking" xml:space="preserve"><value>保留原文件，未解包。此操作不会运行安装程序。</value></data>

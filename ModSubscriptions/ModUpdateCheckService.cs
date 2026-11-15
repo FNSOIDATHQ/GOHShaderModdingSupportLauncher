@@ -19,6 +19,9 @@ internal sealed class ModUpdateCheckService(SubscriptionStore store, Func<string
     internal static PageChangeNotice? GetPageNotice(GameModSubscription subscription) =>
         subscription.Files.PageNotice is { } notice && notice.Revision != subscription.Files.AcknowledgedPageRevision ? notice : null;
 
+    internal static int GetUpdateCount(GameModSubscription subscription) =>
+        GetNotices(subscription).Length + (GetPageNotice(subscription) is null ? 0 : 1);
+
     internal void AcknowledgePage(Guid subscriptionId, string revision, FileNoticeState state)
     {
         if (!Enum.IsDefined(state)) throw new ArgumentOutOfRangeException(nameof(state));

@@ -16,6 +16,10 @@
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <PublishAot>true</PublishAot>
     <SelfContained>true</SelfContained>
+    <RuntimeFrameworkVersion>10.0.15</RuntimeFrameworkVersion>
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditMode>all</NuGetAuditMode>
+    <WarningsAsErrors>$(WarningsAsErrors);NU1901;NU1902;NU1903;NU1904</WarningsAsErrors>
     <DebugType>none</DebugType>
   </PropertyGroup>
   <ItemGroup>

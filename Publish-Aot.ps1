@@ -29,6 +29,10 @@ if ($LASTEXITCODE -ne 0) {
     Get-Content -LiteralPath $log -Tail 60 | Write-Host
     throw "Native AOT publish failed. See $log"
 }
+$securityWarnings = @(Select-String -LiteralPath $log -Pattern '\bNU190[1-4]\b')
+if ($securityWarnings.Count -ne 0) {
+    throw "Native AOT publish reported vulnerable dependencies. Update them before distributing the EXE. See $log"
+}
 $analysisWarnings = @(Select-String -LiteralPath $log -Pattern 'warning\s+IL\d{4}|warning.*\bAOT\b')
 foreach ($warning in $analysisWarnings) {
     $knownDataGridWarning = $warning.Line.Contains('Avalonia.Controls.DataGrid.dll : warning IL2104') -or

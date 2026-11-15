@@ -48,43 +48,50 @@ internal sealed class SubscriptionStore
         lock (sync)
         {
             using var lease = AcquireLock();
-            byte[]? primary = null;
-            SubscriptionLibrary? loaded = null;
-            bool corrupt = false;
-            try
-            {
-                primary = ReadBytes(LibraryPath);
-                if (primary is not null) loaded = Deserialize(primary);
-            }
-            catch (InvalidDataException) { corrupt = true; }
-
-            var state = SubscriptionLoadState.Loaded;
-            string? quarantine = null;
-            if (loaded is null)
-            {
-                var backup = ReadBytes(BackupPath);
-                if (backup is not null)
-                {
-                    loaded = Deserialize(backup); // Unknown schemas are never downgraded to empty/older data.
-                    quarantine = corrupt ? LibraryPath + ".corrupt." + Guid.NewGuid().ToString("N") : null;
-                    WriteAtomically(backup, corrupt || primary is not null, quarantine);
-                    primary = backup;
-                    state = SubscriptionLoadState.RecoveredFromBackup;
-                }
-                else if (corrupt)
-                    throw new InvalidDataException("The subscription library is corrupt and no valid backup is available.");
-                else
-                {
-                    loaded = SubscriptionLibrary.Empty();
-                    state = SubscriptionLoadState.NewLibrary;
-                }
-            }
-            // Interrupted .tmp files are deliberately ignored, never promoted as committed state.
-            library = loaded;
-            expectedPrimary = primary;
-            LoadState = state;
-            RecoveredCorruptPath = quarantine;
+            ReloadUnderLease();
         }
+    }
+
+    // Both normal loads and metadata-only cancellation use the same recovery rules.
+    // The caller holds sync and the cross-process metadata writer lease.
+    private void ReloadUnderLease()
+    {
+        byte[]? primary = null;
+        SubscriptionLibrary? loaded = null;
+        bool corrupt = false;
+        try
+        {
+            primary = ReadBytes(LibraryPath);
+            if (primary is not null) loaded = Deserialize(primary);
+        }
+        catch (InvalidDataException) { corrupt = true; }
+
+        var state = SubscriptionLoadState.Loaded;
+        string? quarantine = null;
+        if (loaded is null)
+        {
+            var backup = ReadBytes(BackupPath);
+            if (backup is not null)
+            {
+                loaded = Deserialize(backup); // Unknown schemas are never downgraded to empty/older data.
+                quarantine = corrupt ? LibraryPath + ".corrupt." + Guid.NewGuid().ToString("N") : null;
+                WriteAtomically(backup, corrupt || primary is not null, quarantine);
+                primary = backup;
+                state = SubscriptionLoadState.RecoveredFromBackup;
+            }
+            else if (corrupt)
+                throw new InvalidDataException("The subscription library is corrupt and no valid backup is available.");
+            else
+            {
+                loaded = SubscriptionLibrary.Empty();
+                state = SubscriptionLoadState.NewLibrary;
+            }
+        }
+        // Interrupted .tmp files are deliberately ignored, never promoted as committed state.
+        library = loaded;
+        expectedPrimary = primary;
+        LoadState = state;
+        RecoveredCorruptPath = quarantine;
     }
 
     private static byte[]? ReadBytes(string path)
@@ -288,7 +295,45 @@ internal sealed class SubscriptionStore
     internal void ChangeFileTracking(Guid id, Func<FileTrackingState, FileTrackingState> change) =>
         ChangeSubscription(id, value => value with { Files = change(value.Files) });
 
-    internal void SaveDownload(Guid subscriptionId, ModDownload download) => ChangeSubscription(subscriptionId, value =>
+    internal void SaveDownload(Guid subscriptionId, ModDownload download) =>
+        ChangeSubscription(subscriptionId, value => WithDownload(value, download));
+
+    // A cancelled queued task may commit while another process transfers a different
+    // file. Merge that unrelated metadata, but retain optimistic concurrency for this
+    // exact download and the subscription's removal state.
+    internal void SaveDownloadProgress(Guid subscriptionId, ModDownload download)
+    {
+        lock (sync)
+        {
+            using var lease = AcquireLock();
+            var current = ReadBytes(LibraryPath) ?? throw new SubscriptionStoreConflictException();
+            var latest = Deserialize(current);
+            var expectedSubscription = library.Subscriptions.SingleOrDefault(item => item.Id == subscriptionId);
+            var subscription = latest.Subscriptions.SingleOrDefault(item => item.Id == subscriptionId);
+            var expected = expectedSubscription?.Downloads.SingleOrDefault(item => item.Id == download.Id);
+            var existing = subscription?.Downloads.SingleOrDefault(item => item.Id == download.Id);
+            if (subscription is null || expectedSubscription is null || expected is null || existing is null ||
+                subscription.State != SubscriptionState.Active || expectedSubscription.State != SubscriptionState.Active ||
+                subscription.Source != expectedSubscription.Source || subscription.GameDirectory != expectedSubscription.GameDirectory ||
+                !JsonSerializer.SerializeToUtf8Bytes(existing, SubscriptionJsonContext.Default.ModDownload).AsSpan().SequenceEqual(
+                    JsonSerializer.SerializeToUtf8Bytes(expected, SubscriptionJsonContext.Default.ModDownload)))
+                throw new SubscriptionStoreConflictException();
+            var next = latest with
+            {
+                Revision = checked(latest.Revision + 1),
+                Subscriptions = latest.Subscriptions.Select(item => item.Id == subscriptionId ? WithDownload(item, download) : item).ToArray()
+            };
+            SubscriptionValidation.Library(next);
+            var bytes = Serialize(next);
+            if (bytes.Length > MaxLibraryBytes) throw new InvalidDataException("The subscription library is too large.");
+            var committed = Deserialize(bytes);
+            WriteAtomically(bytes, replace: true, BackupPath);
+            library = committed;
+            expectedPrimary = bytes;
+        }
+    }
+
+    private static GameModSubscription WithDownload(GameModSubscription value, ModDownload download)
     {
         if (!value.Downloads.Any(item => item.Id == download.Id)) throw new KeyNotFoundException("The selected download does not exist.");
         var previous = value.Downloads.Single(item => item.Id == download.Id);
@@ -296,7 +341,45 @@ internal sealed class SubscriptionStore
             throw new InvalidOperationException("A download's source file and revision cannot be reassigned.");
         var normalized = download with { LocalPath = download.LocalPath is null ? null : SubscriptionPaths.ManagedPath(value.GameDirectory, download.LocalPath) };
         return value with { Downloads = value.Downloads.Select(item => item.Id == download.Id ? normalized : item).ToArray() };
-    });
+    }
+
+    // Cancellation before taking the game lease is metadata only. Merge into the latest
+    // committed library under its writer lease instead of saving a stale download snapshot.
+    // A queued job cannot cancel a newer attempt owned by another launcher process.
+    internal ModDownload? CancelPendingDownload(Guid subscriptionId, Guid downloadId, DateTimeOffset? expectedUpdatedAt)
+    {
+        lock (sync)
+        {
+            using var lease = AcquireLock();
+            ReloadUnderLease();
+            var current = expectedPrimary;
+            var latest = library;
+            var subscription = latest.Subscriptions.SingleOrDefault(item => item.Id == subscriptionId);
+            var download = subscription?.Downloads.SingleOrDefault(item => item.Id == downloadId);
+            if (download is not null && download.State is DownloadState.Pending or DownloadState.Downloading &&
+                (expectedUpdatedAt is null || download.UpdatedAt == expectedUpdatedAt))
+            {
+                download = download with { State = DownloadState.Cancelled, Error = null, UpdatedAt = DateTimeOffset.UtcNow };
+                var cancelled = download;
+                latest = latest with
+                {
+                    Revision = checked(latest.Revision + 1),
+                    Subscriptions = latest.Subscriptions.Select(item => item.Id == subscriptionId ? item with
+                    { Downloads = item.Downloads.Select(task => task.Id == downloadId ? cancelled : task).ToArray() } : item).ToArray()
+                };
+                SubscriptionValidation.Library(latest);
+                var bytes = Serialize(latest);
+                if (bytes.Length > MaxLibraryBytes) throw new InvalidDataException("The subscription library is too large.");
+                var committed = Deserialize(bytes);
+                WriteAtomically(bytes, current is not null, current is null ? null : BackupPath);
+                latest = committed;
+                current = bytes;
+            }
+            library = latest;
+            expectedPrimary = current;
+            return download;
+        }
+    }
 
     // Explicit installer output only; this method never scans or adopts a matching local folder.
     internal void SaveInstallation(Guid subscriptionId, ModInstallation installation) => ChangeSubscription(subscriptionId, value =>
@@ -342,16 +425,23 @@ internal sealed class SubscriptionStore
         });
 
     // Only the filesystem service calls this after removing this download's verified content.
-    // Keep the Mod's update tracking and every other file, even when its last download is removed.
-    internal void CommitDownloadRemoval(Guid subscriptionId, Guid downloadId) => ChangeSubscription(subscriptionId, value =>
+    // Removing the last selected file also ends the Mod subscription in the same commit.
+    internal void CommitDownloadRemoval(Guid subscriptionId, Guid downloadId) => Change(value =>
     {
-        var download = value.Downloads.Single(item => item.Id == downloadId);
+        var subscription = value.Subscriptions.Single(item => item.Id == subscriptionId);
+        var download = subscription.Downloads.Single(item => item.Id == downloadId);
         if (download.State is DownloadState.Pending or DownloadState.Downloading)
             throw new InvalidOperationException("The selected file is not ready for cleanup.");
+        var remaining = subscription with
+        {
+            Downloads = subscription.Downloads.Where(item => item.Id != downloadId).ToArray(),
+            Installations = subscription.Installations.Where(item => item.DownloadId != downloadId).ToArray()
+        };
         return value with
         {
-            Downloads = value.Downloads.Where(item => item.Id != downloadId).ToArray(),
-            Installations = value.Installations.Where(item => item.DownloadId != downloadId).ToArray()
+            Subscriptions = remaining.Downloads.Length == 0
+                ? value.Subscriptions.Where(item => item.Id != subscriptionId).ToArray()
+                : value.Subscriptions.Select(item => item.Id == subscriptionId ? remaining : item).ToArray()
         };
     });
 

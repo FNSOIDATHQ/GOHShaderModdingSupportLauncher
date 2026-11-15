@@ -19,6 +19,9 @@ public sealed partial class ModSubscriptionsPage
     private CancellationTokenSource? workflowCancellation;
     private readonly HashSet<Guid> installingDownloads = [];
     private readonly Dictionary<Guid, string> installationErrors = [];
+    private sealed record InstallationReviewState(string Game, Guid SubscriptionId, Guid DownloadId,
+        string? CandidateRoot, Guid? ReplacementId, string TargetDirectory);
+    private InstallationReviewState? installationReview;
 
     private CancellationToken WorkflowToken
     {
@@ -42,6 +45,7 @@ public sealed partial class ModSubscriptionsPage
         if (operation.IsVisible) SetReadingContext(operationContext);
         operationContext = null; workflowView = WorkflowView.None;
         installationPicker = null; renderedInstallationPicker = null;
+        installationReview = null;
         workflowSubscription = workflowDownload = null;
         operation.Content = null; operation.IsVisible = false; operationScroll.IsVisible = false;
         if (details.SelectedIndex == 2)
@@ -143,6 +147,7 @@ public sealed partial class ModSubscriptionsPage
 
     internal Task ShowTasksAsync()
     {
+        installationReview = null;
         installationPicker = null; renderedInstallationPicker = null;
         var panel = OperationPanel(taskBack: false);
         if (main.SubscriptionGameDirectory is not { } game) panel.Children.Add(Text(T("SelectGame")));
@@ -161,14 +166,17 @@ public sealed partial class ModSubscriptionsPage
         return Task.CompletedTask;
     }
 
-    internal async Task InstallAsync(GameModSubscription sub, ModDownload download)
+    internal Task InstallAsync(GameModSubscription sub, ModDownload download) => PrepareInstallAsync(sub, download);
+
+    private async Task PrepareInstallAsync(GameModSubscription sub, ModDownload download,
+        InstallationReviewState? restored = null, bool activate = true)
     {
         if (operationBusy || !SameGame(sub.GameDirectory)) return;
         var token = WorkflowToken;
         int opening = operationGeneration, navigation = detailTabGeneration;
         var pending = await Task.Run(() => runtime!.Installer.PreviewRecovery(sub.GameDirectory), token);
         if (!SameGame(sub.GameDirectory) || token.IsCancellationRequested || opening != operationGeneration || navigation != detailTabGeneration) return;
-        if (pending.Length > 0) { await ReviewRecoveryAsync(); return; }
+        if (pending.Length > 0) { await PrepareRecoveryAsync(activate); return; }
         var inspection = await DiskReviewAsync(() => runtime!.Installer.Inspect(sub.Id, download.Id, token), token);
         if (!SameGame(sub.GameDirectory) || token.IsCancellationRequested || opening != operationGeneration || navigation != detailTabGeneration) return;
         var panel = OperationPanel();
@@ -177,30 +185,47 @@ public sealed partial class ModSubscriptionsPage
         if (inspection.ManualInstallReason is not null || inspection.Candidates.Length == 0)
         {
             panel.Children.Add(Text(T("PlacementCheckFailed") + ": " + inspection.ManualInstallReason));
-            ShowOperation(panel); return;
+            SetOperationContent(panel, activate); return;
+        }
+        if (restored is not null && (restored.SubscriptionId != sub.Id || restored.DownloadId != download.Id ||
+            !restored.Game.Equals(sub.GameDirectory, SubscriptionPaths.Comparison))) restored = null;
+        int rootIndex = restored is null ? inspection.Candidates.Length == 1 ? 0 : -1 :
+            Array.FindIndex(inspection.Candidates, candidate => candidate.RootPath == restored.CandidateRoot);
+        int replacementIndex = 0;
+        if (restored?.ReplacementId is { } replacementId)
+        {
+            int found = Array.FindIndex(sub.Installations, installation => installation.Id == replacementId);
+            replacementIndex = found >= 0 ? found + 1 : -1;
         }
         var rootChoice = new ComboBox { Name = "subscriptionInstallRoot", ItemsSource = inspection.Candidates.Select(item => item.PreserveAsFile ? T("OriginalFilePlacement") : item.RootPath.Length == 0 ? T("EntirePackage") : item.RootPath).ToArray(),
-            PlaceholderText = T("ChooseRoot"), SelectedIndex = inspection.Candidates.Length == 1 ? 0 : -1, HorizontalAlignment = HorizontalAlignment.Stretch };
+            PlaceholderText = T("ChooseRoot"), SelectedIndex = rootIndex, HorizontalAlignment = HorizontalAlignment.Stretch };
         panel.Children.Add(Text(T("PlacementLayout"))); panel.Children.Add(rootChoice);
-        var replacements = new ComboBox { Name = "subscriptionInstallMode", ItemsSource = new[] { T("NewInstall") }.Concat(sub.Installations.Select(item => T("Replace") + " " + item.DirectoryPath)).ToArray(), SelectedIndex = 0,
+        var replacements = new ComboBox { Name = "subscriptionInstallMode", ItemsSource = new[] { T("NewInstall") }.Concat(sub.Installations.Select(item => T("Replace") + " " + item.DirectoryPath)).ToArray(), SelectedIndex = replacementIndex,
             HorizontalAlignment = HorizontalAlignment.Stretch };
         panel.Children.Add(replacements);
         var target = new TextBox { Name = "subscriptionInstallDirectory", MaxLength = 120,
-            Text = rootChoice.SelectedIndex >= 0 ? inspection.Candidates[rootChoice.SelectedIndex].DirectoryName : "" };
+            IsReadOnly = replacementIndex > 0,
+            Text = restored?.TargetDirectory ?? (rootChoice.SelectedIndex >= 0 ? inspection.Candidates[rootChoice.SelectedIndex].DirectoryName : "") };
         panel.Children.Add(Text(T("TargetFolder"))); panel.Children.Add(target);
         var preview = Column(); preview.Name = "subscriptionPlacementPreview"; panel.Children.Add(preview);
         var error = Text(""); error.Name = "subscriptionInstallError"; panel.Children.Add(error);
         var install = new Button { Name = "subscriptionConfirmInstall", Content = T("ConfirmInstall"), IsEnabled = false }; panel.Children.Add(install);
         panel.Children.Add(AuthorNotes(inspection.AuthorInstructions));
         workflowView = WorkflowView.Install; workflowSubscription = sub.Id; workflowDownload = download.Id;
-        ShowOperation(panel);
+        SetOperationContent(panel, activate);
         int generation = operationGeneration, reviewGeneration = 0;
         ModInstallRequest? reviewedRequest = null;
         async Task ReviewTargetAsync()
         {
+            if (!SameWorkflow(generation, sub.GameDirectory)) return;
             int review = ++reviewGeneration;
+            installationReview = new(sub.GameDirectory, sub.Id, download.Id,
+                rootChoice.SelectedIndex >= 0 ? inspection.Candidates[rootChoice.SelectedIndex].RootPath : null,
+                replacements.SelectedIndex > 0 ? sub.Installations[replacements.SelectedIndex - 1].Id :
+                    replacements.SelectedIndex < 0 ? restored?.ReplacementId : null, target.Text ?? "");
             reviewedRequest = null; install.IsEnabled = false; preview.Children.Clear(); error.Text = "";
             if (rootChoice.SelectedIndex < 0) { error.Text = T("ChooseRoot"); return; }
+            if (replacements.SelectedIndex < 0) { error.Text = T("ChooseInstallMode"); return; }
             var candidate = inspection.Candidates[rootChoice.SelectedIndex];
             Guid? replacement = replacements.SelectedIndex > 0 ? sub.Installations[replacements.SelectedIndex - 1].Id : null;
             var request = new ModInstallRequest(sub.Id, download.Id, candidate.RootPath, true, replacement, target.Text ?? "", candidate);
@@ -211,6 +236,11 @@ public sealed partial class ModSubscriptionsPage
                 var plan = await DiskReviewAsync(() => runtime!.Installer.PreviewPlacement(request, token), token);
                 if (review != reviewGeneration || !SameWorkflow(generation, sub.GameDirectory)) return;
                 preview.Children.Add(Text(T("Destination") + " " + plan.Destination));
+                if (!ModInspectionService.IsValidLoadId(Path.GetFileName(plan.Destination)))
+                {
+                    var warning = Text(T("InvalidLoadDirectory")); warning.Name = "subscriptionLoadDirectoryWarning";
+                    preview.Children.Add(warning);
+                }
                 preview.Children.Add(Text(string.Format(T("PlacementScope"), candidate.Files.Length, FormatBytes(candidate.SizeBytes), plan.Previous?.OwnedFiles.Length ?? 0)));
                 if (plan.Previous is not null) preview.Children.Add(Text(T("ReplacementBoundary")));
                 var paths = Column(); foreach (string path in candidate.Files) paths.Children.Add(Text(path, 12));
@@ -222,11 +252,13 @@ public sealed partial class ModSubscriptionsPage
         }
         rootChoice.SelectionChanged += async (_, _) =>
         {
+            if (!SameWorkflow(generation, sub.GameDirectory)) return;
             if (replacements.SelectedIndex == 0 && rootChoice.SelectedIndex >= 0) target.Text = inspection.Candidates[rootChoice.SelectedIndex].DirectoryName;
             await ReviewTargetAsync();
         };
         replacements.SelectionChanged += async (_, _) =>
         {
+            if (!SameWorkflow(generation, sub.GameDirectory)) return;
             target.IsReadOnly = replacements.SelectedIndex > 0;
             target.Text = replacements.SelectedIndex > 0 ? Path.GetFileName(sub.Installations[replacements.SelectedIndex - 1].DirectoryPath) :
                 rootChoice.SelectedIndex >= 0 ? inspection.Candidates[rootChoice.SelectedIndex].DirectoryName : "";

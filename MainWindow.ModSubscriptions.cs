@@ -104,7 +104,7 @@ public partial class MainWindow
                 string? game = SubscriptionGameDirectory;
                 int count = game is null ? 0 : runtime.Library.Subscriptions.Where(subscription =>
                     subscription.GameDirectory.Equals(game, SubscriptionPaths.Comparison))
-                    .Sum(subscription => ModUpdateCheckService.GetNotices(subscription).Length);
+                    .Sum(ModUpdateCheckService.GetUpdateCount);
                 UpdateSubscriptionBadge(count);
                 RefreshModOrigins();
             }

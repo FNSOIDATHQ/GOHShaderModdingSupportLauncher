@@ -19,6 +19,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
     private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly SemaphoreSlim actionGate = new(1, 1);
     private bool active, disposed, rebuilding;
+    private int languageRebuildGeneration;
     private int browsePage = 1;
     private int listGeneration;
     private bool hasNext;
@@ -128,10 +129,14 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
     private void LanguageChanged(object? sender, PropertyChangedEventArgs args)
     {
         if (args.PropertyName != nameof(LocalizedStrings.Tab_ModSubscriptions)) return;
+        int languageGeneration = ++languageRebuildGeneration;
+        string? previousGame = main.SubscriptionGameDirectory;
         var previousMod = selected;
         var previousOrigin = CurrentInstalledOrigin();
         int previousReadingTab = session?.Tab ?? 0;
-        var previousWorkflow = details.SelectedIndex == 2 ? workflowView : WorkflowView.None;
+        bool previousOperationVisible = details.SelectedIndex == 2;
+        var previousWorkflow = previousOperationVisible || workflowView == WorkflowView.Install ? workflowView : WorkflowView.None;
+        var previousInstallationReview = installationReview;
         var previousSubscription = workflowSubscription;
         var previousDownload = workflowDownload;
         var previousPicker = previousWorkflow == WorkflowView.LocateInstallation ? installationPicker : null;
@@ -143,25 +148,53 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
         BuildView();
         if (runtime?.Ready.IsCompletedSuccessfully == true) LoadGitHubOptions();
         RefreshVerification();
+        int restoreOperation = operationGeneration, restoreLink = linkGeneration, restoreTab = detailTabGeneration;
+        bool SameLanguageGame() => !disposed && languageGeneration == languageRebuildGeneration &&
+            string.Equals(previousGame, main.SubscriptionGameDirectory, SubscriptionPaths.Comparison);
+        bool OwnsRestoration() => SameLanguageGame() && restoreOperation == operationGeneration &&
+            restoreLink == linkGeneration && restoreTab == detailTabGeneration;
+        void CaptureRestoration()
+        { restoreOperation = operationGeneration; restoreLink = linkGeneration; restoreTab = detailTabGeneration; }
         if (active) _ = ExecuteAsync(async () =>
         {
+            if (!OwnsRestoration()) return;
             if (previousOrigin is { } origin)
             {
                 if (!await OpenInstalledSubscriptionCoreAsync(origin.SubscriptionId, origin.InstallationId)) return;
+                if (!SameLanguageGame()) return;
+                CaptureRestoration();
                 if (previousReadingTab == 0 && session is { } current)
                 {
                     current.Tab = 0; rebuilding = true; details.SelectedIndex = 0; rebuilding = false;
                     SelectVisibleContext(); RenderReading(); UpdateResponsiveLayout();
                 }
             }
-            else { await LoadListAsync(); if (previousMod is not null) await OpenModAsync(previousMod); }
+            else
+            {
+                await LoadListAsync();
+                if (!OwnsRestoration()) return;
+                if (previousMod is not null)
+                {
+                    var opening = OpenModAsync(previousMod);
+                    CaptureRestoration();
+                    await opening;
+                    if (!OwnsRestoration()) return;
+                }
+            }
+            if (!OwnsRestoration()) return;
             if (previousWorkflow == WorkflowView.None) return;
+            if (!operationBusy && previousWorkflow == WorkflowView.Install &&
+                runtime!.Library.Subscriptions.SingleOrDefault(item => item.Id == previousSubscription) is { } installing &&
+                installing.Downloads.SingleOrDefault(item => item.Id == previousDownload) is { } installingFile)
+            {
+                await PrepareInstallAsync(installing, installingFile, previousInstallationReview, previousOperationVisible);
+                return;
+            }
+            if (!previousOperationVisible) return;
             await ShowTasksAsync();
             if (operationBusy) return;
             if (previousWorkflow == WorkflowView.Cleanup && previousSubscription is { } cleanup) await ReviewUnsubscribeAsync(cleanup, previousDownload);
             else if (previousPicker is not null) RestoreInstallationPicker(previousPicker);
-            else if (previousWorkflow == WorkflowView.Install && runtime!.Library.Subscriptions.SingleOrDefault(item => item.Id == previousSubscription) is { } sub &&
-                sub.Downloads.SingleOrDefault(item => item.Id == previousDownload) is { } download) await InstallAsync(sub, download);
         });
     }
 
@@ -288,8 +321,7 @@ public sealed partial class ModSubscriptionsPage : UserControl, IDisposable
             (Count > 0 ? " · " + T("Updates") + $" ({Count})" : "");
     }
     private int NoticeCount(RemoteMod mod) => Subscription(mod) is { } sub ? UpdateCount(sub) : 0;
-    private static int UpdateCount(GameModSubscription subscription) => ModUpdateCheckService.GetNotices(subscription).Length +
-        (ModUpdateCheckService.GetPageNotice(subscription) is null ? 0 : 1);
+    private static int UpdateCount(GameModSubscription subscription) => ModUpdateCheckService.GetUpdateCount(subscription);
     private GameModSubscription? Subscription(RemoteMod? mod = null) => runtime is not null && (mod ?? selected) is { } item && main.SubscriptionGameDirectory is { } game
         ? runtime.Library.Subscriptions.SingleOrDefault(sub => sub.Source == item.Id && sub.GameDirectory.Equals(game, SubscriptionPaths.Comparison)) : null;
 

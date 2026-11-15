@@ -129,7 +129,28 @@ internal static class ModSubscriptionWorkflowSmokeTest
             Click(Find<Button>(page, "subscriptionConfirmRemoval"));
             Wait(() => store.GetSubscriptions(game).Length == 0); Wait(() => HasText(page, "CleanupComplete"));
             Require(System.IO.File.ReadAllText(manual) == "preserve" && store.Snapshot().Favorites.Length == 1 && !System.IO.File.Exists(artifact), "Cleanup lost a manual file or favorite.");
-            Require(new SubscriptionStore(store.LibraryPath).Snapshot().Favorites.Length == 1, "Favorite did not survive restart.");
+            Require(RestartedLibrary(store.LibraryPath).Favorites.Length == 1, "Favorite did not survive restart.");
+            // Stopped tasks remain independently removable, including ones without a payload.
+            var stopped = store.Subscribe(mod.Id, game, [File("failed", "failed.zip"), File("cancelled", "cancelled.zip")]);
+            store.SaveDownload(stopped.Id, stopped.Downloads[0] with { State = DownloadState.Failed });
+            store.SaveDownload(stopped.Id, stopped.Downloads[1] with { State = DownloadState.Cancelled });
+            Pump(runtime.RefreshLibraryAsync()); Pump(page.ShowTasksAsync());
+            foreach (var download in stopped.Downloads)
+            {
+                var card = Controls(workflow).OfType<Border>().Single(item => item.Name == "subscriptionTaskCard" && item.Tag is Guid id && id == download.Id);
+                Click(Find<Button>(card, "subscriptionUnsubscribeFile"));
+                Wait(() => Controls(workflow).OfType<Button>().Any(button => button.Name == "subscriptionConfirmRemoval"));
+                Click(Find<Button>(workflow, "subscriptionConfirmRemoval"));
+                Wait(() => !store.GetSubscriptions(game).Any(item => item.Downloads.Any(task => task.Id == download.Id)));
+                Wait(() => HasText(workflow, "CleanupComplete"));
+                Pump(page.ShowTasksAsync());
+            }
+            Require(store.GetSubscriptions(game).Length == 0 && runtime.Library.Subscriptions.Length == 0 &&
+                store.Snapshot().Favorites.Length == 1, "Last-file cleanup retained an empty subscription or removed its favorite.");
+            // Finish background recovery previews before opening an independent store.
+            page.Dispose(); Pump(runtime.ShutdownAsync());
+            var restarted = RestartedLibrary(store.LibraryPath);
+            Require(restarted.Subscriptions.Length == 0 && restarted.Favorites.Length == 1, "Last-file cleanup or favorite did not survive restart.");
         }
         finally { page?.Dispose(); Pump(runtime.ShutdownAsync()); main.Close(); }
     }
@@ -145,6 +166,16 @@ internal static class ModSubscriptionWorkflowSmokeTest
     private static bool HasText(Control root, string key) => Controls(root).OfType<TextBlock>().Any(text => text.Text == LocalizedStrings.Instance.Get("MS_" + key));
     private static T Find<T>(Control root, string name) where T : Control => Controls(root).OfType<T>().Single(control => control.Name == name);
     private static void Click(Button button) => button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+    private static SubscriptionLibrary RestartedLibrary(string path)
+    {
+        SubscriptionLibrary? snapshot = null;
+        Wait(() =>
+        {
+            try { snapshot = new SubscriptionStore(path).Snapshot(); return true; }
+            catch (IOException ex) when ((ex.HResult & 0xffff) is 32 or 33) { return false; }
+        });
+        return snapshot!;
+    }
     private static void Require(bool value, string message) { if (!value) throw new InvalidOperationException(message); }
     private static void Pump(Task task) { Wait(() => task.IsCompleted); task.GetAwaiter().GetResult(); }
     private static void Wait(Func<bool> condition)

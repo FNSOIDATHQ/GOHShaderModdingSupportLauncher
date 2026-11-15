@@ -10,11 +10,12 @@ internal sealed record ModDownloadProgress(Guid SubscriptionId, Guid DownloadId,
 // Selection is recorded by SubscriptionStore.Subscribe; only explicitly enqueued task IDs run here.
 internal sealed class ModDownloadService : IAsyncDisposable
 {
-    private sealed class Job(Guid subscriptionId, Guid downloadId, CancellationToken token, bool onlyPending)
+    private sealed class Job(Guid subscriptionId, Guid downloadId, DateTimeOffset selectedUpdatedAt, CancellationToken token, bool onlyPending)
     {
         internal Guid SubscriptionId { get; } = subscriptionId;
         internal Guid DownloadId { get; } = downloadId;
         internal bool OnlyPending { get; } = onlyPending;
+        internal DateTimeOffset SelectedUpdatedAt { get; } = selectedUpdatedAt;
         internal CancellationTokenSource Cancellation { get; } = CancellationTokenSource.CreateLinkedTokenSource(token);
         internal TaskCompletionSource<ModDownload> Completion { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
@@ -79,7 +80,7 @@ internal sealed class ModDownloadService : IAsyncDisposable
             if (!onlyPending) pausedSubscriptions.Remove(subscriptionId);
             if (!selected.File.CanDownload)
                 throw new InvalidOperationException("The selected file has no supported anonymous download resolver.");
-            var job = new Job(subscriptionId, downloadId, cancellationToken, onlyPending);
+            var job = new Job(subscriptionId, downloadId, selected.UpdatedAt, cancellationToken, onlyPending);
             if (!jobs.TryAdd(downloadId, job)) throw new InvalidOperationException("The task was already queued.");
             if (!queue.Writer.TryWrite(job))
             {
@@ -180,6 +181,7 @@ internal sealed class ModDownloadService : IAsyncDisposable
         var subscription = GetSubscription(job.SubscriptionId);
         var download = subscription.Downloads.Single(item => item.Id == job.DownloadId);
         IDisposable? gameLease = null;
+        bool downloadStarted = false;
         try
         {
             // The same cross-process lease protects downloads, installation and unsubscribe cleanup.
@@ -196,6 +198,7 @@ internal sealed class ModDownloadService : IAsyncDisposable
                 throw new InvalidOperationException("The subscription is being removed.");
             download = subscription.Downloads.Single(item => item.Id == job.DownloadId);
             if (job.OnlyPending && download.State is not (DownloadState.Pending or DownloadState.Downloading)) return download;
+            downloadStarted = true;
             string directory = DownloadDirectory(subscription.GameDirectory, download.Id);
             string artifact = ArtifactPath(subscription.GameDirectory, download.Id);
             string partial = Path.Combine(directory, "download.part");
@@ -215,13 +218,13 @@ internal sealed class ModDownloadService : IAsyncDisposable
                 string sha256 = await VerifyAsync(artifact, download.File, token, download.ContentSha256).ConfigureAwait(false);
                 download = download with { State = download.State == DownloadState.NeedsManualInstall ? download.State : DownloadState.Downloaded,
                     LocalPath = artifact, ReceivedBytes = new FileInfo(artifact).Length, UpdatedAt = DateTimeOffset.UtcNow, Error = null, ContentSha256 = sha256 };
-                store.SaveDownload(job.SubscriptionId, download);
+                store.SaveDownloadProgress(job.SubscriptionId, download);
                 Report(job, download.State, download.ReceivedBytes, download.File.SizeBytes);
                 return download;
             }
             download = download with { State = DownloadState.Downloading, LocalPath = partial,
                 ReceivedBytes = File.Exists(partial) ? new FileInfo(partial).Length : 0, UpdatedAt = DateTimeOffset.UtcNow, Error = null };
-            store.SaveDownload(job.SubscriptionId, download);
+            store.SaveDownloadProgress(job.SubscriptionId, download);
             for (int attempt = 0; ; attempt++)
             {
                 token.ThrowIfCancellationRequested();
@@ -247,7 +250,7 @@ internal sealed class ModDownloadService : IAsyncDisposable
                         DownloadOnly = download.File.DownloadOnly || link.File.DownloadOnly,
                         IsSourceSnapshot = download.File.IsSourceSnapshot || link.File.IsSourceSnapshot
                     } };
-                    store.SaveDownload(job.SubscriptionId, download);
+                    store.SaveDownloadProgress(job.SubscriptionId, download);
                     DateTimeOffset lastSaved = DateTimeOffset.UtcNow;
                     string? fileName = await transfer.TransferAsync(link, partial, resume, (received, total) =>
                     {
@@ -255,20 +258,20 @@ internal sealed class ModDownloadService : IAsyncDisposable
                         Report(job, DownloadState.Downloading, received, total);
                         if (DateTimeOffset.UtcNow - lastSaved >= TimeSpan.FromSeconds(1))
                         {
-                            store.SaveDownload(job.SubscriptionId, download);
+                            store.SaveDownloadProgress(job.SubscriptionId, download);
                             lastSaved = DateTimeOffset.UtcNow;
                         }
                     }, token).ConfigureAwait(false);
                     string sha256 = await VerifyAsync(partial, download.File, token).ConfigureAwait(false);
                     // Persist the proof before moving, so recovery never adopts a changed same-size payload.
                     download = download with { ContentSha256 = sha256, FileName = fileName ?? download.FileName };
-                    store.SaveDownload(job.SubscriptionId, download);
+                    store.SaveDownloadProgress(job.SubscriptionId, download);
                     token.ThrowIfCancellationRequested();
                     ManagedModFiles.EnsureSafe(artifact);
                     File.Move(partial, artifact); // Never overwrite an unknown existing payload.
                     download = download with { State = DownloadState.Downloaded, LocalPath = artifact,
                         ReceivedBytes = new FileInfo(artifact).Length, UpdatedAt = DateTimeOffset.UtcNow, Error = null };
-                    store.SaveDownload(job.SubscriptionId, download);
+                    store.SaveDownloadProgress(job.SubscriptionId, download);
                     ManagedModFiles.EnsureSafe(resume);
                     File.Delete(resume);
                     Report(job, download.State, download.ReceivedBytes, download.File.SizeBytes);
@@ -283,8 +286,18 @@ internal sealed class ModDownloadService : IAsyncDisposable
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
-            download = download with { State = DownloadState.Cancelled, UpdatedAt = DateTimeOffset.UtcNow, Error = null };
-            if (gameLease is not null) store.SaveDownload(job.SubscriptionId, download);
+            while (true)
+            {
+                try
+                {
+                    download = store.CancelPendingDownload(job.SubscriptionId, job.DownloadId,
+                        downloadStarted ? null : job.SelectedUpdatedAt) ??
+                        download with { State = DownloadState.Cancelled, UpdatedAt = DateTimeOffset.UtcNow, Error = null };
+                    break;
+                }
+                catch (IOException ex) when ((ex.HResult & 0xffff) is 32 or 33)
+                { await Task.Delay(50).ConfigureAwait(false); }
+            }
             Report(job, download.State, download.ReceivedBytes, download.File.SizeBytes);
             return download;
         }
@@ -294,7 +307,7 @@ internal sealed class ModDownloadService : IAsyncDisposable
             // a successful human verification resumes them without selecting additional files.
             download = download with { State = DownloadState.Pending, UpdatedAt = DateTimeOffset.UtcNow,
                 Error = nameof(ModSourceError.VerificationRequired) };
-            if (gameLease is not null) store.SaveDownload(job.SubscriptionId, download);
+            if (gameLease is not null) store.SaveDownloadProgress(job.SubscriptionId, download);
             Report(job, download.State, download.ReceivedBytes, download.File.SizeBytes);
             return download;
         }
@@ -305,7 +318,7 @@ internal sealed class ModDownloadService : IAsyncDisposable
                 Error = ex is InvalidDataException ? "The selected file or downloaded content failed validation. Select the file again or retry."
                     : ex is ModSourceException sourceError ? sourceError.Failure.Kind.ToString()
                     : "The download could not finish. Check the connection, disk space and access, then retry." };
-            if (gameLease is not null) store.SaveDownload(job.SubscriptionId, download);
+            if (gameLease is not null) store.SaveDownloadProgress(job.SubscriptionId, download);
             Report(job, download.State, download.ReceivedBytes, download.File.SizeBytes);
             return download;
         }
