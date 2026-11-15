@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -840,7 +840,7 @@ Manual changes outside mods cannot be undone here.</value></data>
     <value>: Contains shader resources; requires the launcher to remain running throughout</value>
   </data>
   <data name="MI_FeatureHintOther" xml:space="preserve">
-    <value>: Extra or unclassified content; can coexist with Regular and does not itself block activation</value>
+    <value>: Extra or unclassified content</value>
   </data>
   <data name="MI_Other" xml:space="preserve">
     <value>Other</value>

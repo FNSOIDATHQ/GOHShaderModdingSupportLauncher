@@ -840,7 +840,7 @@
     <value>：含着色器资源，需要全程依赖启动器运行</value>
   </data>
   <data name="MI_FeatureHintOther" xml:space="preserve">
-    <value>：附加或未分类内容；可与常规共存，本身不影响激活</value>
+    <value>：附加或未分类内容</value>
   </data>
   <data name="MI_Other" xml:space="preserve">
     <value>其它</value>
