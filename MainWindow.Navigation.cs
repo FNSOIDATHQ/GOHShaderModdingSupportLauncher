@@ -10,9 +10,18 @@ public partial class MainWindow
 {
     private readonly UiPreferencesStore uiPreferencesStore;
     internal UiPreferences InterfacePreferences { get; private set; } = new();
+    internal bool ShowDonationBannerThisSession { get; }
+    internal bool ShouldShowDonationBanner => ShowDonationBannerThisSession && !InterfacePreferences.HideDonationBanner;
     private bool navigationNarrow, expandNavigationInNarrowWindow;
 
     internal void SetModListCollapsed(bool collapsed) => SaveInterfacePreferences(InterfacePreferences with { ModListCollapsed = collapsed });
+
+    internal void SetDonationBannerHidden(bool hidden)
+    {
+        SaveInterfacePreferences(InterfacePreferences with { HideDonationBanner = hidden });
+        if (pages.TryGetValue(PageId.Launcher, out var page) && page is Launcher launcher)
+            launcher.RefreshDonationBanner();
+    }
 
     private void SaveInterfacePreferences(UiPreferences value)
     {

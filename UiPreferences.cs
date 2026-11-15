@@ -8,6 +8,7 @@ internal sealed record UiPreferences
     public int Version { get; init; } = 1;
     public bool NavigationCollapsed { get; init; }
     public bool ModListCollapsed { get; init; }
+    public bool HideDonationBanner { get; init; }
 }
 
 // Interface preferences belong to the launcher, independently of games and subscription data.

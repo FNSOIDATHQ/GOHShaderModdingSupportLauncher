@@ -211,7 +211,7 @@
     <value>Enable environment map support for all non-PBR materials (Experimental)</value>
   </data>
   <data name="A_BugReport" xml:space="preserve">
-    <value>Find a bug or get some interesting ideas? Tell our team about them on Github or Steam Workshop!</value>
+    <value>Found a bug or have an idea? Tell our team on GitHub!</value>
   </data>
   <data name="A_LinkGithub" xml:space="preserve">
     <value>Github</value>
@@ -1065,4 +1065,19 @@ Make sure Steam has finished downloading the item.</value>
   <data name="LU_RetryAfter" xml:space="preserve"><value>Retry after:</value></data>
   <data name="LU_Restored" xml:space="preserve"><value>The previous launcher has been restored.</value></data>
   <data name="LU_RestoreFailed" xml:space="preserve"><value>Automatic recovery could not finish. The previous launcher is preserved at the backup path:</value></data>
+  <data name="Tab_ModSubscriptionsBeta" xml:space="preserve"><value>Beta</value></data>
+  <data name="L_DonationBanner" xml:space="preserve"><value>Enjoying the launcher? Try supporting our development and maintenance directly!</value></data>
+  <data name="D_ViewSupport" xml:space="preserve"><value>Support development</value></data>
+  <data name="D_Title" xml:space="preserve"><value>Support our work</value></data>
+  <data name="D_Message" xml:space="preserve"><value>If this launcher has been useful to you, you're welcome to directly support our continued development and maintenance!</value></data>
+  <data name="D_MessageMore" xml:space="preserve"><value>A great deal of time and effort goes into this project. Your support is our biggest motivation to keep going.</value></data>
+  <data name="D_AlipayExpand" xml:space="preserve"><value>Or support us directly via Alipay</value></data>
+  <data name="S_HideDonationBanner" xml:space="preserve"><value>Always hide the support banner on the launcher page</value></data>
+  <data name="D_Thanks" xml:space="preserve"><value>Thank you for your support!</value></data>
+  <data name="D_KoFi" xml:space="preserve"><value>Donate on Ko-fi ↗</value></data>
+  <data name="D_MianBaoDuo" xml:space="preserve"><value>Donate on MianBaoDuo ↗</value></data>
+  <data name="D_Alipay" xml:space="preserve"><value>Alipay</value></data>
+  <data name="D_AlipayHint" xml:space="preserve"><value>Scan this QR code with Alipay to donate.</value></data>
+  <data name="D_OpenSidebar" xml:space="preserve"><value>Expand donation sidebar</value></data>
+  <data name="D_CloseSidebar" xml:space="preserve"><value>Collapse donation sidebar</value></data>
 </root>

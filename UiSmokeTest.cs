@@ -32,6 +32,7 @@ internal static class UiSmokeTest
             CheckSubscriptionMedia();
             LauncherUpdateSmokeTest.Run(fixture);
             LauncherUpdateUiSmokeTest.Run(fixture);
+            DonationUiSmokeTest.Run(fixture);
             CheckSubscriptionCache(fixture);
             ModTranslationUiSmokeTest.Run(fixture);
             ModInspectionSmokeTest.Run(fixture);

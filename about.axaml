@@ -2,21 +2,103 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="using:GOHShaderModdingSupportLauncher"
              x:Class="GOHShaderModdingSupportLauncher.About">
-  <StackPanel Margin="20" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
-    <TextBlock Text="{Binding A_BugReport, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="24" HorizontalAlignment="Center" />
-    <TextBlock Text="{Binding A_Tip, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="16" HorizontalAlignment="Center" />
-    <Button Click="Github_Click" Content="{Binding A_LinkGithub, Source={x:Static local:LocalizedStrings.Instance}}"
-            FontSize="22" HorizontalAlignment="Center" />
-    <Button Click="Workshop_Click" Content="{Binding A_LinkWorkshop, Source={x:Static local:LocalizedStrings.Instance}}"
-            FontSize="22" HorizontalAlignment="Center" />
-    <Image Source="avares://GOHShaderModdingSupportLauncher/img/logo.png"
-           Width="300" Height="125" Stretch="Uniform"
-           HorizontalAlignment="Center" Margin="0,24,0,0"
-           AutomationProperties.Name="Federation Studio" />
-    <TextBlock x:Name="versionText"
-               FontSize="22" HorizontalAlignment="Center" Margin="0,4,0,0" />
-    <Button x:Name="checkUpdateButton" Click="CheckUpdate_Click"
-            Content="{Binding A_CheckUpdate, Source={x:Static local:LocalizedStrings.Instance}}"
-            FontSize="22" HorizontalAlignment="Center" />
-  </StackPanel>
+  <Grid>
+    <SplitView x:Name="aboutSupportView" PanePlacement="Right" DisplayMode="Inline"
+               IsPaneOpen="False" OpenPaneLength="320" Background="Transparent"
+               PaneBackground="#EE242A33">
+      <SplitView.Pane>
+        <Grid RowDefinitions="Auto,*" Margin="20,16">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="{Binding D_Title, Source={x:Static local:LocalizedStrings.Instance}}"
+                       FontSize="22" FontWeight="SemiBold" VerticalAlignment="Center"
+                       TextWrapping="Wrap" Margin="0,0,8,0" />
+            <Button x:Name="closeDonationSidebarButton" Grid.Column="1"
+                    Width="36" Height="36" Padding="0" Content="&#xE76C;"
+                    FontFamily="Segoe MDL2 Assets" FontSize="16"
+                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                    ToolTip.Tip="{Binding D_CloseSidebar, Source={x:Static local:LocalizedStrings.Instance}}"
+                    AutomationProperties.Name="{Binding D_CloseSidebar, Source={x:Static local:LocalizedStrings.Instance}}"
+                    Click="CloseDonationSidebar_Click" />
+          </Grid>
+          <ScrollViewer Grid.Row="1" Margin="0,16,0,0" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="14">
+              <TextBlock Text="{Binding D_Message, Source={x:Static local:LocalizedStrings.Instance}}"
+                         FontSize="15" LineHeight="24" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding D_MessageMore, Source={x:Static local:LocalizedStrings.Instance}}"
+                         FontSize="15" LineHeight="24" TextWrapping="Wrap" />
+              <Button x:Name="koFiButton" Content="{Binding D_KoFi, Source={x:Static local:LocalizedStrings.Instance}}"
+                      HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                      FontSize="17" Padding="12,10" Click="KoFi_Click"
+                      ToolTip.Tip="https://ko-fi.com/federationstudio" />
+              <Button x:Name="mianBaoDuoButton" Content="{Binding D_MianBaoDuo, Source={x:Static local:LocalizedStrings.Instance}}"
+                      HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                      FontSize="17" Padding="12,10" Click="MianBaoDuo_Click"
+                      ToolTip.Tip="https://mbd.pub/o/fedStudio" />
+              <Expander x:Name="alipayDonationExpander" IsExpanded="False"
+                        HorizontalAlignment="Stretch">
+                <Expander.Header>
+                  <TextBlock Text="{Binding D_AlipayExpand, Source={x:Static local:LocalizedStrings.Instance}}"
+                             FontSize="15" TextWrapping="Wrap" />
+                </Expander.Header>
+                <StackPanel Margin="0,12,0,0" Spacing="12">
+                  <Border Background="White" Padding="10" CornerRadius="8"
+                          HorizontalAlignment="Center">
+                    <Image x:Name="alipayQrCode"
+                           MaxWidth="240" Stretch="Uniform"
+                           AutomationProperties.Name="{Binding D_Alipay, Source={x:Static local:LocalizedStrings.Instance}}">
+                      <Image.Source>
+                        <!-- Show the official image's QR region with its white quiet zone,
+                             so shrinking the full donation poster does not make the code too small. -->
+                        <CroppedBitmap Source="avares://GOHShaderModdingSupportLauncher/img/donation-alipay.webp"
+                                       SourceRect="250,715,690,690" />
+                      </Image.Source>
+                    </Image>
+                  </Border>
+                </StackPanel>
+              </Expander>
+              <TextBlock Text="{Binding D_Thanks, Source={x:Static local:LocalizedStrings.Instance}}"
+                         FontSize="14" TextWrapping="Wrap" Margin="0,2,0,8" />
+            </StackPanel>
+          </ScrollViewer>
+        </Grid>
+      </SplitView.Pane>
+      <Grid RowDefinitions="Auto,*">
+        <Grid x:Name="collapsedDonationHeader" ColumnDefinitions="*,Auto"
+              IsVisible="{Binding IsVisible, ElementName=openDonationSidebarButton}"
+              HorizontalAlignment="Right" Margin="20,16">
+          <TextBlock x:Name="collapsedDonationTitle"
+                     Text="{Binding D_Title, Source={x:Static local:LocalizedStrings.Instance}}"
+                     FontSize="22" FontWeight="SemiBold" VerticalAlignment="Center"
+                     TextWrapping="Wrap" Margin="0,0,8,0" />
+          <Button x:Name="openDonationSidebarButton" Grid.Column="1" IsVisible="True"
+                  Width="36" Height="36" Padding="0" Content="&#xE76B;"
+                  FontFamily="Segoe MDL2 Assets" FontSize="16"
+                  HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                  ToolTip.Tip="{Binding D_OpenSidebar, Source={x:Static local:LocalizedStrings.Instance}}"
+                  AutomationProperties.Name="{Binding D_OpenSidebar, Source={x:Static local:LocalizedStrings.Instance}}"
+                  Click="OpenDonationSidebar_Click" />
+        </Grid>
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Margin="20" HorizontalAlignment="Center" VerticalAlignment="Center"
+                      MaxWidth="760" Spacing="10">
+            <TextBlock Text="{Binding A_BugReport, Source={x:Static local:LocalizedStrings.Instance}}"
+                       FontSize="24" TextAlignment="Center" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding A_Tip, Source={x:Static local:LocalizedStrings.Instance}}"
+                       FontSize="16" TextAlignment="Center" TextWrapping="Wrap" />
+            <Button Click="Github_Click" Content="{Binding A_LinkGithub, Source={x:Static local:LocalizedStrings.Instance}}"
+                    FontSize="22" HorizontalAlignment="Center" />
+            <Image Source="avares://GOHShaderModdingSupportLauncher/img/logo.png"
+                   MaxWidth="300" Height="125" Stretch="Uniform"
+                   HorizontalAlignment="Center" Margin="0,24,0,0"
+                   AutomationProperties.Name="Federation Studio" />
+            <TextBlock x:Name="versionText" FontSize="22" TextAlignment="Center"
+                       TextWrapping="Wrap" Margin="0,4,0,0" />
+            <Button x:Name="checkUpdateButton" Click="CheckUpdate_Click"
+                    Content="{Binding A_CheckUpdate, Source={x:Static local:LocalizedStrings.Instance}}"
+                    FontSize="22" HorizontalAlignment="Center" />
+          </StackPanel>
+        </ScrollViewer>
+      </Grid>
+    </SplitView>
+  </Grid>
 </UserControl>

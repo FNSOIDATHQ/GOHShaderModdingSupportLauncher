@@ -11,6 +11,21 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
 
     private static readonly string[] ResourcePropertyNames =
     [
+        nameof(Tab_ModSubscriptionsBeta),
+        nameof(L_DonationBanner),
+        nameof(D_ViewSupport),
+        nameof(D_Title),
+        nameof(D_Message),
+        nameof(D_MessageMore),
+        nameof(D_AlipayExpand),
+        nameof(S_HideDonationBanner),
+        nameof(D_Thanks),
+        nameof(D_KoFi),
+        nameof(D_MianBaoDuo),
+        nameof(D_Alipay),
+        nameof(D_AlipayHint),
+        nameof(D_OpenSidebar),
+        nameof(D_CloseSidebar),
         nameof(MI_Features),
         nameof(MI_FeatureHint),
         nameof(MI_Source),
@@ -111,6 +126,22 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
 
     private string this[string key] => i18n.ResourceManager.GetString(key, i18n.Culture) ?? key;
     internal string Get(string key) => this[key];
+
+    public string Tab_ModSubscriptionsBeta => this[nameof(Tab_ModSubscriptionsBeta)];
+    public string L_DonationBanner => this[nameof(L_DonationBanner)];
+    public string D_ViewSupport => this[nameof(D_ViewSupport)];
+    public string D_Title => this[nameof(D_Title)];
+    public string D_Message => this[nameof(D_Message)];
+    public string D_MessageMore => this[nameof(D_MessageMore)];
+    public string D_AlipayExpand => this[nameof(D_AlipayExpand)];
+    public string S_HideDonationBanner => this[nameof(S_HideDonationBanner)];
+    public string D_Thanks => this[nameof(D_Thanks)];
+    public string D_KoFi => this[nameof(D_KoFi)];
+    public string D_MianBaoDuo => this[nameof(D_MianBaoDuo)];
+    public string D_Alipay => this[nameof(D_Alipay)];
+    public string D_AlipayHint => this[nameof(D_AlipayHint)];
+    public string D_OpenSidebar => this[nameof(D_OpenSidebar)];
+    public string D_CloseSidebar => this[nameof(D_CloseSidebar)];
 
     public string P_Presets => this[nameof(P_Presets)];
     public string MI_Features => this[nameof(MI_Features)];

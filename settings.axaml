@@ -30,6 +30,8 @@
       </Grid>
       <CheckBox x:Name="pathConfirm" Click="pathConfirm_Click"
                 Content="{Binding S_PathConfirm, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" />
+      <CheckBox x:Name="hideDonationBanner" Click="hideDonationBanner_Click"
+                Content="{Binding S_HideDonationBanner, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" />
       <TextBlock Text="{Binding S_BeforeLaunch, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="24"
                  FontWeight="Bold" Background="#4CA8B2BB" />
       <CheckBox x:Name="autoLoadCache" Click="autoLoadCache_Click"

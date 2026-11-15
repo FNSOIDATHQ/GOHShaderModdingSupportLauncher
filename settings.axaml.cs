@@ -32,6 +32,7 @@ namespace GOHShaderModdingSupportLauncher
             }
 
             pathConfirm.IsChecked = main.universalVars.AlwaysConfirm;
+            hideDonationBanner.IsChecked = main.InterfacePreferences.HideDonationBanner;
             clearCache.IsChecked = main.universalVars.NeedClearCache;
             restore.IsChecked = main.universalVars.NeedRestore;
             gameExit.IsChecked = main.universalVars.NeedRedisplay;
@@ -155,6 +156,9 @@ namespace GOHShaderModdingSupportLauncher
         {
             main.universalVars.AlwaysConfirm = pathConfirm.IsChecked.Value;
         }
+
+        private void hideDonationBanner_Click(object sender, RoutedEventArgs e) =>
+            main.SetDonationBannerHidden(hideDonationBanner.IsChecked == true);
 
         private void autoLoadCache_Click(object sender, RoutedEventArgs e)
         {

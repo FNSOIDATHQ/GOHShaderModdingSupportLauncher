@@ -26,6 +26,7 @@
     <EmbeddedResource Include="pak\Ori\shader.lzma" />
     <AvaloniaResource Include="bg.jpg" />
     <AvaloniaResource Include="img\logo.png" />
+    <AvaloniaResource Include="img\donation-alipay.webp" />
     <AvaloniaResource Include="gemIconBg.ico" />
   </ItemGroup>
   <ItemGroup>

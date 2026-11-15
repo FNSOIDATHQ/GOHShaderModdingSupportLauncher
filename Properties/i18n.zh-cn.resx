@@ -211,7 +211,7 @@
     <value>为所有非PBR材质启用环境贴图支持（实验性）</value>
   </data>
   <data name="A_BugReport" xml:space="preserve">
-    <value>发现了故障或者有趣的点子？在Github或者创意工坊联系我们！</value>
+    <value>发现了故障或者有趣的点子？在 GitHub 联系我们！</value>
   </data>
   <data name="A_LinkGithub" xml:space="preserve">
     <value>Github</value>
@@ -1065,4 +1065,19 @@
   <data name="LU_RetryAfter" xml:space="preserve"><value>可重试时间：</value></data>
   <data name="LU_Restored" xml:space="preserve"><value>已恢复旧版启动器。</value></data>
   <data name="LU_RestoreFailed" xml:space="preserve"><value>自动恢复未能完成，旧版启动器仍保留在以下备份路径：</value></data>
+  <data name="Tab_ModSubscriptionsBeta" xml:space="preserve"><value>测试版</value></data>
+  <data name="L_DonationBanner" xml:space="preserve"><value>喜欢这个启动器？试试看直接支持我们的开发与维护！</value></data>
+  <data name="D_ViewSupport" xml:space="preserve"><value>支持开发</value></data>
+  <data name="D_Title" xml:space="preserve"><value>支持我们的工作</value></data>
+  <data name="D_Message" xml:space="preserve"><value>如果这个启动器对你有所帮助，欢迎直接支持我们继续开发和维护它！</value></data>
+  <data name="D_MessageMore" xml:space="preserve"><value>大量精力和时间被用于这个项目，你的支持是我们继续下去的最大动力。</value></data>
+  <data name="D_AlipayExpand" xml:space="preserve"><value>或者通过支付宝直接打赏</value></data>
+  <data name="S_HideDonationBanner" xml:space="preserve"><value>永久关闭首页支持横幅</value></data>
+  <data name="D_Thanks" xml:space="preserve"><value>感谢你的支持！</value></data>
+  <data name="D_KoFi" xml:space="preserve"><value>通过 Ko-fi 捐赠 ↗</value></data>
+  <data name="D_MianBaoDuo" xml:space="preserve"><value>通过面包多捐赠 ↗</value></data>
+  <data name="D_Alipay" xml:space="preserve"><value>支付宝</value></data>
+  <data name="D_AlipayHint" xml:space="preserve"><value>使用支付宝扫描二维码捐赠。</value></data>
+  <data name="D_OpenSidebar" xml:space="preserve"><value>展开捐赠侧栏</value></data>
+  <data name="D_CloseSidebar" xml:space="preserve"><value>收起捐赠侧栏</value></data>
 </root>

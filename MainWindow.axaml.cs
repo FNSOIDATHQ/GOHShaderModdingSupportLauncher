@@ -115,9 +115,10 @@ namespace GOHShaderModdingSupportLauncher
 
         public MainWindow() : this(FileManager.SettingsPath) { }
 
-        internal MainWindow(string settingsPath)
+        internal MainWindow(string settingsPath, bool? showDonationBanner = null)
         {
             this.settingsPath = settingsPath;
+            ShowDonationBannerThisSession = showDonationBanner ?? Random.Shared.Next(4) == 0;
             ModAliases = new ModAliasStore(Path.Combine(Path.GetDirectoryName(Path.GetFullPath(settingsPath))!, "mod-aliases.json"));
             uiPreferencesStore = new UiPreferencesStore(Path.Combine(Path.GetDirectoryName(Path.GetFullPath(settingsPath))!, "ui-preferences.json"));
             try { InterfacePreferences = uiPreferencesStore.Load(); }
@@ -773,14 +774,21 @@ namespace GOHShaderModdingSupportLauncher
             navigation.SelectedItem = item;
         }
 
+        internal void OpenDonationSidebar()
+        {
+            SelectNavigationPage(PageId.About);
+            if (pageHost.Content is About about) about.OpenDonationSidebar();
+        }
+
         internal void UpdateSubscriptionBadge(int count)
         {
             subscriptionNoticeCount = Math.Max(0, count);
             string label = LocalizedStrings.Instance.Tab_ModSubscriptions + (subscriptionNoticeCount > 0 ? $" ({subscriptionNoticeCount})" : "");
             subscriptionNavigationLabel.Text = label;
             var item = FindNavigationItem(PageId.ModSubscriptions);
-            ToolTip.SetTip(item, label);
-            Avalonia.Automation.AutomationProperties.SetName(item, label);
+            string accessibleLabel = label + " · " + LocalizedStrings.Instance.Tab_ModSubscriptionsBeta;
+            ToolTip.SetTip(item, accessibleLabel);
+            Avalonia.Automation.AutomationProperties.SetName(item, accessibleLabel);
             subscriptionCompactBadge.IsVisible = !mainView.IsPaneOpen && subscriptionNoticeCount > 0;
         }
 

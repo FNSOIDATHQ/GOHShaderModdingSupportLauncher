@@ -47,6 +47,9 @@
     <Style Selector="SplitView.compactNavigation TextBlock.navigationLabel">
       <Setter Property="IsVisible" Value="False" />
     </Style>
+    <Style Selector="SplitView.compactNavigation Border.navigationBetaBadge">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
   </Window.Styles>
   <Grid x:Name="windowLayout" RowDefinitions="56,*">
     <Grid.Background>
@@ -99,12 +102,19 @@
             </ListBoxItem>
             <ListBoxItem Tag="ModSubscriptions" ToolTip.Tip="{Binding Tab_ModSubscriptions, Source={x:Static local:LocalizedStrings.Instance}}"
                          AutomationProperties.Name="{Binding Tab_ModSubscriptions, Source={x:Static local:LocalizedStrings.Instance}}">
-              <Grid ColumnDefinitions="Auto,*">
+              <Grid ColumnDefinitions="Auto,*,Auto">
                 <TextBlock Classes="navigationIcon" Text="&#xE896;" />
                 <TextBlock x:Name="subscriptionCompactBadge" IsVisible="False" Text="●" FontSize="10"
                            Foreground="#FFD080" HorizontalAlignment="Right" VerticalAlignment="Top" />
                 <TextBlock x:Name="subscriptionNavigationLabel" Grid.Column="1" Classes="navigationLabel"
                            Text="{Binding Tab_ModSubscriptions, Source={x:Static local:LocalizedStrings.Instance}}" />
+                <Border x:Name="subscriptionBetaBadge" Grid.Column="2" Classes="navigationBetaBadge"
+                        Background="Transparent" BorderBrush="White" BorderThickness="1"
+                        CornerRadius="3" Padding="5,1" Margin="6,0,0,0"
+                        VerticalAlignment="Center">
+                  <TextBlock Text="{Binding Tab_ModSubscriptionsBeta, Source={x:Static local:LocalizedStrings.Instance}}"
+                             Foreground="White" FontSize="11" />
+                </Border>
               </Grid>
             </ListBoxItem>
             <ListBoxItem Tag="Converter" ToolTip.Tip="{Binding Tab_Converter, Source={x:Static local:LocalizedStrings.Instance}}"

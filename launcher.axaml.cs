@@ -17,6 +17,11 @@ namespace GOHShaderModdingSupportLauncher
         private MainWindow.LauncherVars vars;
 
         private bool isLaunching;
+
+        private void SupportDevelopment_Click(object? sender, RoutedEventArgs e) => main.OpenDonationSidebar();
+
+        internal void RefreshDonationBanner() => donationBanner.IsVisible = main.ShouldShowDonationBanner;
+
         public Launcher(MainWindow owner)
         {
             main = owner;
@@ -24,6 +29,7 @@ namespace GOHShaderModdingSupportLauncher
             vars = main.launcherVars;
 
             InitializeComponent();
+            RefreshDonationBanner();
 
 
 
