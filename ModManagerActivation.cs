@@ -33,25 +33,21 @@ public partial class ModManager
     {
         if (!hasInit) return;
         if (structureChanged) { RefreshView(); return; }
-        var selected = selectedRow.mods?.Select(mod => mod.DiscoveryId).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        string grid = selectedRow.dataGrid;
-        isSyncingSelection = true;
-        try { unloadedView.Refresh(); }
-        finally { isSyncingSelection = false; }
-        if (selected is not null && selected.Count > 0) RestoreSelection(grid, selected);
+        RefreshModViews();
     }
 
-    private void RestoreSelection(string name, HashSet<string> selected)
+    private void RestoreSelection(string name, HashSet<string> selected, bool clearIfMissing = false)
     {
         var grid = name == "loadedMods" ? loadedMods : unloadedMods;
-        var matches = (grid.ItemsSource?.Cast<Mod>() ?? []).Where(mod => selected.Contains(mod.DiscoveryId)).ToArray();
-        if (matches.Length == 0) return;
+        var matches = selected.Count == 0 ? [] :
+            (grid.ItemsSource?.Cast<Mod>() ?? []).Where(mod => selected.Contains(mod.DiscoveryId)).ToList();
+        if (matches.Count == 0 && !clearIfMissing) return;
         isSyncingSelection = true;
         try
         {
             loadedMods.SelectedItems.Clear(); unloadedMods.SelectedItems.Clear();
             foreach (var mod in matches) grid.SelectedItems.Add(mod);
-            selectedRow = new SelectedRow(name, matches.ToList());
+            selectedRow = new SelectedRow(name, matches);
         }
         finally { isSyncingSelection = false; }
         UpdateAliasAction();

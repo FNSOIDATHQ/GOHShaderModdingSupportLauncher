@@ -16,9 +16,19 @@ internal static class ModAliasUiSmokeTest
         string options = File.ReadAllText(window.universalVars.optionLoc);
         var original = loaded[0].name;
         var presets = new ModPresetStore(Path.Combine(root, "alias-presets"));
+        var search = manager.FindControl<TextBox>("modSearch")!;
         try
         {
+            var loadedGrid = manager.FindControl<DataGrid>("loadedMods")!;
+            search.Text = "ALi  dis";
+            Require(!loadedGrid.ItemsSource!.Cast<Mod>().Any());
             store.Save(original, "Display alias");
+            Require(loadedGrid.ItemsSource!.Cast<Mod>().Single() == loaded[0]);
+            search.Text = original;
+            Require(loadedGrid.ItemsSource!.Cast<Mod>().Single() == loaded[0]);
+            search.Text = $"{original} dis";
+            Require(loadedGrid.ItemsSource!.Cast<Mod>().Single() == loaded[0]);
+            search.Text = "";
             store.Save("Display alias", "No recursive substitution");
             Require(loaded[0].name == original && loaded[0].DisplayName == "Display alias" && loaded[0].HasAlias);
             var duplicate = new Mod(original, "Other source", "other-directory", "other-id", false);
@@ -62,6 +72,7 @@ internal static class ModAliasUiSmokeTest
         }
         finally
         {
+            search.Text = "";
             foreach (var rule in store.Rules) store.Delete(rule.Key);
             store.SetItemMapping(false);
             presets.Delete("Original");

@@ -25,7 +25,7 @@
       <Setter Property="FontWeight" Value="Bold" />
     </Style>
   </UserControl.Styles>
-  <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="10">
+  <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" Margin="10">
     <WrapPanel Grid.Row="0" Margin="0,0,0,8">
       <TextBlock Text="{Binding P_Presets, Source={x:Static local:LocalizedStrings.Instance}}" VerticalAlignment="Center" Margin="0,0,8,4" />
       <ComboBox x:Name="presetList" MinWidth="180" MaxWidth="260" Margin="0,0,8,4" SelectionChanged="presetList_SelectionChanged" />
@@ -35,7 +35,10 @@
       <Button x:Name="renamePreset" Click="renamePreset_Click" Content="{Binding P_Rename, Source={x:Static local:LocalizedStrings.Instance}}" Margin="0,0,8,4" IsEnabled="False" />
       <Button x:Name="deletePreset" Click="deletePreset_Click" Content="{Binding P_Delete, Source={x:Static local:LocalizedStrings.Instance}}" Margin="0,0,8,4" IsEnabled="False" />
     </WrapPanel>
-    <Grid Grid.Row="1" ColumnDefinitions="*,155,*" RowDefinitions="Auto,*" MinHeight="180">
+    <TextBox x:Name="modSearch" Grid.Row="1" Margin="0,0,0,8" TextChanging="modSearch_TextChanging"
+             PlaceholderText="{Binding M_Search, Source={x:Static local:LocalizedStrings.Instance}}"
+             AutomationProperties.Name="{Binding M_Search, Source={x:Static local:LocalizedStrings.Instance}}" />
+    <Grid Grid.Row="2" ColumnDefinitions="*,155,*" RowDefinitions="Auto,*" MinHeight="180">
       <TextBlock Grid.Column="0" Text="{Binding M_Available, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" FontWeight="Bold" Margin="0,0,0,6" />
       <TextBlock Grid.Column="2" Text="{Binding M_Loaded, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" FontWeight="Bold" Margin="0,0,0,6" />
       <DataGrid x:Name="unloadedMods" Grid.Row="1" Grid.Column="0" AutoGenerateColumns="False"
@@ -87,9 +90,9 @@
         </DataGrid.Columns>
       </DataGrid>
     </Grid>
-    <TextBlock Grid.Row="2" Text="{Binding M_SelectedMod, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="24"
+    <TextBlock Grid.Row="3" Text="{Binding M_SelectedMod, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="24"
                FontWeight="Bold" Background="#4CA8B2BB" Margin="0,6" />
-    <WrapPanel Grid.Row="3">
+    <WrapPanel Grid.Row="4">
       <Button x:Name="viewModSubscription" Click="viewModSubscription_Click" IsVisible="False"
               Content="{Binding M_ViewSubscription, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" Margin="0,0,8,4" />
       <Button x:Name="openModFolder" Click="openModFolder_Click"

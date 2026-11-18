@@ -169,13 +169,33 @@ internal static class UiSmokeTest
                     grid.Measure(new Size(760, 500));
                     grid.Arrange(new Rect(0, 0, 760, 500));
                     Dispatcher.UIThread.RunJobs();
+                    var unloaded = manager.FindControl<DataGrid>("unloadedMods")!;
+                    var search = manager.FindControl<TextBox>("modSearch")!;
+                    var beforeSearch = File.ReadAllText(options);
+                    search.Text = "  A   ET  ";
+                    if (search.PlaceholderText != "Search mods" ||
+                        grid.ItemsSource!.Cast<Mod>().Single().name != "beta" ||
+                        unloaded.ItemsSource!.Cast<Mod>().Single().name != "zeta")
+                        throw new InvalidOperationException("Mod search did not match all terms in either order in both tables.");
+                    grid.SelectedItem = window.universalVars.modLoaded[1];
+                    search.Text = "ET ALP";
+                    if (grid.ItemsSource!.Cast<Mod>().Any() || unloaded.ItemsSource!.Cast<Mod>().Any() ||
+                        grid.SelectedItems.Count != 0 || manager.FindControl<Button>("editModAlias")!.IsEnabled ||
+                        window.universalVars.modLoaded.Count != 2 ||
+                        window.universalVars.modLoaded.Any(mod => !mod.hasLoad) || File.ReadAllText(options) != beforeSearch)
+                        throw new InvalidOperationException("Mod search matched terms from different rows, changed the loaded state, or kept a hidden selection.");
+                    search.Text = "ALP";
                     grid.SelectedItems.Clear();
                     grid.SelectedItems.Add(window.universalVars.modLoaded[0]);
                     var unload = manager.FindControl<Button>("unloadMod")!;
                     unload.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-                    if (window.universalVars.modLoaded.Count != 1)
-                        throw new InvalidOperationException($"Mod unload failed: remaining={window.universalVars.modLoaded.Count}, selection={grid.SelectedItems.Count}.");
-                    var unloaded = manager.FindControl<DataGrid>("unloadedMods")!;
+                    if (window.universalVars.modLoaded is not [{ name: "beta", hasLoad: true }] ||
+                        grid.ItemsSource!.Cast<Mod>().Any() || unloaded.ItemsSource!.Cast<Mod>().Single().name != "alpha" ||
+                        !FileManager.ReadLoadedModNames(new StringReader(File.ReadAllText(options))).SequenceEqual(new[] { "beta" }))
+                        throw new InvalidOperationException("Unloading a filtered Mod did not preserve the hidden loaded Mod.");
+                    search.Text = "   ";
+                    if (grid.ItemsSource!.Cast<Mod>().Single().name != "beta")
+                        throw new InvalidOperationException("Whitespace-only Mod search did not restore the hidden row.");
                     unloaded.ApplyTemplate();
                     unloaded.Measure(new Size(760, 500));
                     unloaded.Arrange(new Rect(0, 0, 760, 500));
@@ -208,12 +228,16 @@ internal static class UiSmokeTest
                     }
                     if (sortEventCount != 6)
                         throw new InvalidOperationException($"Column header sorting raised {sortEventCount} events instead of six.");
-                    unloaded.SelectedItems.Clear();
-                    unloaded.SelectedItems.Add(unloaded.ItemsSource!.Cast<Mod>().First());
+                    var toLoad = unloaded.ItemsSource!.Cast<Mod>().First();
+                    search.Text = toLoad.name;
+                    unloaded.SelectedItem = toLoad;
                     manager.FindControl<Button>("loadMod")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                     ModActivationSmokeTest.Pump(manager.PendingActivation);
-                    if (window.universalVars.modLoaded.Count != 2)
+                    if (window.universalVars.modLoaded.Count != 2 || grid.ItemsSource!.Cast<Mod>().Single() != toLoad)
                         throw new InvalidOperationException($"Mod load failed: loaded={window.universalVars.modLoaded.Count}, unloaded selection={unloaded.SelectedIndex}, loaded selection={grid.SelectedIndex}.");
+                    var hiddenMod = window.universalVars.modDic["beta"];
+                    if (!manager.SelectInstalledDirectory(hiddenMod.path) || search.Text != "" || grid.SelectedItem != hiddenMod)
+                        throw new InvalidOperationException("Locating an installed Mod did not reveal its filtered row.");
                     if (!manager.MoveLoadedMod(window.universalVars.modLoaded[1], window.universalVars.modLoaded[0]))
                         throw new InvalidOperationException("Mod reorder failed.");
                     using var optionReader = File.OpenText(options);
@@ -311,11 +335,13 @@ internal static class UiSmokeTest
             if (gameButton.Content as string != i18n.L_Main)
                 throw new InvalidOperationException("Cached launcher page did not change language.");
             primary.SelectedIndex = 1;
-            var modGrid = ((ModManager)host.Content!).FindControl<DataGrid>("unloadedMods")!;
+            var modManager = (ModManager)host.Content!;
+            var modGrid = modManager.FindControl<DataGrid>("unloadedMods")!;
             if (modGrid.Columns[0].Header as string != i18n.M_GridName ||
+                modManager.FindControl<TextBox>("modSearch")!.PlaceholderText != "搜索Mod" ||
                 window.universalVars.modDic["alpha"].type != i18n.Main_ModLocal ||
                 window.universalVars.modDic["mod_123"].type != i18n.Main_ModWorkshop)
-                throw new InvalidOperationException("Cached mod table headers or type labels did not change language.");
+                throw new InvalidOperationException("Cached Mod manager labels did not change language.");
             primary.SelectedIndex = 3;
             var conversionPath = ((Converter)host.Content!).FindControl<TextBox>("convertPath")!;
             if (conversionPath.Text != "keep this path")

@@ -26,6 +26,7 @@ namespace GOHShaderModdingSupportLauncher
         private bool hasInit=false;
         private readonly ObservableCollection<Mod> loadedItems = new();
         private readonly ObservableCollection<Mod> unloadedItems = new();
+        private readonly DataGridCollectionView loadedView;
         private readonly DataGridCollectionView unloadedView;
 
         private sealed class ModSortComparer(Func<Mod, Mod, int> compare) : IComparer
@@ -53,6 +54,7 @@ namespace GOHShaderModdingSupportLauncher
             vars = main.modManagerVars;
 
             InitializeComponent();
+            loadedView = new DataGridCollectionView(loadedItems);
             unloadedView = new DataGridCollectionView(unloadedItems);
             unloadedMods.Columns[0].CustomSortComparer = new ModSortComparer(
                 (left, right) => StringComparer.CurrentCultureIgnoreCase.Compare(left.DisplayName, right.DisplayName));
@@ -60,7 +62,7 @@ namespace GOHShaderModdingSupportLauncher
                 (left, right) => left.SourceSortKey.CompareTo(right.SourceSortKey));
             unloadedMods.Columns[2].CustomSortComparer = new ModSortComparer(
                 (left, right) => left.FeatureSortKey.CompareTo(right.FeatureSortKey));
-            loadedMods.ItemsSource = loadedItems;
+            loadedMods.ItemsSource = loadedView;
             unloadedMods.ItemsSource = unloadedView;
             loadedMods.AddHandler(InputElement.PointerPressedEvent, loadedMods_PointerPressed,
                 RoutingStrategies.Tunnel, handledEventsToo: true);
@@ -74,14 +76,13 @@ namespace GOHShaderModdingSupportLauncher
             main.ModInspectionChanged += InspectionUpdated;
             unloadedMods.Columns[0].Sort(System.ComponentModel.ListSortDirection.Ascending);
             main.ModAliases.Changed += RefreshAliases;
-            main.ModOriginsChanged += RefreshSourceView;
+            main.ModOriginsChanged += RefreshModViews;
 
             hasInit = true;
         }
 
         private void UpdateUI()
         {
-            vars.hasMod = true;
             foreach (var mod in main.universalVars.modDic.Values.Concat(main.universalVars.modLoaded).Distinct()) main.ModAliases.Apply(mod);
             loadedItems.Clear();
             unloadedItems.Clear();
@@ -102,25 +103,61 @@ namespace GOHShaderModdingSupportLauncher
                 loadedItems.Add(mod);
             }
 
-            if (loadedItems.Count != 0)
+            vars.hasMod = loadedItems.Count != 0 || unloadedItems.Count != 0;
+            if (loadedView.Count != 0)
             {
                 loadedMods.SelectedIndex = 0;
                 selectedRow = new SelectedRow("loadedMods",loadedMods.SelectedItems.Cast<Mod>().ToList());
 
             }
-            else if (unloadedItems.Count!=0)
+            else if (unloadedView.Count != 0)
             {
                 unloadedMods.SelectedIndex = 0;
                 selectedRow = new SelectedRow("unloadedMods", unloadedMods.SelectedItems.Cast<Mod>().ToList());
             }
             else
             {
-                //no mod!
                 selectedRow = new SelectedRow("", new List<Mod>());
-                vars.hasMod = false;
             }
             UpdateAliasAction();
             
+        }
+
+        private void modSearch_TextChanging(object? sender, TextChangingEventArgs e)
+        {
+            if (!hasInit) return;
+            var terms = (modSearch.Text ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+            Func<object, bool>? filter = terms.Length == 0 ? null : item => item is Mod mod &&
+                terms.All(term => mod.DisplayName.Contains(term, StringComparison.CurrentCultureIgnoreCase) ||
+                    mod.HasAlias && mod.name.Contains(term, StringComparison.CurrentCultureIgnoreCase));
+            RefreshModViews(() =>
+            {
+                loadedView.Filter = filter;
+                unloadedView.Filter = filter;
+            });
+        }
+
+        private void RefreshModViews()
+        {
+            if (!hasInit) return;
+            var scroll = unloadedMods.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
+            var offset = scroll?.Offset;
+            RefreshModViews(() =>
+            {
+                unloadedView.Refresh();
+                if (loadedView.Filter is not null) loadedView.Refresh();
+            });
+            if (offset is { } position && scroll is not null) scroll.Offset = position;
+        }
+
+        private void RefreshModViews(Action refresh)
+        {
+            var selected = selectedRow.mods.Select(mod => mod.DiscoveryId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            string grid = selectedRow.dataGrid;
+            isSyncingSelection = true;
+            try { refresh(); }
+            finally { isSyncingSelection = false; }
+            RestoreSelection(grid, selected, clearIfMissing: true);
         }
 
         private void CommitLoadedMods(List<Mod> mods, bool validateAll = false, string? expectedOptions = null)
@@ -466,9 +503,9 @@ namespace GOHShaderModdingSupportLauncher
             // Refresh after the native drop finishes so the visible rows follow the saved order.
             Dispatcher.UIThread.Post(() =>
             {
-                if (!loadedItems.Contains(moved)) return;
+                if (!loadedView.Contains(moved)) return;
                 loadedMods.ItemsSource = null;
-                loadedMods.ItemsSource = loadedItems;
+                loadedMods.ItemsSource = loadedView;
                 loadedMods.SelectedItem = moved;
             }, DispatcherPriority.Background);
         }

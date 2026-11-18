@@ -17,7 +17,7 @@ public partial class ModManager
     private void RefreshAliases()
     {
         foreach (var mod in loadedItems.Concat(unloadedItems).Concat(main.universalVars.modDic.Values).Distinct()) main.ModAliases.Apply(mod);
-        RefreshSourceView();
+        RefreshModViews();
     }
 
     private async void editModAlias_Click(object? sender, RoutedEventArgs e)

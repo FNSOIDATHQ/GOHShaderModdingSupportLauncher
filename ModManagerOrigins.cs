@@ -1,6 +1,5 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.VisualTree;
 using GOHShaderModdingSupportLauncher.ModSubscriptions;
 
 namespace GOHShaderModdingSupportLauncher;
@@ -18,24 +17,6 @@ public partial class ModManager
         catch (Exception ex) { AppDiagnostics.Log("Unable to open installed Mod subscription.", ex); }
     }
 
-    internal void RefreshSourceView()
-    {
-        if (!hasInit) return;
-        var selection = unloadedMods.SelectedItems.Cast<Mod>().ToArray();
-        var scroll = unloadedMods.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
-        var offset = scroll?.Offset;
-        isSyncingSelection = true;
-        try
-        {
-            unloadedView.Refresh();
-            unloadedMods.SelectedItems.Clear();
-            foreach (var mod in selection) unloadedMods.SelectedItems.Add(mod);
-            if (offset is { } position && scroll is not null) scroll.Offset = position;
-        }
-        finally { isSyncingSelection = false; }
-        UpdateSubscriptionAction();
-    }
-
     internal bool SelectInstalledDirectory(string directory)
     {
         string path;
@@ -45,7 +26,10 @@ public partial class ModManager
             item.Inspection?.Source == ModSourceKind.Local &&
             string.Equals(item.path, path, SubscriptionPaths.Comparison));
         if (mod is null) return false;
-        var grid = loadedItems.Contains(mod) ? loadedMods : unloadedMods;
+        bool isLoaded = loadedItems.Contains(mod);
+        var view = isLoaded ? loadedView : unloadedView;
+        if (!view.Contains(mod)) modSearch.Text = "";
+        var grid = isLoaded ? loadedMods : unloadedMods;
         grid.SelectedItem = mod;
         grid.ScrollIntoView(mod, null);
         grid.Focus();

@@ -558,6 +558,7 @@ Make sure Steam has finished downloading the item.</value>
   <data name="M_Available" xml:space="preserve">
     <value>Available</value>
   </data>
+  <data name="M_Search" xml:space="preserve"><value>Search mods</value></data>
   <data name="M_Loaded" xml:space="preserve">
     <value>Loaded</value>
   </data>

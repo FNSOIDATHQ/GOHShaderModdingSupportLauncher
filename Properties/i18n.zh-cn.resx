@@ -558,6 +558,7 @@
   <data name="M_Available" xml:space="preserve">
     <value>可用</value>
   </data>
+  <data name="M_Search" xml:space="preserve"><value>搜索Mod</value></data>
   <data name="M_Loaded" xml:space="preserve">
     <value>已加载</value>
   </data>

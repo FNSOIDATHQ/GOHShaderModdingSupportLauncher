@@ -92,6 +92,7 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
         nameof(M_LoadCache),
         nameof(M_OpenFolder),
         nameof(M_Refresh),
+        nameof(M_Search),
         nameof(M_SelectedMod),
         nameof(M_Unload),
         nameof(S_AfterGame),
@@ -219,6 +220,7 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
     public string M_LoadCache => this[nameof(M_LoadCache)];
     public string M_OpenFolder => this[nameof(M_OpenFolder)];
     public string M_Refresh => this[nameof(M_Refresh)];
+    public string M_Search => this[nameof(M_Search)];
     public string M_SelectedMod => this[nameof(M_SelectedMod)];
     public string M_Unload => this[nameof(M_Unload)];
     public string S_AfterGame => this[nameof(S_AfterGame)];
