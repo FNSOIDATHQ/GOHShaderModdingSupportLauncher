@@ -144,7 +144,7 @@ internal static class MowPortalParser
         (YandexPublicFileResolver.IsShare(link) || link.Query.Length == 0 || link.Host == "drive.google.com" && link.Query is "?usp=sharing" or "?usp=drive_link");
     private static bool IsKnownShare(Uri? link) => link is not null && AnonymousModHttpClient.IsPublicHttps(link) &&
         (YandexPublicFileResolver.IsShare(link) || link.Host is "modsfire.com" or "drive.google.com" or "www.mediafire.com" or "mega.nz");
-    private static ModSourceId Identity(Uri page) => new("mowportal", page.AbsolutePath[GamePath.Length..].Split('-')[0]);
+    internal static ModSourceId Identity(Uri page) => new("mowportal", page.AbsolutePath[GamePath.Length..].Split('-')[0]);
     private static bool IsCategory(Uri page) => page.Query.Length == 0 && page.Fragment.Length == 0 &&
         (page.AbsolutePath == GamePath || page.AbsolutePath.StartsWith(GamePath + "page/", StringComparison.Ordinal) &&
          int.TryParse(page.AbsolutePath[(GamePath.Length + 5)..].TrimEnd('/'), out int number) && number is > 0 and <= 1000);

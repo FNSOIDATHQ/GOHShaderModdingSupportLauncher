@@ -344,7 +344,7 @@ namespace GOHShaderModdingSupportLauncher
             var local = new DirectoryInfo(Path.Combine(root.FullName, "mods"));
             var workshop = new DirectoryInfo(
                                     Path.GetFullPath(
-                                                Path.Combine(root.FullName, "..", "..", "workshop", "content", "400750")
+                                                Path.Combine(root.FullName, "..", "..", "workshop", "content", WorkshopAppId)
                                                 )
                                             );
 

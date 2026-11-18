@@ -54,6 +54,8 @@
                 Header="{Binding MA_Title, Source={x:Static local:LocalizedStrings.Instance}}">
         <StackPanel x:Name="modAliasesPanel" Spacing="8" Margin="0,8">
           <TextBlock Text="{Binding MA_Hint, Source={x:Static local:LocalizedStrings.Instance}}" TextWrapping="Wrap" />
+          <CheckBox x:Name="enableItemAliases" Click="enableItemAliases_Click"
+                    Content="{Binding MA_EnableItemMapping, Source={x:Static local:LocalizedStrings.Instance}}" />
           <TextBox x:Name="aliasSearch" TextChanged="aliasSearch_TextChanged"
                    PlaceholderText="{Binding MA_Search, Source={x:Static local:LocalizedStrings.Instance}}"
                    AutomationProperties.Name="{Binding MA_Search, Source={x:Static local:LocalizedStrings.Instance}}" />
@@ -61,10 +63,17 @@
                     SelectionMode="Single" CanUserSortColumns="False" CanUserResizeColumns="True"
                     SelectionChanged="aliasRules_SelectionChanged">
             <DataGrid.Columns>
-              <DataGridTemplateColumn Header="{Binding MA_OriginalName, Source={x:Static local:LocalizedStrings.Instance}}" Width="*" MinWidth="100">
+              <DataGridTemplateColumn Header="{Binding MA_RuleType, Source={x:Static local:LocalizedStrings.Instance}}" Width="Auto">
                 <DataGridTemplateColumn.CellTemplate>
                   <DataTemplate x:DataType="local:ModAliasRule">
-                    <TextBlock Text="{Binding OriginalName}" ToolTip.Tip="{Binding OriginalName}" TextTrimming="CharacterEllipsis" Margin="8,0" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding KindLabel}" Margin="8,0" VerticalAlignment="Center" />
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTemplateColumn Header="{Binding MA_Target, Source={x:Static local:LocalizedStrings.Instance}}" Width="*" MinWidth="100">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate x:DataType="local:ModAliasRule">
+                    <TextBlock Text="{Binding TargetLabel}" ToolTip.Tip="{Binding TargetLabel}" TextTrimming="CharacterEllipsis" Margin="8,0" VerticalAlignment="Center" />
                   </DataTemplate>
                 </DataGridTemplateColumn.CellTemplate>
               </DataGridTemplateColumn>
@@ -78,14 +87,41 @@
             </DataGrid.Columns>
           </DataGrid>
           <TextBlock x:Name="aliasEmpty" Text="{Binding MA_Empty, Source={x:Static local:LocalizedStrings.Instance}}" TextWrapping="Wrap" />
-          <TextBlock Text="{Binding MA_OriginalName, Source={x:Static local:LocalizedStrings.Instance}}" />
-          <TextBox x:Name="aliasOriginalName" MaxLength="1024"
-                   AutomationProperties.Name="{Binding MA_OriginalName, Source={x:Static local:LocalizedStrings.Instance}}" />
+          <TextBlock Text="{Binding MA_RuleType, Source={x:Static local:LocalizedStrings.Instance}}" />
+          <ComboBox x:Name="aliasRuleKind" SelectedIndex="0" SelectionChanged="aliasRuleKind_SelectionChanged"
+                    AutomationProperties.Name="{Binding MA_RuleType, Source={x:Static local:LocalizedStrings.Instance}}">
+            <ComboBoxItem Content="{Binding MA_KindField, Source={x:Static local:LocalizedStrings.Instance}}" />
+            <ComboBoxItem Content="{Binding MA_KindItem, Source={x:Static local:LocalizedStrings.Instance}}" />
+          </ComboBox>
+          <StackPanel x:Name="aliasNameEditor" Spacing="6">
+            <TextBlock Text="{Binding MA_OriginalName, Source={x:Static local:LocalizedStrings.Instance}}" />
+            <TextBox x:Name="aliasOriginalName" MaxLength="1024" TextChanged="aliasDraft_TextChanged"
+                     AutomationProperties.Name="{Binding MA_OriginalName, Source={x:Static local:LocalizedStrings.Instance}}" />
+          </StackPanel>
+          <StackPanel x:Name="aliasItemEditor" Spacing="6" IsVisible="False">
+            <TextBox x:Name="aliasWorkshopSearch" TextChanged="aliasWorkshopSearch_TextChanged"
+                     PlaceholderText="{Binding MA_WorkshopSearch, Source={x:Static local:LocalizedStrings.Instance}}"
+                     AutomationProperties.Name="{Binding MA_WorkshopSearch, Source={x:Static local:LocalizedStrings.Instance}}" />
+            <ComboBox x:Name="aliasWorkshopResults" SelectionChanged="aliasWorkshopResults_SelectionChanged" HorizontalAlignment="Stretch"
+                      PlaceholderText="{Binding MA_WorkshopSelect, Source={x:Static local:LocalizedStrings.Instance}}"
+                      AutomationProperties.Name="{Binding MA_WorkshopSelect, Source={x:Static local:LocalizedStrings.Instance}}" />
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+              <TextBox x:Name="aliasUrl" MaxLength="4096" TextChanged="aliasUrl_TextChanged"
+                       PlaceholderText="{Binding MA_ItemUrl, Source={x:Static local:LocalizedStrings.Instance}}"
+                       AutomationProperties.Name="{Binding MA_ItemUrl, Source={x:Static local:LocalizedStrings.Instance}}" />
+              <Button Grid.Column="1" x:Name="aliasResolve" Click="aliasResolve_Click"
+                      Content="{Binding MA_ResolveItem, Source={x:Static local:LocalizedStrings.Instance}}" />
+            </Grid>
+            <TextBlock x:Name="aliasItemTarget" FontWeight="SemiBold" TextWrapping="Wrap" />
+          </StackPanel>
           <TextBlock Text="{Binding MA_Alias, Source={x:Static local:LocalizedStrings.Instance}}" />
-          <TextBox x:Name="aliasValue" MaxLength="1024"
+          <TextBox x:Name="aliasValue" MaxLength="1024" TextChanged="aliasDraft_TextChanged"
                    AutomationProperties.Name="{Binding MA_Alias, Source={x:Static local:LocalizedStrings.Instance}}" />
+          <TextBox x:Name="aliasPreviewName" MaxLength="1024" TextChanged="aliasDraft_TextChanged"
+                   PlaceholderText="{Binding MA_SampleName, Source={x:Static local:LocalizedStrings.Instance}}"
+                   AutomationProperties.Name="{Binding MA_SampleName, Source={x:Static local:LocalizedStrings.Instance}}" />
+          <TextBlock x:Name="aliasPreview" TextWrapping="Wrap" IsVisible="False" />
           <WrapPanel>
-            <Button x:Name="newAliasRule" Click="newAliasRule_Click" Content="{Binding MA_Add, Source={x:Static local:LocalizedStrings.Instance}}" Margin="0,0,8,4" />
             <Button x:Name="saveAliasRule" Click="saveAliasRule_Click" Content="{Binding MA_Save, Source={x:Static local:LocalizedStrings.Instance}}" Margin="0,0,8,4" />
             <Button x:Name="deleteAliasRule" Click="deleteAliasRule_Click" Content="{Binding MA_Delete, Source={x:Static local:LocalizedStrings.Instance}}" IsEnabled="False" Margin="0,0,8,4" />
           </WrapPanel>

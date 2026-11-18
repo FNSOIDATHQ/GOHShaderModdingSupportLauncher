@@ -85,9 +85,11 @@ name = "Local example"
 
 ### Mod aliases
 
-Select one Mod in **Mod manager** and choose **Edit alias** to set, change or clear its alias. Both name columns show matching aliases in bold; hover to see the original name. Available Mods sort by their displayed names, while enabled Mods keep their load order.
+Select one Mod in **Mod manager** and choose **Edit alias** to set, change or clear its alias. With item-based aliases enabled, a Mod with an identified source can be edited for that item or by field mapping. Both name columns show matching aliases in bold. Hover to see the original name. Available Mods sort by their displayed names, while enabled Mods keep their load order.
 
-**Settings → Mod aliases** manages all rules, including names that are not currently installed. Search by original name or alias, select a rule to edit or delete it, or choose **Add rule** to enter a new original name and alias. Matching uses the complete original name and is case sensitive. Mods with the same name share a rule across games and sources. Renamed Mods require an updated rule; aliases are never matched again as names.
+**Settings → Mod aliases** manages field mappings and specific-item rules. Field matching is case sensitive. A rule such as `system imp` → `系统改进` preserves the suffix in `system imp v0.1`. All nonoverlapping matches are replaced. Overlaps prefer the longer part of the original name, with ties going to the leftmost match. **Save** updates the rule for the entered target or creates a rule for a new target. Existing name rules are loaded as field mappings. If an older file contains both rule types for the same source text, the partial rule takes precedence.
+
+**Enable item-based aliases** is off by default. When enabled, a specific-item rule takes priority. Filter the installed Workshop items for the selected game, or identify an item by its Workshop, ModDB, GitHub or Mow Portal project URL. You can add a Workshop URL before installing the item. Item aliases follow the item ID through name changes. Manually installed Mods without a source record use name rules.
 
 Rules are saved in `%LOCALAPPDATA%\GOHSMSLauncher\mod-aliases.json`, alongside launcher settings. Removing a Mod or clearing subscription caches preserves them. Aliases change only the name display; Mod files, IDs, enabled order and preset matching keep their original values.
 

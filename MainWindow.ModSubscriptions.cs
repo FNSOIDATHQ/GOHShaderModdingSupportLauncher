@@ -6,6 +6,7 @@ namespace GOHShaderModdingSupportLauncher;
 
 public partial class MainWindow
 {
+    internal const string WorkshopAppId = "400750";
     internal void OpenSubscriptionModManager(string? directory = null) => _ = LocateSubscriptionModAsync(directory);
     private bool openingInstalledSubscription;
     private ModSubscriptionOrigins? modOrigins;
@@ -34,7 +35,11 @@ public partial class MainWindow
         bool changed = false;
         foreach (var mod in universalVars.modDic.Values.Concat(universalVars.modLoaded).Distinct())
         {
-            changed |= origins.Apply(mod);
+            if (origins.Apply(mod))
+            {
+                ModAliases.Apply(mod);
+                changed = true;
+            }
             if (languageChanged)
             {
                 if (mod.Inspection is { } inspection) mod.type = inspection.Source == ModSourceKind.Workshop
@@ -47,7 +52,11 @@ public partial class MainWindow
 
     internal async Task OpenModSubscriptionAsync(Mod mod)
     {
-        CurrentModOrigins().Apply(mod);
+        if (CurrentModOrigins().Apply(mod))
+        {
+            ModAliases.Apply(mod);
+            ModOriginsChanged?.Invoke();
+        }
         if (mod.SubscriptionLink is not { } link) return;
         openingInstalledSubscription = true;
         try { SelectNavigationPage(PageId.ModSubscriptions); }

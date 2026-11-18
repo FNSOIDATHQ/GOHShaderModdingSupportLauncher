@@ -35,7 +35,6 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
         nameof(MA_OriginalName),
         nameof(MA_Alias),
         nameof(MA_Search),
-        nameof(MA_Add),
         nameof(MA_Save),
         nameof(MA_Delete),
         nameof(MA_Clear),
@@ -43,11 +42,19 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
         nameof(MA_Hint),
         nameof(MA_Empty),
         nameof(MA_InvalidRule),
-        nameof(MA_Duplicate),
-        nameof(MA_MissingRule),
         nameof(MA_InvalidFile),
         nameof(MA_LoadError),
         nameof(MA_SaveError),
+        nameof(MA_EnableItemMapping),
+        nameof(MA_RuleType),
+        nameof(MA_Target),
+        nameof(MA_KindField),
+        nameof(MA_KindItem),
+        nameof(MA_WorkshopSearch),
+        nameof(MA_WorkshopSelect),
+        nameof(MA_ItemUrl),
+        nameof(MA_ResolveItem),
+        nameof(MA_SampleName),
         nameof(P_Presets), 
         nameof(P_Save), 
         nameof(P_Overwrite), 
@@ -155,7 +162,6 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
     public string MA_OriginalName => this[nameof(MA_OriginalName)];
     public string MA_Alias => this[nameof(MA_Alias)];
     public string MA_Search => this[nameof(MA_Search)];
-    public string MA_Add => this[nameof(MA_Add)];
     public string MA_Save => this[nameof(MA_Save)];
     public string MA_Delete => this[nameof(MA_Delete)];
     public string MA_Clear => this[nameof(MA_Clear)];
@@ -163,11 +169,19 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
     public string MA_Hint => this[nameof(MA_Hint)];
     public string MA_Empty => this[nameof(MA_Empty)];
     public string MA_InvalidRule => this[nameof(MA_InvalidRule)];
-    public string MA_Duplicate => this[nameof(MA_Duplicate)];
-    public string MA_MissingRule => this[nameof(MA_MissingRule)];
     public string MA_InvalidFile => this[nameof(MA_InvalidFile)];
     public string MA_LoadError => this[nameof(MA_LoadError)];
     public string MA_SaveError => this[nameof(MA_SaveError)];
+    public string MA_EnableItemMapping => this[nameof(MA_EnableItemMapping)];
+    public string MA_RuleType => this[nameof(MA_RuleType)];
+    public string MA_Target => this[nameof(MA_Target)];
+    public string MA_KindField => this[nameof(MA_KindField)];
+    public string MA_KindItem => this[nameof(MA_KindItem)];
+    public string MA_WorkshopSearch => this[nameof(MA_WorkshopSearch)];
+    public string MA_WorkshopSelect => this[nameof(MA_WorkshopSelect)];
+    public string MA_ItemUrl => this[nameof(MA_ItemUrl)];
+    public string MA_ResolveItem => this[nameof(MA_ResolveItem)];
+    public string MA_SampleName => this[nameof(MA_SampleName)];
     public string P_Save => this[nameof(P_Save)];
     public string P_Overwrite => this[nameof(P_Overwrite)];
     public string P_Load => this[nameof(P_Load)];

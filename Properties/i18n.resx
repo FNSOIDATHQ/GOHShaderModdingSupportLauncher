@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -809,19 +809,31 @@ Manual changes outside mods cannot be undone here.</value></data>
   <data name="MA_EditAlias" xml:space="preserve"><value>Edit alias</value></data>
   <data name="MA_OriginalName" xml:space="preserve"><value>Original Mod name</value></data>
   <data name="MA_Alias" xml:space="preserve"><value>Alias</value></data>
-  <data name="MA_Search" xml:space="preserve"><value>Search original names and aliases</value></data>
-  <data name="MA_Add" xml:space="preserve"><value>Add rule</value></data>
+  <data name="MA_Search" xml:space="preserve"><value>Search targets, aliases and rule types</value></data>
   <data name="MA_Save" xml:space="preserve"><value>Save</value></data>
-  <data name="MA_Delete" xml:space="preserve"><value>Delete rule</value></data>
+  <data name="MA_Delete" xml:space="preserve"><value>Delete selected rule</value></data>
   <data name="MA_Clear" xml:space="preserve"><value>Clear alias</value></data>
   <data name="MA_Cancel" xml:space="preserve"><value>Cancel</value></data>
-  <data name="MA_Hint" xml:space="preserve"><value>Rules match the full original name, including case. Mods with the same name share an alias. Hover over a Mod name to see its original name.</value></data>
-  <data name="MA_Empty" xml:space="preserve"><value>No matching alias rules. Enter an original name and alias to add one.</value></data>
-  <data name="MA_InvalidRule" xml:space="preserve"><value>Enter a nonblank original name and alias, each up to 1,024 characters without line breaks or control characters.</value></data>
-  <data name="MA_Duplicate" xml:space="preserve"><value>A rule for this exact original name already exists. Select that rule to edit it.</value></data>
-  <data name="MA_MissingRule" xml:space="preserve"><value>This rule no longer exists. Add a new rule.</value></data>
+  <data name="MA_Hint" xml:space="preserve"><value>Rules check specific items first, followed by field mappings.</value></data>
+  <data name="MA_Empty" xml:space="preserve"><value>No matching alias rules.</value></data>
+  <data name="MA_InvalidRule" xml:space="preserve"><value>Enter a valid target and a nonblank alias. Name fields support up to 1,024 characters without line breaks or control characters.</value></data>
   <data name="MA_InvalidFile" xml:space="preserve"><value>The Mod alias file is invalid, unsupported or exceeds the size limit.</value></data>
   <data name="MA_LoadError" xml:space="preserve"><value>The Mod alias file could not be loaded. It has been preserved. Check mod-aliases.json beside the launcher settings, then restart the launcher.</value></data>
+  <data name="MA_EnableItemMapping" xml:space="preserve"><value>Enable item-based aliases</value></data>
+  <data name="MA_RuleType" xml:space="preserve"><value>Rule type</value></data>
+  <data name="MA_Target" xml:space="preserve"><value>Match target</value></data>
+  <data name="MA_KindField" xml:space="preserve"><value>Field mapping</value></data>
+  <data name="MA_KindItem" xml:space="preserve"><value>Specific item</value></data>
+  <data name="MA_WorkshopSearch" xml:space="preserve"><value>Filter installed Workshop items by name or ID</value></data>
+  <data name="MA_WorkshopSelect" xml:space="preserve"><value>Select an installed Workshop item</value></data>
+  <data name="MA_ItemUrl" xml:space="preserve"><value>Workshop or project URL</value></data>
+  <data name="MA_ResolveItem" xml:space="preserve"><value>Identify item</value></data>
+  <data name="MA_SampleName" xml:space="preserve"><value>Enter a test name to preview the mapping</value></data>
+  <data name="MA_Preview" xml:space="preserve"><value>Mapping result: {0}</value></data>
+  <data name="MA_InvalidAddress" xml:space="preserve"><value>Select an installed Workshop item or identify a valid Workshop or project details URL.</value></data>
+  <data name="MA_ResolveError" xml:space="preserve"><value>The Mod item could not be identified.</value></data>
+  <data name="MA_OnlyItem" xml:space="preserve"><value>This item only</value></data>
+  <data name="MA_TargetChanged" xml:space="preserve"><value>The selected Mod changed. Reopen the alias editor.</value></data>
   <data name="MA_SaveError" xml:space="preserve"><value>Mod aliases could not be saved. Your previous rules are unchanged.</value></data>
   <data name="MS_TranslationProvider" xml:space="preserve"><value>Translation provider</value></data>
   <data name="MS_TranslationLanguageUnavailable" xml:space="preserve"><value>{0} (unavailable)</value></data>

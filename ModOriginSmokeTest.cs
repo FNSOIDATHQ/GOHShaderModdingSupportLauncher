@@ -46,8 +46,10 @@ internal static class ModOriginSmokeTest
         }
         foreach (string provider in new[] { "moddb", "github", "mowportal" })
         {
-            var mod = new RemoteMod { Id = new(provider, "origin-diagnostic"), Title = "Same diagnostic name",
-                PageUrl = new(provider switch { "github" => "https://github.com/diagnostic/origin", "mowportal" => "https://mow-portal.ru/load/1134", _ => "https://www.moddb.com/mods/origin-diagnostic" }) };
+            string id = provider switch { "github" => "202", "mowportal" => "203", _ => "201" };
+            var mod = new RemoteMod { Id = new(provider, id), Title = "Same diagnostic name",
+                PageUrl = new(provider switch { "github" => "https://github.com/diagnostic/origin",
+                    "mowportal" => "https://mow-portal.com/call_to_arms_gates_of_hell/203-origin.html", _ => "https://www.moddb.com/mods/origin-diagnostic" }) };
             var file = new RemoteModFile { Id = provider + "-file", Revision = "1", Name = provider + ".zip",
                 PageUrl = mod.PageUrl, Description = provider + " saved file notes" };
             store.SaveMod(mod);
@@ -84,6 +86,26 @@ internal static class ModOriginSmokeTest
                 Require(events.Contains(nameof(Mod.SourceLabel)) && events.Contains(nameof(Mod.SourceSortKey)), "Origin changes did not notify bound cells.");
             }
             Require(Local("manual").SubscriptionLink is null, "A same-name hand-installed Mod was adopted.");
+            main.ModAliases.Save("Same diagnostic name", "Name fallback");
+            main.ModAliases.SetItemMapping(true);
+            foreach (var project in library.Mods)
+            {
+                Require(ModPageRouter.TryResolveSupportedPage(project.PageUrl, out var route), "The saved project's URL did not route.");
+                var identified = ModAliasItems.DirectItem(project.PageUrl);
+                if (identified is null)
+                {
+                    var lookup = ModAliasItems.ResolveProjectAsync(route!, runtime, CancellationToken.None);
+                    Pump(lookup);
+                    identified = lookup.GetAwaiter().GetResult();
+                }
+                var local = Local(project.Id.Provider);
+                Require(identified.Key == ModAliasItems.ForMod(local)?.Key, "The saved project URL and installed directory yielded different identities.");
+                main.ModAliases.Save(new(identified.Key, project.Id.Provider + " alias") { Kind = ModAliasKind.Item });
+                main.ModAliases.Apply(local);
+                Require(local.DisplayName == project.Id.Provider + " alias", "A committed installation did not use its own alias.");
+            }
+            main.ModAliases.Apply(Local("manual"));
+            Require(Local("manual").DisplayName == "Name fallback", "A manual install acquired an item alias.");
             var workshop = main.universalVars.modDic.Values.Single(mod => mod.Inspection?.Source == ModSourceKind.Workshop);
             Require(workshop.SubscriptionLink is null && workshop.SourceLabel == Properties.i18n.Main_ModWorkshop, "A Workshop Mod acquired local subscription ownership.");
             Require(new ModSubscriptionOrigins(library, Path.Combine(root, "other-game")).Resolve(Local("moddb")) is null,
@@ -101,6 +123,10 @@ internal static class ModOriginSmokeTest
             string firstPath = library.Subscriptions.First().Installations.Single().DirectoryPath;
             Require(new ModSubscriptionOrigins(ambiguous, game).Resolve(main.universalVars.modDic.Values.Single(mod => mod.path == firstPath)) is null,
                 "An ambiguous installation silently chose an owner.");
+            new ModSubscriptionOrigins(ambiguous, game).Apply(prefix);
+            main.ModAliases.Apply(prefix);
+            Require(prefix.DisplayName == "Name fallback", "An ambiguous installation retained a project alias.");
+            origins.Apply(prefix);
             var manager = new ModManager(main);
             Require(manager.FindControl<DataGrid>("loadedMods")!.ItemsSource!.Cast<Mod>().Select(mod => mod.folderName).SequenceEqual(new[] { "github", "moddb" }),
                 "Origin presentation changed game load order.");
