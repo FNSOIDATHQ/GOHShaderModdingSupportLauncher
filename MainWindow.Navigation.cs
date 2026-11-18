@@ -14,18 +14,32 @@ public partial class MainWindow
     internal bool ShouldShowDonationBanner => ShowDonationBannerThisSession && !InterfacePreferences.HideDonationBanner;
     private bool navigationNarrow, expandNavigationInNarrowWindow;
 
-    internal void SetModListCollapsed(bool collapsed) => SaveInterfacePreferences(InterfacePreferences with { ModListCollapsed = collapsed });
+    internal void SetModListCollapsed(bool collapsed) =>
+        UpdateInterfacePreferences(preferences => preferences with { ModListCollapsed = collapsed });
 
     internal void SetDonationBannerHidden(bool hidden)
     {
-        SaveInterfacePreferences(InterfacePreferences with { HideDonationBanner = hidden });
+        UpdateInterfacePreferences(preferences => preferences with { HideDonationBanner = hidden });
         if (pages.TryGetValue(PageId.Launcher, out var page) && page is Launcher launcher)
             launcher.RefreshDonationBanner();
     }
 
-    private void SaveInterfacePreferences(UiPreferences value)
+    private UiPreferences LoadInterfacePreferences()
     {
+        try { return uiPreferencesStore.Load(); }
+        catch (Exception ex) when (FileManager.IsFileError(ex) || ex is System.Text.Json.JsonException)
+        {
+            AppDiagnostics.Log("Ignoring invalid/unreadable interface preferences.", ex);
+            return InterfacePreferences;
+        }
+    }
+
+    private void UpdateInterfacePreferences(Func<UiPreferences, UiPreferences> update)
+    {
+        var saved = LoadInterfacePreferences();
+        var value = update(saved);
         InterfacePreferences = value;
+        if (value == saved) return;
         try { uiPreferencesStore.Save(value); }
         catch (Exception ex) when (FileManager.IsFileError(ex)) { AppDiagnostics.Log("Unable to save interface preferences.", ex); }
     }
@@ -34,7 +48,7 @@ public partial class MainWindow
     {
         bool collapse = mainView.IsPaneOpen;
         expandNavigationInNarrowWindow = navigationNarrow && !collapse;
-        SaveInterfacePreferences(InterfacePreferences with { NavigationCollapsed = collapse });
+        UpdateInterfacePreferences(preferences => preferences with { NavigationCollapsed = collapse });
         UpdateNavigationLayout();
         navigationToggle.Focus(NavigationMethod.Tab);
     }

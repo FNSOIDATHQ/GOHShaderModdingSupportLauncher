@@ -122,12 +122,11 @@ namespace GOHShaderModdingSupportLauncher
             ShowDonationBannerThisSession = showDonationBanner ?? Random.Shared.Next(4) == 0;
             ModAliases = new ModAliasStore(Path.Combine(Path.GetDirectoryName(Path.GetFullPath(settingsPath))!, "mod-aliases.json"));
             uiPreferencesStore = new UiPreferencesStore(Path.Combine(Path.GetDirectoryName(Path.GetFullPath(settingsPath))!, "ui-preferences.json"));
-            try { InterfacePreferences = uiPreferencesStore.Load(); }
-            catch (Exception ex) when (FileManager.IsFileError(ex) || ex is System.Text.Json.JsonException)
-            { AppDiagnostics.Log("Ignoring invalid/unreadable interface preferences.", ex); }
+            InterfacePreferences = LoadInterfacePreferences();
             LocalizedStrings.Instance.SetCulture(LoadSavedLanguage(settingsPath));
             AppDiagnostics.Log("Loading main window XAML.");
             InitializeComponent();
+            RestoreWindowPlacement();
             universalVars = new UniversalVars();
             launcherVars = new LauncherVars();
             settingsVars = new SettingsVars();
@@ -137,8 +136,13 @@ namespace GOHShaderModdingSupportLauncher
             languageSelector.IsEnabled = false;
             PropertyChanged += (_, change) =>
             {
-                if (change.Property == WindowStateProperty) UpdateWindowChrome();
+                if (change.Property != WindowStateProperty) return;
+                UpdateWindowChrome();
+                TrackWindowState();
             };
+            PositionChanged += (_, _) => ScheduleWindowPlacementCapture();
+            Resized += (_, _) => ScheduleWindowPlacementCapture();
+            Closing += (_, _) => CaptureNormalWindowPlacement();
             UpdateWindowChrome();
             UpdateNavigationLayout();
             Opened += OnOpened;
@@ -221,6 +225,7 @@ namespace GOHShaderModdingSupportLauncher
 
         private async void OnOpened(object? sender, EventArgs e)
         {
+            CaptureNormalWindowPlacement();
             if (initialized) return;
             initialized = true;
             try
@@ -828,6 +833,7 @@ namespace GOHShaderModdingSupportLauncher
         //when manually close by user, only store the settings
         private void OnClosed(object sender, EventArgs e)
         {
+            SaveWindowPlacement();
             StopLauncherUpdates();
             StopTrackingMods();
             CancelModScan();

@@ -9,7 +9,12 @@ internal sealed record UiPreferences
     public bool NavigationCollapsed { get; init; }
     public bool ModListCollapsed { get; init; }
     public bool HideDonationBanner { get; init; }
+    public bool DisableWindowPlacement { get; init; }
+    public MainWindowPlacement? WindowPlacement { get; init; }
 }
+
+// Positions use screen pixels, while sizes use Avalonia's device-independent units.
+internal sealed record MainWindowPlacement(int X, int Y, double Width, double Height, bool IsMaximized);
 
 // Interface preferences belong to the launcher, independently of games and subscription data.
 internal sealed class UiPreferencesStore(string path)

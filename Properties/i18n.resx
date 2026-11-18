@@ -1090,6 +1090,7 @@ Manual changes outside mods cannot be undone here.</value></data>
   <data name="D_MessageMore" xml:space="preserve"><value>A great deal of time and effort goes into this project. Your support is our biggest motivation to keep going.</value></data>
   <data name="D_AlipayExpand" xml:space="preserve"><value>Or support us directly via Alipay</value></data>
   <data name="S_HideDonationBanner" xml:space="preserve"><value>Always hide the support banner on the launcher page</value></data>
+  <data name="S_RememberWindowPlacement" xml:space="preserve"><value>Remember window position and size</value></data>
   <data name="D_Thanks" xml:space="preserve"><value>Thank you for your support!</value></data>
   <data name="D_KoFi" xml:space="preserve"><value>Donate on Ko-fi ↗</value></data>
   <data name="D_MianBaoDuo" xml:space="preserve"><value>Donate on MianBaoDuo ↗</value></data>

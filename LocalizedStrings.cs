@@ -109,6 +109,7 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
         nameof(S_PathConfirm),
         nameof(S_PathsRequired),
         nameof(S_RefreshCache),
+        nameof(S_RememberWindowPlacement),
         nameof(S_Restore),
         nameof(Tab_About),
         nameof(Tab_Converter),
@@ -235,6 +236,7 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
     public string S_PathConfirm => this[nameof(S_PathConfirm)];
     public string S_PathsRequired => this[nameof(S_PathsRequired)];
     public string S_RefreshCache => this[nameof(S_RefreshCache)];
+    public string S_RememberWindowPlacement => this[nameof(S_RememberWindowPlacement)];
     public string S_Restore => this[nameof(S_Restore)];
     public string Tab_About => this[nameof(Tab_About)];
     public string Tab_Converter => this[nameof(Tab_Converter)];
