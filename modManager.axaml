@@ -25,16 +25,33 @@
       <Setter Property="FontWeight" Value="Bold" />
     </Style>
   </UserControl.Styles>
+  <SplitView x:Name="modPreviewSplit" PanePlacement="Right" DisplayMode="Inline"
+             IsPaneOpen="True" OpenPaneLength="320" Background="Transparent"
+             PaneBackground="{StaticResource ModReadingBackgroundBrush}">
+    <SplitView.Pane>
+      <local:ModLocalPreview x:Name="localPreview" />
+    </SplitView.Pane>
   <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" Margin="10">
-    <WrapPanel Grid.Row="0" Margin="0,0,0,8">
-      <TextBlock Text="{Binding P_Presets, Source={x:Static local:LocalizedStrings.Instance}}" VerticalAlignment="Center" Margin="0,0,8,4" />
-      <ComboBox x:Name="presetList" MinWidth="180" MaxWidth="260" Margin="0,0,8,4" SelectionChanged="presetList_SelectionChanged" />
-      <Button x:Name="savePreset" Click="savePreset_Click" Content="{Binding P_Save, Source={x:Static local:LocalizedStrings.Instance}}" Margin="0,0,8,4" />
-      <Button x:Name="overwritePreset" Click="overwritePreset_Click" Content="{Binding P_Overwrite, Source={x:Static local:LocalizedStrings.Instance}}" Margin="0,0,8,4" IsEnabled="False" />
-      <Button x:Name="loadPreset" Click="loadPreset_Click" Content="{Binding P_Load, Source={x:Static local:LocalizedStrings.Instance}}" Margin="0,0,8,4" IsEnabled="False" />
-      <Button x:Name="renamePreset" Click="renamePreset_Click" Content="{Binding P_Rename, Source={x:Static local:LocalizedStrings.Instance}}" Margin="0,0,8,4" IsEnabled="False" />
-      <Button x:Name="deletePreset" Click="deletePreset_Click" Content="{Binding P_Delete, Source={x:Static local:LocalizedStrings.Instance}}" Margin="0,0,8,4" IsEnabled="False" />
-    </WrapPanel>
+    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="6" Margin="0,0,0,8">
+      <WrapPanel>
+        <TextBlock Text="{Binding P_Presets, Source={x:Static local:LocalizedStrings.Instance}}" VerticalAlignment="Center" Margin="0,0,8,4" />
+        <ComboBox x:Name="presetList" MinWidth="180" MaxWidth="260" Margin="0,0,8,4" SelectionChanged="presetList_SelectionChanged" />
+        <Button x:Name="savePreset" Click="savePreset_Click" Content="{Binding P_Save, Source={x:Static local:LocalizedStrings.Instance}}" Margin="0,0,8,4" />
+        <Button x:Name="overwritePreset" Click="overwritePreset_Click" Content="{Binding P_Overwrite, Source={x:Static local:LocalizedStrings.Instance}}" Margin="0,0,8,4" IsEnabled="False" />
+        <Button x:Name="loadPreset" Click="loadPreset_Click" Content="{Binding P_Load, Source={x:Static local:LocalizedStrings.Instance}}" Margin="0,0,8,4" IsEnabled="False" />
+        <Button x:Name="renamePreset" Click="renamePreset_Click" Content="{Binding P_Rename, Source={x:Static local:LocalizedStrings.Instance}}" Margin="0,0,8,4" IsEnabled="False" />
+        <Button x:Name="deletePreset" Click="deletePreset_Click" Content="{Binding P_Delete, Source={x:Static local:LocalizedStrings.Instance}}" Margin="0,0,8,4" IsEnabled="False" />
+      </WrapPanel>
+      <Button x:Name="expandModPreview" Grid.Column="1" IsVisible="False" VerticalAlignment="Top"
+              ToolTip.Tip="{Binding MP_Expand, Source={x:Static local:LocalizedStrings.Instance}}"
+              AutomationProperties.Name="{Binding MP_Expand, Source={x:Static local:LocalizedStrings.Instance}}"
+              Click="ExpandModPreview_Click">
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <TextBlock Text="{Binding MP_Title, Source={x:Static local:LocalizedStrings.Instance}}" VerticalAlignment="Center" />
+          <TextBlock Text="&#xE76B;" FontFamily="Segoe MDL2 Assets" FontSize="16" VerticalAlignment="Center" />
+        </StackPanel>
+      </Button>
+    </Grid>
     <TextBox x:Name="modSearch" Grid.Row="1" Margin="0,0,0,8" TextChanging="modSearch_TextChanging"
              PlaceholderText="{Binding M_Search, Source={x:Static local:LocalizedStrings.Instance}}"
              AutomationProperties.Name="{Binding M_Search, Source={x:Static local:LocalizedStrings.Instance}}" />
@@ -105,4 +122,5 @@
               Content="{Binding MA_EditAlias, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" Margin="0,0,8,4" />
     </WrapPanel>
   </Grid>
+  </SplitView>
 </UserControl>

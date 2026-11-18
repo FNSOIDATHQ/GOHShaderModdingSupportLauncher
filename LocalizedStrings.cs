@@ -30,6 +30,14 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
         nameof(MI_FeatureHint),
         nameof(MI_Source),
         nameof(M_ViewSubscription),
+        nameof(MP_Title),
+        nameof(MP_Expand),
+        nameof(MP_Collapse),
+        nameof(MP_Previous),
+        nameof(MP_Next),
+        nameof(MP_Documents),
+        nameof(MP_PreviousDocument),
+        nameof(MP_NextDocument),
         nameof(MA_Title),
         nameof(MA_EditAlias),
         nameof(MA_OriginalName),
@@ -159,6 +167,14 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
         this["MI_" + key] + this["MI_FeatureHint" + key]));
     public string MI_Source => this[nameof(MI_Source)];
     public string M_ViewSubscription => this[nameof(M_ViewSubscription)];
+    public string MP_Title => this[nameof(MP_Title)];
+    public string MP_Expand => this[nameof(MP_Expand)];
+    public string MP_Collapse => this[nameof(MP_Collapse)];
+    public string MP_Previous => this[nameof(MP_Previous)];
+    public string MP_Next => this[nameof(MP_Next)];
+    public string MP_Documents => this[nameof(MP_Documents)];
+    public string MP_PreviousDocument => this[nameof(MP_PreviousDocument)];
+    public string MP_NextDocument => this[nameof(MP_NextDocument)];
     public string MA_Title => this[nameof(MA_Title)];
     public string MA_EditAlias => this[nameof(MA_EditAlias)];
     public string MA_OriginalName => this[nameof(MA_OriginalName)];

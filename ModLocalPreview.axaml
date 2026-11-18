@@ -1,0 +1,77 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:GOHShaderModdingSupportLauncher"
+             x:Class="GOHShaderModdingSupportLauncher.ModLocalPreview">
+  <UserControl.Styles>
+    <Style Selector="Button.previewStep">
+      <Setter Property="Width" Value="34" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
+  </UserControl.Styles>
+  <Grid RowDefinitions="Auto,Auto,*" Margin="12" RowSpacing="8">
+    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+      <StackPanel VerticalAlignment="Center" Spacing="2">
+        <TextBlock x:Name="previewTitle" Text="{Binding MP_Title, Source={x:Static local:LocalizedStrings.Instance}}"
+                   FontSize="18" FontWeight="SemiBold" />
+        <TextBlock x:Name="previewModName" TextTrimming="CharacterEllipsis" />
+      </StackPanel>
+      <Button x:Name="collapseModPreview" Grid.Column="1" Width="36" Height="36" Padding="0"
+              Content="&#xE76C;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+              HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+              ToolTip.Tip="{Binding MP_Collapse, Source={x:Static local:LocalizedStrings.Instance}}"
+              AutomationProperties.Name="{Binding MP_Collapse, Source={x:Static local:LocalizedStrings.Instance}}"
+              Click="Collapse_Click" />
+    </Grid>
+    <Grid x:Name="previewGallery" Grid.Row="1" RowDefinitions="*,Auto" RowSpacing="4"
+          Height="180" IsVisible="False">
+      <Border Background="{StaticResource ModReadingCodeBrush}" CornerRadius="4" Padding="4">
+        <Panel>
+          <Image x:Name="previewImage" Stretch="Uniform" StretchDirection="DownOnly" />
+          <TextBlock x:Name="previewImageMessage" TextWrapping="Wrap" TextAlignment="Center"
+                     HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Panel>
+      </Border>
+      <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="4">
+        <Button x:Name="previousPreviewImage" Classes="previewStep" Content="‹" Click="PreviousImage_Click"
+                ToolTip.Tip="{Binding MP_Previous, Source={x:Static local:LocalizedStrings.Instance}}"
+                AutomationProperties.Name="{Binding MP_Previous, Source={x:Static local:LocalizedStrings.Instance}}" />
+        <TextBlock x:Name="previewImagePosition" Grid.Column="1" TextAlignment="Center" TextTrimming="CharacterEllipsis"
+                   VerticalAlignment="Center" />
+        <Button x:Name="nextPreviewImage" Grid.Column="2" Classes="previewStep" Content="›" Click="NextImage_Click"
+                ToolTip.Tip="{Binding MP_Next, Source={x:Static local:LocalizedStrings.Instance}}"
+                AutomationProperties.Name="{Binding MP_Next, Source={x:Static local:LocalizedStrings.Instance}}" />
+      </Grid>
+    </Grid>
+    <TextBlock x:Name="previewMessage" Grid.Row="2" TextWrapping="Wrap" />
+    <Border x:Name="previewDocuments" Grid.Row="2" IsVisible="False" ClipToBounds="True" CornerRadius="6"
+            Background="{StaticResource ModReadingBackgroundBrush}" BorderBrush="{StaticResource ModReadingBorderBrush}"
+            BorderThickness="1">
+      <Grid RowDefinitions="Auto,*">
+        <Border x:Name="previewDocumentToolbar" Background="{StaticResource ModReadingQuoteBrush}"
+                BorderBrush="{StaticResource ModReadingBorderBrush}" BorderThickness="0,0,0,1" Padding="10,7">
+          <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="7" RowSpacing="4">
+            <Path Width="16" Height="16" Stretch="Uniform" StrokeThickness="1.35"
+                  Stroke="{StaticResource ModReadingLinkBrush}" VerticalAlignment="Center"
+                  Data="M 3,1 L 9,1 L 13,5 L 13,15 L 3,15 Z M 9,1 L 9,5 L 13,5 M 5.5,8 L 10.5,8 M 5.5,11 L 10.5,11" />
+            <TextBlock x:Name="previewDocumentTitle" Grid.Column="1" FontSize="12" VerticalAlignment="Center"
+                       Text="{Binding MP_Documents, Source={x:Static local:LocalizedStrings.Instance}}" />
+            <TextBlock x:Name="previewDocumentCount" Grid.Column="2" FontSize="12" HorizontalAlignment="Center"
+                       VerticalAlignment="Center" />
+            <TextBlock x:Name="previewDocumentPosition" Grid.Row="1" Grid.ColumnSpan="2" FontWeight="SemiBold"
+                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+            <StackPanel Grid.Row="1" Grid.Column="2" Orientation="Horizontal" Spacing="2">
+              <Button x:Name="previousPreviewDocument" Classes="previewStep" Content="‹" Click="PreviousDocument_Click"
+                      ToolTip.Tip="{Binding MP_PreviousDocument, Source={x:Static local:LocalizedStrings.Instance}}"
+                      AutomationProperties.Name="{Binding MP_PreviousDocument, Source={x:Static local:LocalizedStrings.Instance}}" />
+              <Button x:Name="nextPreviewDocument" Classes="previewStep" Content="›" Click="NextDocument_Click"
+                      ToolTip.Tip="{Binding MP_NextDocument, Source={x:Static local:LocalizedStrings.Instance}}"
+                      AutomationProperties.Name="{Binding MP_NextDocument, Source={x:Static local:LocalizedStrings.Instance}}" />
+            </StackPanel>
+          </Grid>
+        </Border>
+        <ScrollViewer x:Name="previewDocumentScroll" Grid.Row="1" Margin="10,8,6,8" HorizontalScrollBarVisibility="Disabled" />
+      </Grid>
+    </Border>
+  </Grid>
+</UserControl>

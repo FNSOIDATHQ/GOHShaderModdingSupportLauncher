@@ -43,13 +43,20 @@ internal sealed record ModReadingDocument
 // Author HTML is converted into a small read-only vocabulary. It never reaches a browser.
 internal static partial class ModDocumentParser
 {
-    private static readonly MarkdownPipeline MarkdownPipeline = new MarkdownPipelineBuilder()
-        .UsePipeTables().UseAutoLinks().UseEmphasisExtras().UseAutoIdentifiers().Build();
+    private static MarkdownPipelineBuilder CreateMarkdownPipeline() => new MarkdownPipelineBuilder()
+        .UsePipeTables().UseAutoLinks().UseEmphasisExtras().UseAutoIdentifiers();
+
+    private static readonly MarkdownPipeline MarkdownPipeline = CreateMarkdownPipeline().Build();
+    private static readonly MarkdownPipeline LocalMarkdownPipeline = CreateMarkdownPipeline().DisableHtml().Build();
     private static readonly MarkdownPipeline LegacyPipeline = new MarkdownPipelineBuilder()
         .UseSoftlineBreakAsHardlineBreak().Build();
 
     internal static ModReadingDocument Markdown(string text, Uri page, Func<HtmlNode, ModImage?> image,
         Func<Uri, bool>? linkAllowed = null) => Html(Markdig.Markdown.ToHtml(text, MarkdownPipeline), page, image, linkAllowed);
+
+    internal static ModReadingDocument LocalMarkdown(string text, Uri page, Func<string, string, ModImage?> image) =>
+        Html(Markdig.Markdown.ToHtml(text, LocalMarkdownPipeline), page,
+            node => image(Attribute(node, "src"), Attribute(node, "alt")), _ => false);
 
     internal static ModReadingDocument Html(string html, Uri page, Func<HtmlNode, ModImage?> image,
         Func<Uri, bool>? linkAllowed = null, Func<string, string>? cleanText = null)

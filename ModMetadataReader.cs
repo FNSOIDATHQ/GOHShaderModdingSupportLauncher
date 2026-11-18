@@ -2,26 +2,40 @@ using System.Text;
 
 namespace GOHShaderModdingSupportLauncher;
 
-// Recognizes a Mod descriptor and its display name, not the game's complete command schema.
+// Recognizes a Mod descriptor and its display fields, not the game's complete command schema.
 // Other declaration blocks are skipped structurally; their commands are never evaluated.
 internal static class ModMetadataReader
 {
-    internal sealed record Metadata(string? Name, bool Valid);
+    internal sealed record Metadata(string? Name, bool Valid, string? Description = null);
     private enum Kind { Open, Close, Word, String, End }
     private sealed record Token(Kind Kind, string Text);
 
-    internal static Metadata Parse(string text)
+    internal static string Decode(ReadOnlySpan<byte> bytes)
     {
-        var parser = new Parser(text);
+        if (bytes.StartsWith(new byte[] { 0xff, 0xfe, 0, 0 }) || bytes.StartsWith(new byte[] { 0, 0, 0xfe, 0xff }))
+            throw new DecoderFallbackException();
+        Encoding encoding = new UTF8Encoding(false, true);
+        if (bytes.StartsWith(new byte[] { 0xff, 0xfe })) { encoding = new UnicodeEncoding(false, true, true); bytes = bytes[2..]; }
+        else if (bytes.StartsWith(new byte[] { 0xfe, 0xff })) { encoding = new UnicodeEncoding(true, true, true); bytes = bytes[2..]; }
+        else if (bytes.StartsWith(new byte[] { 0xef, 0xbb, 0xbf })) bytes = bytes[3..];
+        string text = encoding.GetString(bytes);
+        if (text.Contains('\0')) throw new DecoderFallbackException();
+        return text;
+    }
+
+    internal static Metadata Parse(string text, bool readDescription = false)
+    {
+        var parser = new Parser(text, readDescription);
         try { return parser.Read(); }
         catch (FormatException) { return new(parser.Name, false); }
     }
 
-    private sealed class Parser(string text)
+    private sealed class Parser(string text, bool readDescription)
     {
         private int position;
         internal string? Name;
         private int names;
+        private string? description;
 
         internal Metadata Read()
         {
@@ -52,7 +66,7 @@ internal static class ModMetadataReader
                     SkipBody(1);
                 }
             }
-            return new(Name, mod && names == 1 && !string.IsNullOrWhiteSpace(Name) && !Name.Any(char.IsControl));
+            return new(Name, mod && names == 1 && !string.IsNullOrWhiteSpace(Name) && !Name.Any(char.IsControl), description);
         }
 
         private void ReadBody(int depth)
@@ -75,7 +89,17 @@ internal static class ModMetadataReader
                     names++;
                     Expect(Kind.Close);
                 }
-                else SkipBody(depth + 1);
+                else
+                {
+                    if (readDescription && depth == 0 && description is null && field.Text.Equals("desc", StringComparison.OrdinalIgnoreCase))
+                    {
+                        int start = position;
+                        var value = Next();
+                        if (value.Kind == Kind.String && Next().Kind == Kind.Close) { description = value.Text; continue; }
+                        position = start;
+                    }
+                    SkipBody(depth + 1);
+                }
             }
         }
 

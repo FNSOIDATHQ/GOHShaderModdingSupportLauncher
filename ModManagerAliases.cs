@@ -8,10 +8,11 @@ namespace GOHShaderModdingSupportLauncher;
 
 public partial class ModManager
 {
-    private void UpdateAliasAction()
+    private void UpdateSelectedModActions()
     {
         editModAlias.IsEnabled = selectedRow.mods?.Count == 1;
         UpdateSubscriptionAction();
+        UpdateLocalPreview();
     }
 
     private void RefreshAliases()

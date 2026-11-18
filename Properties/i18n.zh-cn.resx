@@ -1143,6 +1143,23 @@
   <data name="MS_Back" xml:space="preserve"><value>返回</value></data>
   <data name="MS_OriginalFilePlacement" xml:space="preserve"><value>原文件（不解包）</value></data>
   <data name="M_ViewSubscription" xml:space="preserve"><value>查看订阅</value></data>
+  <data name="MP_Title" xml:space="preserve"><value>Mod信息</value></data>
+  <data name="MP_Expand" xml:space="preserve"><value>展开Mod信息</value></data>
+  <data name="MP_Collapse" xml:space="preserve"><value>收起Mod信息</value></data>
+  <data name="MP_Previous" xml:space="preserve"><value>上一张</value></data>
+  <data name="MP_Next" xml:space="preserve"><value>下一张</value></data>
+  <data name="MP_Documents" xml:space="preserve"><value>文本文件</value></data>
+  <data name="MP_PreviousDocument" xml:space="preserve"><value>上一个文件</value></data>
+  <data name="MP_NextDocument" xml:space="preserve"><value>下一个文件</value></data>
+  <data name="MP_SelectOne" xml:space="preserve"><value>请选择一个 Mod 进行预览。</value></data>
+  <data name="MP_FolderUnavailable" xml:space="preserve"><value>无法读取此 Mod 的目录。</value></data>
+  <data name="MP_Loading" xml:space="preserve"><value>正在加载…</value></data>
+  <data name="MP_Empty" xml:space="preserve"><value>此 Mod 目录没有可预览的图片或文本。</value></data>
+  <data name="MP_NoText" xml:space="preserve"><value>此 Mod 目录没有可预览的文本。</value></data>
+  <data name="MP_NoDescription" xml:space="preserve"><value>此 Mod 未提供描述。</value></data>
+  <data name="MP_EmptyText" xml:space="preserve"><value>此文件没有可显示的文本。</value></data>
+  <data name="MP_ReadError" xml:space="preserve"><value>无法预览此文件。</value></data>
+  <data name="MP_TooLarge" xml:space="preserve"><value>文件过大，无法预览。</value></data>
   <data name="MS_ChooseInstallation" xml:space="preserve"><value>选择安装目录</value></data>
   <data name="MS_InstallationUnavailable" xml:space="preserve"><value>未找到对应的已安装 Mod，请刷新 Mod 管理器。</value></data>
 </root>

@@ -50,6 +50,6 @@ public partial class ModManager
             selectedRow = new SelectedRow(name, matches);
         }
         finally { isSyncingSelection = false; }
-        UpdateAliasAction();
+        UpdateSelectedModActions();
     }
 }

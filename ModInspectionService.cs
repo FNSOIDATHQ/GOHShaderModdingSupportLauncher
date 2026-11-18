@@ -438,15 +438,7 @@ public sealed class ModInspectionService
         {
             try
             {
-                Encoding encoding = new UTF8Encoding(false, true);
-                int skip = 0;
-                if (bytes.AsSpan().StartsWith(new byte[] { 0xff, 0xfe, 0, 0 }) || bytes.AsSpan().StartsWith(new byte[] { 0, 0, 0xfe, 0xff }))
-                    throw new DecoderFallbackException();
-                if (bytes.AsSpan().StartsWith(new byte[] { 0xff, 0xfe })) { encoding = new UnicodeEncoding(false, true, true); skip = 2; }
-                else if (bytes.AsSpan().StartsWith(new byte[] { 0xfe, 0xff })) { encoding = new UnicodeEncoding(true, true, true); skip = 2; }
-                string text = encoding.GetString(bytes, skip, bytes.Length - skip);
-                if (text.Contains('\0')) throw new DecoderFallbackException();
-                var metadata = ModMetadataReader.Parse(text);
+                var metadata = ModMetadataReader.Parse(ModMetadataReader.Decode(bytes));
                 metadataReadable = true;
                 metadataValid = metadata.Valid;
                 if (!string.IsNullOrWhiteSpace(metadata.Name)) displayName = metadata.Name;

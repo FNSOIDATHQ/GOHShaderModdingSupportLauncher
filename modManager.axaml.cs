@@ -54,6 +54,7 @@ namespace GOHShaderModdingSupportLauncher
             vars = main.modManagerVars;
 
             InitializeComponent();
+            InitializeLocalPreview();
             loadedView = new DataGridCollectionView(loadedItems);
             unloadedView = new DataGridCollectionView(unloadedItems);
             unloadedMods.Columns[0].CustomSortComparer = new ModSortComparer(
@@ -119,7 +120,7 @@ namespace GOHShaderModdingSupportLauncher
             {
                 selectedRow = new SelectedRow("", new List<Mod>());
             }
-            UpdateAliasAction();
+            UpdateSelectedModActions();
             
         }
 
@@ -353,7 +354,7 @@ namespace GOHShaderModdingSupportLauncher
             {
                 isSyncingSelection = false;
             }
-            UpdateAliasAction();
+            UpdateSelectedModActions();
         }
 
         private void loadedMods_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -369,7 +370,7 @@ namespace GOHShaderModdingSupportLauncher
             {
                 isSyncingSelection = false;
             }
-            UpdateAliasAction();
+            UpdateSelectedModActions();
         }
 
         private async void refresh_Click(object sender, RoutedEventArgs e)
@@ -378,6 +379,7 @@ namespace GOHShaderModdingSupportLauncher
             {
                 if (!await main.RefreshModsAsync()) return;
                 UpdateUI();
+                UpdateLocalPreview(refresh: true);
                 RefreshPresets();
             }
             catch (Exception ex) when (IsPresetError(ex)) { ShowPresetError(ex); }
@@ -544,7 +546,11 @@ namespace GOHShaderModdingSupportLauncher
             draggedItem = null;
         }
 
-        private void Page_Unloaded(object? sender, RoutedEventArgs e) => DetachDragRoot();
+        private void Page_Unloaded(object? sender, RoutedEventArgs e)
+        {
+            DetachDragRoot();
+            localPreview.SetActive(false);
+        }
 
         private void Page_Loaded(object sender, RoutedEventArgs e)
         {
@@ -560,6 +566,8 @@ namespace GOHShaderModdingSupportLauncher
                 UpdateUI();
 
             }
+            UpdateLocalPreviewLayout();
+            localPreview.SetActive(modPreviewSplit.IsPaneOpen);
         }
 
         public void RefreshView()

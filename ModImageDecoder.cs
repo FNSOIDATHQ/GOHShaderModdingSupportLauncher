@@ -10,28 +10,12 @@ internal static class ModImageDecoder
         CancellationToken token, Action<ModHttpDiagnostic>? diagnostic = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
-        Bitmap? bitmap = null;
         int sourceWidth = 0, sourceHeight = 0;
         try
         {
-            token.ThrowIfCancellationRequested();
-            using var metadata = new MemoryStream(payload.Bytes, writable: false);
-            using var codec = SKCodec.Create(metadata);
-            if (codec is null) throw new InvalidDataException("No raster decoder accepted the image.");
-            sourceWidth = codec.Info.Width; sourceHeight = codec.Info.Height;
-            // Bound both source pixels and output memory before allocating native pixels.
-            if (sourceWidth <= 0 || sourceHeight <= 0 || sourceWidth > 16384 || sourceHeight > 16384 ||
-                (long)sourceWidth * sourceHeight > 40_000_000)
-                throw new ModSourceException(new(ModSourceError.ParseFailed, "The image dimensions exceed the display limit.", DiagnosticKind: ModHttpFailureKind.ImageDimensions));
-            int decodeWidth = Math.Min(width, sourceWidth);
-            if ((long)decodeWidth * decodeWidth * sourceHeight / sourceWidth > 8_000_000)
-                decodeWidth = Math.Max(1, (int)Math.Sqrt(8_000_000d * sourceWidth / sourceHeight));
-            token.ThrowIfCancellationRequested();
-            using var stream = new MemoryStream(payload.Bytes, writable: false);
-            bitmap = Bitmap.DecodeToWidth(stream, decodeWidth);
-            token.ThrowIfCancellationRequested();
+            var bitmap = DecodeRaster(payload.Bytes, width, int.MaxValue, token, out sourceWidth, out sourceHeight);
             Report();
-            var result = bitmap; bitmap = null; return result;
+            return bitmap;
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { Report(ModHttpStage.Cancelled); throw; }
         catch (Exception ex)
@@ -41,11 +25,38 @@ internal static class ModImageDecoder
             Report(failure: failure.DiagnosticKind, exceptionType: ex.GetType().Name);
             throw new ModSourceException(failure);
         }
-        finally { bitmap?.Dispose(); }
-
         void Report(ModHttpStage stage = ModHttpStage.Decode, ModHttpFailureKind? failure = null, string? exceptionType = null) =>
             ModHttpDiagnostics.Report(diagnostic, new(ModHttpDiagnostics.Host(payload.FinalUri), stage, 1,
                 FailureKind: failure, ExceptionType: exceptionType, Media: operation, ContentType: payload.ContentType,
                 Bytes: payload.Bytes.Length, PixelWidth: sourceWidth, PixelHeight: sourceHeight));
+    }
+
+    internal static Bitmap DecodeRaster(byte[] bytes, int width, int height, CancellationToken token,
+        out int sourceWidth, out int sourceHeight)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
+        sourceWidth = sourceHeight = 0;
+        token.ThrowIfCancellationRequested();
+        using var metadata = new MemoryStream(bytes, writable: false);
+        using var codec = SKCodec.Create(metadata);
+        if (codec is null) throw new InvalidDataException("No raster decoder accepted the image.");
+        sourceWidth = codec.Info.Width;
+        sourceHeight = codec.Info.Height;
+        // Bound both source pixels and output memory before allocating native pixels.
+        if (sourceWidth <= 0 || sourceHeight <= 0 || sourceWidth > 16384 || sourceHeight > 16384 ||
+            (long)sourceWidth * sourceHeight > 40_000_000)
+            throw new ModSourceException(new(ModSourceError.ParseFailed, "The image dimensions exceed the display limit.", DiagnosticKind: ModHttpFailureKind.ImageDimensions));
+        int decodeWidth = (int)Math.Clamp((long)height * sourceWidth / sourceHeight, 1, Math.Min(width, sourceWidth));
+        if ((long)decodeWidth * decodeWidth * sourceHeight / sourceWidth > 8_000_000)
+            decodeWidth = Math.Max(1, (int)Math.Sqrt(8_000_000d * sourceWidth / sourceHeight));
+        token.ThrowIfCancellationRequested();
+        using var stream = new MemoryStream(bytes, writable: false);
+        var bitmap = Bitmap.DecodeToWidth(stream, decodeWidth);
+        if (token.IsCancellationRequested)
+        {
+            bitmap.Dispose();
+            token.ThrowIfCancellationRequested();
+        }
+        return bitmap;
     }
 }
