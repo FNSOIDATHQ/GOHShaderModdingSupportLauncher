@@ -16,11 +16,14 @@ public partial class ModManager
         var context = main.ModDirectoryContext;
         try
         {
+            string? options = main.ReadModOptions();
             await main.VerifyModActivationAsync(selected);
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (revision != main.ModListRevision || context != main.ModDirectoryContext) throw new OperationCanceledException();
-                CommitLoadedMods(main.universalVars.modLoaded.Concat(selected).DistinctBy(mod => mod.DiscoveryId).ToList());
+                if (revision != main.ModListRevision || context != main.ModDirectoryContext || main.ReadModOptions() != options)
+                    throw new OperationCanceledException();
+                CommitLoadedMods(main.universalVars.modLoaded.Concat(selected).DistinctBy(mod => mod.DiscoveryId).ToList(),
+                    expectedOptions: options);
             });
         }
         finally { activationInProgress = false; }

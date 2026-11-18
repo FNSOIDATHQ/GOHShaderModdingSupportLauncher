@@ -34,14 +34,16 @@ namespace GOHShaderModdingSupportLauncher
         public static PakEntry[]? TryReadPakEntries(string path, CancellationToken cancellationToken = default, int maxEntries = int.MaxValue)
             => TryReadPakIndex(path, cancellationToken, maxEntries, out _);
 
-        internal static PakEntry[]? TryReadPakIndex(string path, CancellationToken cancellationToken, int maxEntries, out bool limitExceeded)
+        internal static PakEntry[]? TryReadPakIndex(string path, CancellationToken cancellationToken, int maxEntries, out bool limitExceeded,
+            Stream? stream = null)
         {
             limitExceeded = false;
             string format = "unknown";
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                using var stream = File.OpenRead(path);
+                using var ownedStream = stream is null ? File.OpenRead(path) : null;
+                stream ??= ownedStream!;
                 Span<byte> header = stackalloc byte[8];
                 int read = stream.ReadAtLeast(header, header.Length, throwOnEndOfStream: false);
                 ReadOnlySpan<byte> signature = header[..read];

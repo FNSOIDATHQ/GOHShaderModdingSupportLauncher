@@ -209,6 +209,10 @@ internal static class ModActivationSmokeTest
             Require(missingRejected && window.universalVars.modLoaded.Single().IsMissingReference, "unknown enabled references stay visible and cannot bypass launch guard");
 
             // A late activation result must never target the game selected after the user started it.
+            var fresh = window.RefreshModsAsync();
+            Pump(fresh);
+            Require(fresh.Result && window.universalVars.modDic["mixed"].CanActivate,
+                "the game-switch test starts from a verified Mod after the earlier file edits");
             string oldOptions = File.ReadAllText(options);
             var obsolete = manager.ActivateModsAsync([window.universalVars.modDic["mixed"]]);
             string otherGame = Directory.CreateDirectory(Path.Combine(fixture, "other-game")).FullName;

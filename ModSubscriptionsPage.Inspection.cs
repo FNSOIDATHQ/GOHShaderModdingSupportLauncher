@@ -26,6 +26,7 @@ public sealed partial class ModSubscriptionsPage
         {
             var mod = InstalledModInspection(subscription!.GameDirectory, installation);
             if (mod is null) continue;
+            main.EnsureModInspected(mod.path);
             panel.Children.Add(Text(ModInspectionPresentation.Text("LocalInspection"), 12));
             panel.Children.Add(new ModFeaturesView { Mod = mod });
         }

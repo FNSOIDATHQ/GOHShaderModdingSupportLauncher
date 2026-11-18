@@ -295,10 +295,9 @@ internal static class ModInspectionSmokeTest
         Require(Inspect(cached).Shaders.Detected, "initial PAK index");
         using (var handle = new FileStream(Path.Combine(cached, "resource/test.pak"), FileMode.Open, FileAccess.Read, FileShare.None))
         {
-            Require(Inspect(cached).Shaders.Detected, "index reuse within unchanged path/length/mtime");
-            inspector.ClearCache();
-            Require(Inspect(cached) is { Shaders: { Detected: false, Complete: false } }, "explicit refresh invalidates PAK hints");
+            Require(Inspect(cached) is { Shaders: { Detected: false, Complete: false } }, "locked archive cannot establish a current index");
         }
+        Require(Inspect(cached).Shaders.Detected, "unlocked archive can be inspected again");
         Require(FileManager.TryReadPakEntries(Path.Combine(packed, "resource/content.pak"), maxEntries: 2) is null,
             "PAK index budget stops oversized indexes");
         string invalidId = Make("contains space");

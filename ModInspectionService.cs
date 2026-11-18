@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text;
 using SharpCompress.Archives;
 using SharpCompress.Readers;
@@ -10,9 +11,62 @@ public sealed class ModInspectionService
     private const int MaxDepth = 64, MaxEntries = 200_000, MaxMetadataBytes = 1024 * 1024;
     private const int MaxCachedPakEntries = 200_000;
     private readonly object cacheGate = new();
+    private readonly SemaphoreSlim inspectionWorker = new(1, 1);
+    private readonly ModInspectionCache resultCache;
+    private readonly Dictionary<string, DirectoryChange> pendingChanges = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, CachedPak> pakCache = new(StringComparer.OrdinalIgnoreCase);
-    private int cachedEntries, cacheGeneration;
-    private sealed record CachedPak(long Length, long Modified, FileManager.PakEntry[] Entries);
+    private readonly Func<string, bool> supportsArchiveVersions;
+    private int cachedEntries, cacheGeneration, treeReads, classifications, archiveReads, resultHits;
+    private long changeRevision;
+    private sealed record CachedPak(ModArchiveVersion Version, FileManager.PakEntry[] Entries);
+    private sealed record DirectoryChange(long Revision, string[] ArchivePaths);
+    private sealed record TreeEntry(string Path, string Relative, long Length = 0, FileAttributes Attributes = 0,
+        ModArchiveVersion? Version = null, ModInspectionIssue? Issue = null, FileManager.PakEntry[]? WeakIndex = null,
+        bool WeakIndexRead = false, bool WeakIndexLimited = false);
+
+    public ModInspectionService() : this(null) { }
+
+    internal ModInspectionService(string? cacheDirectory, Func<string, bool>? supportsArchiveVersions = null)
+    {
+        resultCache = new(cacheDirectory);
+        this.supportsArchiveVersions = supportsArchiveVersions ?? ModArchiveVersion.HasReliableVersions;
+    }
+
+    internal (int Trees, int Classifications, int Archives, int Hits) Statistics =>
+        (Volatile.Read(ref treeReads), Volatile.Read(ref classifications), Volatile.Read(ref archiveReads), Volatile.Read(ref resultHits));
+
+    internal void Invalidate(string directory, string? affectedPath, bool archiveMayHaveChanged)
+    {
+        lock (cacheGate)
+        {
+            string[] paths = pendingChanges.GetValueOrDefault(directory)?.ArchivePaths ?? [];
+            if (archiveMayHaveChanged)
+            {
+                string path = affectedPath ?? directory;
+                if (paths.Length >= 128) paths = [directory];
+                else if (!paths.Any(parent => IsWithin(path, parent))) paths = [.. paths, path];
+                foreach (string cached in pakCache.Keys.Where(file => IsWithin(file, path)).ToArray())
+                {
+                    cachedEntries -= pakCache[cached].Entries.Length;
+                    pakCache.Remove(cached);
+                }
+            }
+            pendingChanges[directory] = new(++changeRevision, paths);
+        }
+    }
+
+    internal (int Epoch, long Revision) RevisionFor(string directory)
+    {
+        lock (cacheGate) return (cacheGeneration, pendingChanges.GetValueOrDefault(directory)?.Revision ?? 0);
+    }
+
+    internal static bool IsWithin(string path, string directory) => path.Equals(directory, StringComparison.OrdinalIgnoreCase) ||
+        path.StartsWith(Path.TrimEndingDirectorySeparator(directory) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+
+    internal void InvalidateActiveInspection()
+    {
+        lock (cacheGate) cacheGeneration++;
+    }
     private static readonly HashSet<string> ExternalExtensions = new(StringComparer.OrdinalIgnoreCase)
         { ".dll", ".exe", ".asi", ".com", ".scr", ".msi", ".msp", ".bat", ".cmd", ".ps1", ".vbs", ".vbe", ".wsf" };
     private static readonly HashSet<string> NestedArchives = new(StringComparer.OrdinalIgnoreCase)
@@ -24,12 +78,12 @@ public sealed class ModInspectionService
     }
 
     public Task<ModScanResult> ScanAsync(string? workshopDirectory, string? localDirectory,
-        CancellationToken cancellationToken = default, IProgress<ModScanProgress>? progress = null, bool refresh = true,
+        CancellationToken cancellationToken = default, IProgress<ModScanProgress>? progress = null, bool refresh = false,
         IProgress<ModScanResult>? discovery = null, IProgress<ModInspectionResult>? inspected = null) =>
         Task.Run(() => Scan(workshopDirectory, localDirectory, cancellationToken, progress, refresh, discovery, inspected), cancellationToken);
 
     public ModScanResult Scan(string? workshopDirectory, string? localDirectory,
-        CancellationToken cancellationToken = default, IProgress<ModScanProgress>? progress = null, bool refresh = true,
+        CancellationToken cancellationToken = default, IProgress<ModScanProgress>? progress = null, bool refresh = false,
         IProgress<ModScanResult>? discovery = null, IProgress<ModInspectionResult>? inspected = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -40,7 +94,7 @@ public sealed class ModInspectionService
         foreach (var candidate in candidates.Mods)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var result = InspectCandidate(candidate, cancellationToken);
+            var result = InspectVerifiedCandidate(candidate, cancellationToken, Scope(workshopDirectory, localDirectory), refresh).Result;
             results.Add(result);
             inspected?.Report(result);
             progress?.Report(new(results.Count, candidate.DirectoryPath));
@@ -57,14 +111,16 @@ public sealed class ModInspectionService
         ReadRoot(workshopDirectory, ModSourceKind.Workshop);
         ReadRoot(localDirectory, ModSourceKind.Local);
         cancellationToken.ThrowIfCancellationRequested();
-        foreach (var group in results.Where(result => result.LoadId is not null).GroupBy(result => result.LoadId!, StringComparer.OrdinalIgnoreCase))
+        foreach (var group in results.Select((mod, index) => (mod, index)).Where(item => item.mod.LoadId is not null)
+            .GroupBy(item => item.mod.LoadId!, StringComparer.OrdinalIgnoreCase))
         {
             if (group.Count() < 2) continue;
-            foreach (var result in group.ToArray())
-                results[results.IndexOf(result)] = result with
+            var duplicate = new ModInspectionIssue(ModInspectionReason.DuplicateLoadId, "",
+                string.Join("; ", group.Select(item => item.mod.DirectoryPath)));
+            foreach (var (mod, index) in group)
+                results[index] = mod with
                 {
-                    Issues = Frozen(result.Issues.Append(new(ModInspectionReason.DuplicateLoadId, "",
-                        string.Join("; ", group.Select(item => item.DirectoryPath)))))
+                    Issues = Frozen(mod.Issues.Append(duplicate))
                 };
         }
         cancellationToken.ThrowIfCancellationRequested();
@@ -94,16 +150,64 @@ public sealed class ModInspectionService
         }
     }
 
-    internal ModInspectionResult InspectCandidate(ModInspectionResult candidate, CancellationToken cancellationToken)
+    internal static string Scope(string? workshop, string? local) => local ?? workshop ?? "";
+
+    internal static ModInspectionResult WithDiscoveryIssues(ModInspectionResult result, ModInspectionResult candidate)
     {
-        var result = InspectDirectory(candidate.DirectoryPath, candidate.Source, cancellationToken);
-        return result with { Issues = Frozen(result.Issues.Concat(candidate.Issues.Where(issue => issue.Reason == ModInspectionReason.DuplicateLoadId))) };
+        var duplicates = candidate.Issues.Where(issue => issue.Reason == ModInspectionReason.DuplicateLoadId);
+        if (!result.Issues.Any(issue => issue.Reason == ModInspectionReason.DuplicateLoadId) && !duplicates.Any()) return result;
+        return result with { Issues = Frozen(result.Issues.Where(issue => issue.Reason != ModInspectionReason.DuplicateLoadId).Concat(duplicates)) };
     }
 
-    public ModInspectionResult InspectDirectory(string directory, ModSourceKind source, CancellationToken cancellationToken = default)
+    internal ModInspectionResult InspectCandidate(ModInspectionResult candidate, CancellationToken cancellationToken,
+        string scope = "", bool force = false) => WithDiscoveryIssues(
+        Inspect(candidate.DirectoryPath, candidate.Source, scope, force, cancellationToken), candidate);
+
+    internal (ModInspectionResult Result, (int Epoch, long Revision) Revision) InspectVerifiedCandidate(
+        ModInspectionResult candidate, CancellationToken token, string scope, bool force = false)
+    {
+        for (int attempt = 0; ; attempt++)
+        {
+            var revision = RevisionFor(candidate.DirectoryPath);
+            try
+            {
+                var result = InspectCandidate(candidate, token, scope, force);
+                if (RevisionFor(candidate.DirectoryPath) != revision) throw new ModInspectionChangedException();
+                return (result, revision);
+            }
+            catch (ModInspectionChangedException) when (attempt < 2) { token.ThrowIfCancellationRequested(); }
+        }
+    }
+
+    public ModInspectionResult InspectDirectory(string directory, ModSourceKind source, CancellationToken cancellationToken = default) =>
+        Inspect(directory, source, null, true, cancellationToken);
+
+    private ModInspectionResult Inspect(string directory, ModSourceKind source, string? scope, bool force, CancellationToken token)
+    {
+        inspectionWorker.Wait(token);
+        try { return InspectDirectoryCore(directory, source, scope, force, token); }
+        finally { inspectionWorker.Release(); }
+    }
+
+    private ModInspectionResult InspectDirectoryCore(string directory, ModSourceKind source, string? scope, bool force,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var root = new DirectoryInfo(Path.GetFullPath(directory));
+        int generation;
+        DirectoryChange? change;
+        lock (cacheGate)
+        {
+            generation = cacheGeneration;
+            change = pendingChanges.GetValueOrDefault(root.FullName);
+        }
+        Interlocked.Increment(ref treeReads);
+        bool archiveVersions = supportsArchiveVersions(root.FullName);
+        string? cacheKey = scope is null ? null : ModInspectionCache.Key(scope, source, root.FullName);
+        var files = new List<TreeEntry>();
+        bool cacheable = true, archiveInvalidated = false;
+        int enumerated = 0, weakEntries = 0;
+        byte[]? metadataBytes = null;
         string discoveryId = source + ":" + root.FullName.ToUpperInvariant();
         string candidateId = source == ModSourceKind.Workshop ? "mod_" + root.Name : root.Name.ToLowerInvariant();
         string? loadId = IsValidLoadId(candidateId) ? candidateId : null;
@@ -120,7 +224,7 @@ public sealed class ModInspectionService
 
         try
         {
-            if (HasLinkAncestor(root)) MarkIncomplete(ModInspectionReason.ReparsePoint, "");
+            if (HasLinkAncestor(root)) MarkUncacheableLink("");
             else
             {
                 // Metadata is critical and must not lose its budget to large resource/source trees.
@@ -128,8 +232,8 @@ public sealed class ModInspectionService
                 try
                 {
                     var attributes = File.GetAttributes(metadata.FullName);
-                    if ((attributes & FileAttributes.ReparsePoint) != 0) MarkIncomplete(ModInspectionReason.ReparsePoint, "mod.info");
-                    else ReadMetadata(metadata);
+                    if ((attributes & FileAttributes.ReparsePoint) != 0) MarkUncacheableLink("mod.info");
+                    else ReadMetadataBytes(metadata);
                 }
                 catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException) { }
                 catch (Exception ex) when (IsReadError(ex)) { MarkIncomplete(ModInspectionReason.UnreadablePath, "mod.info", ex.GetType().Name); }
@@ -137,6 +241,42 @@ public sealed class ModInspectionService
             }
         }
         catch (Exception ex) when (IsReadError(ex)) { MarkIncomplete(ModInspectionReason.UnreadablePath, "", ex.GetType().Name); }
+
+        string? fingerprint = cacheKey is not null && cacheable ? Fingerprint(files, metadataBytes, cancellationToken) : null;
+        RequireCurrent(complete: false);
+        if (!force && !archiveInvalidated && fingerprint is not null &&
+            resultCache.Read(cacheKey!, fingerprint, root.FullName, source) is { } cached)
+        {
+            RequireCurrent(complete: true);
+            Interlocked.Increment(ref resultHits);
+            return cached;
+        }
+
+        Interlocked.Increment(ref classifications);
+        if (metadataBytes is not null) ParseMetadata(metadataBytes);
+        foreach (var file in files)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (++entries > MaxEntries) { MarkIncomplete(ModInspectionReason.ScanLimit, file.Relative); break; }
+            if (file.Issue is { } issue) MarkIncomplete(issue.Reason, issue.RelativePath, issue.Detail);
+            if (file.Issue is not null || (file.Attributes & FileAttributes.Directory) != 0) continue;
+            try
+            {
+                string name = Path.GetFileName(file.Path);
+                if (name.Equals("mod.info", StringComparison.OrdinalIgnoreCase))
+                {
+                    nestedRoot = true;
+                    if (issues.Count < 256) issues.Add(new(ModInspectionReason.NestedModRoot, file.Relative));
+                }
+                string extension = Path.GetExtension(file.Path);
+                if (extension.Equals(".pak", StringComparison.OrdinalIgnoreCase)) ReadGameArchive(file, file.Relative, false);
+                else if (extension.Equals(".pat", StringComparison.OrdinalIgnoreCase)) ReadGameArchive(file, file.Relative, true);
+                else if (NestedArchives.Contains(extension)) ReadAttachment(file, file.Relative);
+                else ProcessFile(file.Relative, file.Length, false);
+            }
+            catch (Exception ex) when (IsReadError(ex)) { MarkIncomplete(ModInspectionReason.UnreadablePath, file.Relative, ex.GetType().Name); }
+            if (entries > MaxEntries) break;
+        }
 
         ModStructureState structure;
         bool structureComplete;
@@ -157,14 +297,40 @@ public sealed class ModInspectionService
             structureComplete = false;
             issues.Add(new(programs.Count > 0 && !unsupportedContent ? ModInspectionReason.NoContent : ModInspectionReason.UnrecognizedLayout, ""));
         }
-        cancellationToken.ThrowIfCancellationRequested();
-        return new(root.FullName, source, discoveryId, loadId, displayName, structure, structureComplete,
+        RequireCurrent(complete: false);
+        var result = new ModInspectionResult(root.FullName, source, discoveryId, loadId, displayName, structure, structureComplete,
             Frozen(content), new(programCount > 0, programsComplete, Frozen(programs), programCount),
             new(shaderCount > 0, shadersComplete, Frozen(shaders), shaderCount), Frozen(issues), contentCount)
             { OtherEvidence = Frozen(other), OtherMatchCount = otherCount };
+        if (cacheable && fingerprint is not null)
+            resultCache.Write(cacheKey!, fingerprint, result, () => RequireCurrent(complete: false));
+        RequireCurrent(complete: true);
+        return result;
+
+        void RequireCurrent(bool complete)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (cacheGate)
+            {
+                if (generation != cacheGeneration || !ReferenceEquals(change, pendingChanges.GetValueOrDefault(root.FullName)))
+                    throw new ModInspectionChangedException();
+                if (complete && change?.ArchivePaths.Length > 0 && cacheable)
+                    pendingChanges[root.FullName] = change with { ArchivePaths = [] };
+            }
+        }
+
+        void MarkUncacheableLink(string path)
+        {
+            cacheable = false;
+            MarkIncomplete(ModInspectionReason.ReparsePoint, path);
+        }
+
+        bool ForceArchive(string path) => force || change?.ArchivePaths.Any(parent => IsWithin(path, parent)) == true;
 
         void MarkIncomplete(ModInspectionReason reason, string path, string detail = "")
         {
+            if (reason is ModInspectionReason.UnreadablePath or ModInspectionReason.UnreadablePak or ModInspectionReason.ScanLimit)
+                cacheable = false;
             treeComplete = programsComplete = shadersComplete = false;
             if (issues.Count < 256) issues.Add(new(reason, path, detail));
         }
@@ -172,62 +338,106 @@ public sealed class ModInspectionService
         void Walk(DirectoryInfo current, int depth)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            // Three bounded passes avoid buffering an arbitrarily large directory just to sort it.
-            for (int priority = 0; priority < 3; priority++)
+            var children = new List<FileSystemInfo>();
             foreach (var item in current.EnumerateFileSystemInfos())
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (Priority(item, depth) != priority) continue;
                 if (depth == 0 && item.Name.Equals("mod.info", StringComparison.OrdinalIgnoreCase)) continue;
-                if (++entries > MaxEntries) { MarkIncomplete(ModInspectionReason.ScanLimit, Relative(current.FullName)); return; }
+                if (item is DirectoryInfo && item.Name.Equals(".gohsms", StringComparison.OrdinalIgnoreCase)) continue;
+                if (enumerated == MaxEntries) { MarkIncomplete(ModInspectionReason.ScanLimit, Relative(current.FullName)); break; }
+                enumerated++;
+                children.Add(item);
+            }
+            foreach (var item in children.OrderBy(item => Priority(item, depth)).ThenBy(item => item.Name, StringComparer.Ordinal))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
                 string relative = Relative(item.FullName);
                 try
                 {
-                    if (item.Name.Equals(".gohsms", StringComparison.OrdinalIgnoreCase) && item is DirectoryInfo) continue;
-                    if ((item.Attributes & FileAttributes.ReparsePoint) != 0)
-                    { MarkIncomplete(ModInspectionReason.ReparsePoint, relative); continue; }
+                    var attributes = item.Attributes & (FileAttributes.ReparsePoint | FileAttributes.Directory);
+                    if ((attributes & FileAttributes.ReparsePoint) != 0)
+                    {
+                        files.Add(new(item.FullName, relative, Attributes: attributes,
+                            Issue: new(ModInspectionReason.ReparsePoint, relative)));
+                        continue;
+                    }
                     if (item is DirectoryInfo child)
                     {
+                        files.Add(new(item.FullName, relative, Attributes: FileAttributes.Directory));
                         if (depth >= MaxDepth) MarkIncomplete(ModInspectionReason.ScanLimit, relative);
-                        else Walk(child, depth + 1);
-                        if (entries > MaxEntries) return;
+                        else if (enumerated < MaxEntries) Walk(child, depth + 1);
+                        else MarkIncomplete(ModInspectionReason.ScanLimit, relative);
                         continue;
                     }
                     var file = (FileInfo)item;
-                    if (file.Name.Equals("mod.info", StringComparison.OrdinalIgnoreCase))
+                    ModArchiveVersion? version = null;
+                    if (IsArchive(file.FullName))
                     {
-                        if (depth > 0)
+                        if (archiveVersions)
                         {
-                            nestedRoot = true;
-                            if (issues.Count < 256) issues.Add(new(ModInspectionReason.NestedModRoot, relative));
+                            try
+                            {
+                                using var stream = file.OpenRead();
+                                version = ModArchiveVersion.Read(stream);
+                            }
+                            catch (Exception ex) when (IsReadError(ex)) { }
                         }
+                        archiveInvalidated |= version is not null && change?.ArchivePaths.Any(path => IsWithin(file.FullName, path)) == true;
                     }
-                    if (file.Extension.Equals(".pak", StringComparison.OrdinalIgnoreCase)) ReadGameArchive(file, relative, false);
-                    else if (file.Extension.Equals(".pat", StringComparison.OrdinalIgnoreCase)) ReadGameArchive(file, relative, true);
-                    else if (NestedArchives.Contains(file.Extension)) ReadAttachment(file, relative);
-                    else ProcessFile(relative, file.Length, false);
+                    var entry = new TreeEntry(file.FullName, relative, version?.Length ?? file.Length, Version: version);
+                    if (cacheKey is not null && IsArchive(entry.Path) && version is null && cacheable)
+                    {
+                        // On a volume with weak version information, compare what the classifier consumes.
+                        var index = ReadPakIndex(entry, true, generation, cancellationToken, out bool limited);
+                        weakEntries += index?.Length ?? 0;
+                        cacheable = index is not null && weakEntries <= MaxEntries;
+                        entry = entry with { WeakIndex = index, WeakIndexRead = true, WeakIndexLimited = limited };
+                    }
+                    files.Add(entry);
                 }
-                catch (Exception ex) when (IsReadError(ex)) { MarkIncomplete(ModInspectionReason.UnreadablePath, relative, ex.GetType().Name); }
+                catch (Exception ex) when (IsReadError(ex))
+                {
+                    cacheable = false;
+                    files.Add(new(item.FullName, relative, Issue: new(ModInspectionReason.UnreadablePath, relative, ex.GetType().Name)));
+                }
             }
         }
 
-        void ReadMetadata(FileInfo file)
+        void ReadMetadataBytes(FileInfo file)
         {
             metadataSeen = true;
             try
             {
                 using var stream = file.OpenRead();
-                if (stream.Length > MaxMetadataBytes) { issues.Add(new(ModInspectionReason.ScanLimit, "mod.info")); return; }
+                if (stream.Length > MaxMetadataBytes) { MetadataLimit(); return; }
                 using var memory = new MemoryStream();
                 var buffer = new byte[4096];
                 int count;
                 while ((count = stream.Read(buffer)) > 0)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    if (memory.Length + count > MaxMetadataBytes) { issues.Add(new(ModInspectionReason.ScanLimit, "mod.info")); return; }
+                    if (memory.Length + count > MaxMetadataBytes) { MetadataLimit(); return; }
                     memory.Write(buffer, 0, count);
                 }
-                var bytes = memory.ToArray();
+                metadataBytes = memory.ToArray();
+            }
+            catch (Exception ex) when (IsReadError(ex))
+            {
+                cacheable = false;
+                issues.Add(new(ModInspectionReason.UnreadablePath, "mod.info", ex.GetType().Name));
+            }
+        }
+
+        void MetadataLimit()
+        {
+            cacheable = false;
+            issues.Add(new(ModInspectionReason.ScanLimit, "mod.info"));
+        }
+
+        void ParseMetadata(byte[] bytes)
+        {
+            try
+            {
                 Encoding encoding = new UTF8Encoding(false, true);
                 int skip = 0;
                 if (bytes.AsSpan().StartsWith(new byte[] { 0xff, 0xfe, 0, 0 }) || bytes.AsSpan().StartsWith(new byte[] { 0, 0, 0xfe, 0xff }))
@@ -243,7 +453,6 @@ public sealed class ModInspectionService
                 if (!metadataValid) issues.Add(new(ModInspectionReason.InvalidMetadata, "mod.info"));
             }
             catch (DecoderFallbackException) { issues.Add(new(ModInspectionReason.UnsupportedEncoding, "mod.info")); }
-            catch (Exception ex) when (IsReadError(ex)) { issues.Add(new(ModInspectionReason.UnreadablePath, "mod.info", ex.GetType().Name)); }
         }
 
         int Priority(FileSystemInfo item, int depth)
@@ -256,9 +465,9 @@ public sealed class ModInspectionService
             return depth == 0 || NestedArchives.Contains(extension) ? 2 : 0;
         }
 
-        void ReadGameArchive(FileInfo file, string relative, bool patch)
+        void ReadGameArchive(TreeEntry file, string relative, bool patch)
         {
-            var index = ReadPakIndex(file, cancellationToken, out bool limitExceeded);
+            var index = ReadPakIndex(file, ForceArchive(file.Path), generation, cancellationToken, out bool limitExceeded);
             if (index is null) { MarkIncomplete(limitExceeded ? ModInspectionReason.ScanLimit : ModInspectionReason.UnreadablePak, relative); return; }
             string parent = relative[..(relative.LastIndexOf('/') + 1)];
             bool mounted = !patch && IsContentPath(relative);
@@ -304,11 +513,12 @@ public sealed class ModInspectionService
             }
         }
 
-        void ReadAttachment(FileInfo file, string relative)
+        void ReadAttachment(TreeEntry file, string relative)
         {
-            var index = ReadPakIndex(file, cancellationToken, out bool limitExceeded);
+            var index = ReadPakIndex(file, ForceArchive(file.Path), generation, cancellationToken, out bool limitExceeded);
             if (index is null)
             {
+                cacheable = false;
                 AddOther(relative, "attachment");
                 programsComplete = shadersComplete = false;
                 unsupportedContent = true;
@@ -377,41 +587,91 @@ public sealed class ModInspectionService
     internal static bool IsValidLoadId(string value) => !string.IsNullOrWhiteSpace(value) &&
         !value.Any(c => char.IsWhiteSpace(c) || char.IsControl(c) || c is '"' or ':' or '\\' or '/' or '{' or '}');
 
-    private FileManager.PakEntry[]? ReadPakIndex(FileInfo file, CancellationToken token, out bool limitExceeded)
+    internal static bool IsArchive(string path)
     {
-        limitExceeded = false;
-        token.ThrowIfCancellationRequested();
-        long length = file.Length, modified = file.LastWriteTimeUtc.Ticks;
-        int generation;
-        lock (cacheGate)
+        string extension = Path.GetExtension(path);
+        return extension.Equals(".pak", StringComparison.OrdinalIgnoreCase) ||
+            extension.Equals(".pat", StringComparison.OrdinalIgnoreCase) || NestedArchives.Contains(extension);
+    }
+
+    private static string Fingerprint(List<TreeEntry> files, byte[]? metadata, CancellationToken token)
+    {
+        using var hash = SHA256.Create();
+        using var stream = new CryptoStream(Stream.Null, hash, CryptoStreamMode.Write);
+        using var writer = new BinaryWriter(stream, Encoding.Unicode, leaveOpen: true);
+        writer.Write(metadata?.Length ?? -1);
+        if (metadata is not null) writer.Write(metadata);
+        foreach (var file in files)
         {
-            generation = cacheGeneration;
-            if (pakCache.TryGetValue(file.FullName, out var cached) && cached.Length == length && cached.Modified == modified) return cached.Entries;
+            token.ThrowIfCancellationRequested();
+            writer.Write(file.Relative);
+            writer.Write((int)file.Attributes);
+            writer.Write(file.Length > 0);
+            writer.Write(file.Version.HasValue);
+            if (file.Version is { } version)
+            {
+                writer.Write(version.Length);
+                writer.Write(version.Modified);
+                writer.Write(version.Changed);
+                writer.Write(version.Volume);
+                writer.Write(version.IdLow);
+                writer.Write(version.IdHigh);
+            }
+            writer.Write(file.WeakIndex?.Length ?? -1);
+            if (file.WeakIndex is { } index)
+                foreach (var entry in index)
+                {
+                    token.ThrowIfCancellationRequested();
+                    writer.Write(entry.FullName);
+                    writer.Write(entry.Length);
+                }
         }
-        var entries = file.Extension.Equals(".7z", StringComparison.OrdinalIgnoreCase)
-            ? ReadAttachmentIndex(file, token, out limitExceeded)
-            : FileManager.TryReadPakIndex(file.FullName, token, MaxEntries, out limitExceeded);
+        writer.Flush();
+        stream.FlushFinalBlock();
+        return Convert.ToHexString(hash.Hash!);
+    }
+
+    private FileManager.PakEntry[]? ReadPakIndex(TreeEntry file, bool force, int generation, CancellationToken token, out bool limitExceeded)
+    {
+        limitExceeded = file.WeakIndexLimited;
+        if (file.WeakIndexRead) return file.WeakIndex;
         token.ThrowIfCancellationRequested();
-        file.Refresh();
-        if (file.Length != length || file.LastWriteTimeUtc.Ticks != modified) return null;
-        if (entries is not null)
+        if (!force && file.Version is { } expected)
+        {
+            lock (cacheGate)
+                if (pakCache.TryGetValue(file.Path, out var cached) && cached.Version == expected) return cached.Entries;
+        }
+        FileManager.PakEntry[]? entries;
+        try
+        {
+            if ((File.GetAttributes(file.Path) & FileAttributes.ReparsePoint) != 0 ||
+                HasLinkAncestor(new DirectoryInfo(Path.GetDirectoryName(file.Path)!))) throw new ModInspectionChangedException();
+            using var stream = File.OpenRead(file.Path);
+            if (file.Version is { } version && ModArchiveVersion.Read(stream) != version) throw new ModInspectionChangedException();
+            entries = Path.GetExtension(file.Path).Equals(".7z", StringComparison.OrdinalIgnoreCase)
+                ? ReadAttachmentIndex(file.Path, stream, token, out limitExceeded)
+                : FileManager.TryReadPakIndex(file.Path, token, MaxEntries, out limitExceeded, stream);
+        }
+        catch (Exception ex) when (IsReadError(ex)) { return null; }
+        token.ThrowIfCancellationRequested();
+        Interlocked.Increment(ref archiveReads);
+        if (entries is not null && file.Version is { } parsed)
             lock (cacheGate)
             {
                 if (generation != cacheGeneration) return entries;
                 if (cachedEntries + entries.Length > MaxCachedPakEntries || pakCache.Count >= 128) { pakCache.Clear(); cachedEntries = 0; }
-                if (pakCache.Remove(file.FullName, out var previous)) cachedEntries -= previous.Entries.Length;
-                pakCache[file.FullName] = new(length, modified, entries);
+                if (pakCache.Remove(file.Path, out var previous)) cachedEntries -= previous.Entries.Length;
+                pakCache[file.Path] = new(parsed, entries);
                 cachedEntries += entries.Length;
             }
         return entries;
     }
 
-    private static FileManager.PakEntry[]? ReadAttachmentIndex(FileInfo file, CancellationToken token, out bool limitExceeded)
+    private static FileManager.PakEntry[]? ReadAttachmentIndex(string path, Stream stream, CancellationToken token, out bool limitExceeded)
     {
         limitExceeded = false;
         try
         {
-            using var stream = file.OpenRead();
             using var archive = ArchiveFactory.OpenArchive(stream, ReaderOptions.ForExternalStream);
             var entries = new List<FileManager.PakEntry>();
             int count = 0;
@@ -425,7 +685,7 @@ public sealed class ModInspectionService
             return archive.IsComplete ? entries.ToArray() : null;
         }
         catch (Exception ex) when (ex is not (OutOfMemoryException or OperationCanceledException))
-        { AppDiagnostics.Log("Skipping unreadable attachment index: " + file.FullName, ex); return null; }
+        { AppDiagnostics.Log("Skipping unreadable attachment index: " + path, ex); return null; }
     }
 
     private static bool IsContentPath(string path) => path.StartsWith("resource/", StringComparison.OrdinalIgnoreCase) ||
@@ -440,6 +700,8 @@ public sealed class ModInspectionService
             if ((item.Attributes & FileAttributes.ReparsePoint) != 0) return true;
         return false;
     }
+
+    internal static bool CanReadDirectory(DirectoryInfo directory) => directory.Exists && !HasLinkAncestor(directory);
 
     private static string? NormalizeEntry(string path)
     {
@@ -468,3 +730,5 @@ public sealed class ModInspectionService
     private static bool IsReadError(Exception ex) => FileManager.IsFileError(ex) || ex is NotSupportedException;
     private static IReadOnlyList<T> Frozen<T>(IEnumerable<T> values) => Array.AsReadOnly(values.ToArray());
 }
+
+internal sealed class ModInspectionChangedException : OperationCanceledException;

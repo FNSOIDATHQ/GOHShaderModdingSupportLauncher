@@ -497,7 +497,7 @@ internal sealed class ModInstallService(SubscriptionStore store, IModInstallatio
         }
         else if (transaction.PreviousInstallation is { } previous)
             DeleteVerifiedTree(Path.Combine(directory, "previous"), previous.OwnedFileDetails);
-        host.RefreshMods(transaction.GameDirectory);
+        host.RefreshMods(transaction.GameDirectory, AffectedDirectories(transaction));
         FinishJournal(directory);
     }
 
@@ -521,7 +521,7 @@ internal sealed class ModInstallService(SubscriptionStore store, IModInstallatio
             }
             else store.CommitRemoval(transaction.SubscriptionId);
         }
-        host.RefreshMods(transaction.GameDirectory);
+        host.RefreshMods(transaction.GameDirectory, AffectedDirectories(transaction));
         FinishJournal(directory);
     }
 
@@ -573,8 +573,14 @@ internal sealed class ModInstallService(SubscriptionStore store, IModInstallatio
                 Directory.CreateDirectory(Path.GetDirectoryName(move.SourcePath)!);
                 File.Move(backup, move.SourcePath);
             }
+        host.RefreshMods(transaction.GameDirectory, AffectedDirectories(transaction));
         FinishJournal(directory);
     }
+
+    private static string[] AffectedDirectories(ModFileTransaction transaction) =>
+        transaction.RemovedDirectories
+            .Concat(new[] { transaction.Installation?.DirectoryPath, transaction.PreviousInstallation?.DirectoryPath }.OfType<string>())
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 
     private static void DeleteVerifiedFile(string path, OwnedModFile fingerprint)
     {

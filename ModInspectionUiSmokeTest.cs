@@ -112,10 +112,16 @@ internal static class ModInspectionUiSmokeTest
                     var legendBadges = legend.Children.OfType<Border>().ToArray();
                     var descriptions = legend.Children.OfType<TextBlock>().Select(text => text.Text).ToArray();
                     Require(legendBadges.Length == 4 && descriptions.Length == 4, "exactly four legend rows");
-                    var actualBadges = enabled.GetVisualDescendants().OfType<ModFeaturesView>()
+                    Dictionary<string, Border> ReadBadges() => enabled.GetVisualDescendants().OfType<ModFeaturesView>()
                         .SelectMany(view => view.GetLogicalDescendants().OfType<Border>())
                         .Where(border => border.Child is TextBlock).GroupBy(border => ((TextBlock)border.Child!).Text!)
                         .ToDictionary(group => group.Key, group => group.First());
+                    var actualBadges = ReadBadges();
+                    Pump(() =>
+                    {
+                        actualBadges = ReadBadges();
+                        return legendBadges.All(badge => actualBadges.ContainsKey(((TextBlock)badge.Child!).Text!));
+                    });
                     var lines = new List<string>();
                     for (int row = 0; row < legendBadges.Length; row++)
                     {
@@ -148,7 +154,7 @@ internal static class ModInspectionUiSmokeTest
                     if (mod.Inspection.Shaders.Detected) expected.Add(ModInspectionPresentation.Text("Shader"));
                     if (mod.Inspection.HasOtherFeature) expected.Add(ModInspectionPresentation.Text("Other"));
                     Require(labels.SequenceEqual(expected) && AutomationProperties.GetName(view) == mod.DisplayName + ": " + string.Join(" · ", expected),
-                        "ordered independent badges and accessible summary " + id);
+                        $"ordered independent badges and accessible summary {id}: pending={mod.IsInspectionPending}; actual={string.Join(", ", labels)}; expected={string.Join(", ", expected)}");
                     if (id == "all") Require(labels.Length == 4 && mod.CanActivate, "all four features coexist and remain eligible");
                     if (id == "extra") Require(labels.SequenceEqual(new[] { ModInspectionPresentation.Text("Regular"), ModInspectionPresentation.Text("Other") }) && mod.CanActivate,
                         "ordinary and Other coexist without an external program or activation denial");
@@ -202,8 +208,9 @@ internal static class ModInspectionUiSmokeTest
             // Refresh and internal diagnostics retain evidence without a user-facing details window.
             File.Delete(Path.Combine(mods.FullName, "mixed", "loader.dll"));
             var task = window.RefreshModsAsync();
-            Pump(() => task.IsCompleted); task.GetAwaiter().GetResult();
-            Require(!window.GetModInspectionDebugDetails(window.universalVars.modDic["mixed"]).Contains("loader.dll"), "fresh debug snapshot after removal");
+            Pump(() => task.IsCompleted);
+            Require(task.GetAwaiter().GetResult() && !window.universalVars.modDic["mixed"].IsInspectionPending &&
+                !window.GetModInspectionDebugDetails(window.universalVars.modDic["mixed"]).Contains("loader.dll"), "fresh debug snapshot after removal");
             Require(File.ReadAllText(options) == before && window.universalVars.modLoaded.Select(mod => mod.folderName).SequenceEqual(order), "inspection must preserve options and load order");
         }
         finally

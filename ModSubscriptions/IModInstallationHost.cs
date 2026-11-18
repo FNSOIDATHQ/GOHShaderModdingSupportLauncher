@@ -9,6 +9,7 @@ internal interface IModInstallationHost
     bool IsGameRunning(string gameDirectory);
     void RemoveEnabledMods(string gameDirectory, IReadOnlyList<string> directories);
     void RefreshMods(string gameDirectory);
+    void RefreshMods(string gameDirectory, IReadOnlyList<string> directories) => RefreshMods(gameDirectory);
 }
 
 internal sealed record ModGameProcess(string? ExecutablePath);

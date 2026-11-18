@@ -38,6 +38,7 @@ internal static class UiSmokeTest
             CheckSubscriptionCache(fixture);
             ModTranslationUiSmokeTest.Run(fixture);
             ModInspectionSmokeTest.Run(fixture);
+            ModInspectionCacheSmokeTest.Run(fixture);
             ModInspectionUiSmokeTest.Run(fixture);
             var mods = Directory.CreateDirectory(Path.Combine(fixture, "mods"));
             foreach (var name in new[] { "alpha", "beta", "zeta", "gamma" })

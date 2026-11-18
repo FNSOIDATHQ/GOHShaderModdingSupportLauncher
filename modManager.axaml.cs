@@ -123,11 +123,11 @@ namespace GOHShaderModdingSupportLauncher
             
         }
 
-        private void CommitLoadedMods(List<Mod> mods, bool validateAll = false)
+        private void CommitLoadedMods(List<Mod> mods, bool validateAll = false, string? expectedOptions = null)
         {
             var enabled = main.universalVars.modLoaded.Select(mod => mod.DiscoveryId).ToHashSet(StringComparer.OrdinalIgnoreCase);
             ModActivationGuard.RequireRegular(validateAll ? mods : mods.Where(mod => !enabled.Contains(mod.DiscoveryId)));
-            FileManager.WriteLoadedMods(main.universalVars.optionLoc, mods);
+            if (!FileManager.TryWriteLoadedMods(main.universalVars.optionLoc, mods, expectedOptions)) throw new OperationCanceledException();
             main.ModListWritten();
             foreach (var mod in main.universalVars.modDic.Values) mod.hasLoad = false;
             foreach (var mod in mods) mod.hasLoad = true;
@@ -534,5 +534,9 @@ namespace GOHShaderModdingSupportLauncher
             if (selected is null || selected.Count == 0) return;
             RestoreSelection(grid, selected);
         }
+
+        internal IEnumerable<Mod> VisibleInspectionRows() =>
+            (selectedRow.mods ?? []).Concat(this.GetVisualDescendants().OfType<DataGridRow>()
+                .Select(row => row.DataContext).OfType<Mod>());
     }
 }

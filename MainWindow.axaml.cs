@@ -118,6 +118,7 @@ namespace GOHShaderModdingSupportLauncher
         internal MainWindow(string settingsPath, bool? showDonationBanner = null)
         {
             this.settingsPath = settingsPath;
+            modInspector = new ModInspectionService(Path.Combine(Path.GetDirectoryName(Path.GetFullPath(settingsPath))!, "mod-inspection-cache"));
             ShowDonationBannerThisSession = showDonationBanner ?? Random.Shared.Next(4) == 0;
             ModAliases = new ModAliasStore(Path.Combine(Path.GetDirectoryName(Path.GetFullPath(settingsPath))!, "mod-aliases.json"));
             uiPreferencesStore = new UiPreferencesStore(Path.Combine(Path.GetDirectoryName(Path.GetFullPath(settingsPath))!, "ui-preferences.json"));
@@ -621,6 +622,11 @@ namespace GOHShaderModdingSupportLauncher
         public void ReadLoadedMods()
         {
             using var options = File.OpenText(universalVars.optionLoc);
+            ReadLoadedMods(options);
+        }
+
+        private void ReadLoadedMods(TextReader options)
+        {
             foreach (string modName in FileManager.ReadLoadedModNames(options))
             {
                 var mod = universalVars.modDic.GetValueOrDefault(modName) ??
@@ -809,7 +815,7 @@ namespace GOHShaderModdingSupportLauncher
                 pages.Add(pageId, page);
             }
             pageHost.Content = page;
-            if (page is ModManager manager) manager.RefreshView();
+            if (page is ModManager manager) { EnsureModsScanned(); manager.RefreshView(); }
             if (!SuppressSubscriptionActivation && !openingInstalledSubscription && page is ModSubscriptionsPage subscriptions) subscriptions.Activate();
         }
 
@@ -823,6 +829,7 @@ namespace GOHShaderModdingSupportLauncher
         private void OnClosed(object sender, EventArgs e)
         {
             StopLauncherUpdates();
+            StopTrackingMods();
             CancelModScan();
             DisposeSubscriptionRuntime();
             if (pages.TryGetValue(PageId.ModSubscriptions, out var page))

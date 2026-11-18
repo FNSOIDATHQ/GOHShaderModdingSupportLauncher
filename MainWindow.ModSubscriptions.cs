@@ -204,12 +204,22 @@ public partial class MainWindow
             main.ModListWritten();
         });
 
-        public void RefreshMods(string gameDirectory) => OnUiThread(() =>
+        public void RefreshMods(string gameDirectory) => RefreshMods(gameDirectory, []);
+
+        public void RefreshMods(string gameDirectory, IReadOnlyList<string> directories) => OnUiThread(() =>
         {
-            // A completed background task must not refresh a different game's state.
+            foreach (string directory in directories) main.modInspector.Invalidate(directory, null, archiveMayHaveChanged: true);
             if (!IsCurrentGame(gameDirectory)) return;
+            Interlocked.Increment(ref main.modDirectoryRevision);
+            foreach (string directory in directories)
+            {
+                main.demandedModPaths.Add(directory);
+                if (main.FindInspectedLocalMod(directory) is { } mod) mod.IsInspectionPending = true;
+            }
             main.universalVars.localDir!.Refresh();
-            main.BeginModRefresh();
+            main.ModInspectionChanged?.Invoke(false);
+            if (main.modScanCancellation is null && main.activationChecks.Count == 0) main.BeginModRefresh();
+            else main.modRefreshQueued = true;
         });
 
         private static void OnUiThread(Action action)

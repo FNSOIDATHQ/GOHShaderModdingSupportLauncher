@@ -48,19 +48,21 @@ public partial class ModManager
         var context = main.ModDirectoryContext;
         try
         {
+            string? options = main.ReadModOptions();
             var entries = await Task.Run(() => PresetStore.Read(name));
             Task<bool>? scan = null;
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
                 if (context != main.ModDirectoryContext) throw new OperationCanceledException();
-                scan = main.RefreshModsAsync();
+                scan = main.CheckModsAsync(() => ModPresetStore.Match(entries, main.universalVars.modDic).Mods.ToArray());
             });
             if (!await scan!) throw new OperationCanceledException();
             return await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (revision != main.ModListRevision || context != main.ModDirectoryContext) throw new OperationCanceledException();
+                if (revision != main.ModListRevision || context != main.ModDirectoryContext || main.ReadModOptions() != options)
+                    throw new OperationCanceledException();
                 var match = ModPresetStore.Match(entries, main.universalVars.modDic);
-                CommitLoadedMods(match.Mods, validateAll: true);
+                CommitLoadedMods(match.Mods, validateAll: true, expectedOptions: options);
                 return match;
             });
         }

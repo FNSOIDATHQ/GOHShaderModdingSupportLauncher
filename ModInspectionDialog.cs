@@ -79,7 +79,9 @@ internal sealed class ModInspectionDialog : Window
         busy = true; error.Text = ""; Render();
         try
         {
-            bool applied = await owner.RefreshModsAsync(cancellationToken: lifetime.Token);
+            bool applied = await owner.CheckModsAsync(() =>
+                owner.FindInspectedLocalMod(directory) is { } candidate ? [candidate] : [],
+                lifetime.Token, force: true, protectOptions: false);
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 if (closed) return;

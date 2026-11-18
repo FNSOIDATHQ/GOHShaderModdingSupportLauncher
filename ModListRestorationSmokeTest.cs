@@ -62,7 +62,7 @@ internal static class ModListRestorationSmokeTest
                 string? editedOptions = null;
                 void Observe(bool structure)
                 {
-                    if (!structure || edited || !window.universalVars.modDic.Values.All(mod => mod.IsInspectionPending != completion)) return;
+                    if (!structure || edited || (window.ModScanProgress is not null) != completion) return;
                     edited = true;
                     edit();
                     editedOptions = File.ReadAllText(options);

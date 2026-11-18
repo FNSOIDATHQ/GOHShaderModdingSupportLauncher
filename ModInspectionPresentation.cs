@@ -31,6 +31,7 @@ internal static class ModInspectionPresentation
         var lines = new List<string> { mod.DisplayName };
         if (mod.HasAlias) lines.Add(Format("OriginalName", mod.name));
         lines.Add(Format("Directory", mod.path));
+        if (mod.IsInspectionPending) { lines.Add(Text("Checking")); return string.Join("\n", lines); }
         if (mod.Inspection is not { } result) { lines.Add(Text("NotInspected")); return string.Join("\n", lines); }
         lines.Add(Text("Source") + ": " + Text(result.Source == ModSourceKind.Local ? "Local" : "Workshop"));
         lines.Add(Format("LoadId", result.LoadId ?? Text("Unavailable")));
