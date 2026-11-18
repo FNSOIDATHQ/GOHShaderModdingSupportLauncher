@@ -24,13 +24,28 @@
     <Style Selector="TextBlock.modName.alias">
       <Setter Property="FontWeight" Value="Bold" />
     </Style>
+    <Style Selector="GridSplitter.previewSplitter">
+      <Setter Property="Background" Value="{StaticResource ModReadingBackgroundBrush}" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}">
+            <Border Width="2" Height="30" CornerRadius="1" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Background="{StaticResource ModReadingBorderBrush}" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="GridSplitter.previewSplitter:pointerover, GridSplitter.previewSplitter:pressed">
+      <Setter Property="Background" Value="{StaticResource ModReadingQuoteBrush}" />
+    </Style>
   </UserControl.Styles>
-  <SplitView x:Name="modPreviewSplit" PanePlacement="Right" DisplayMode="Inline"
-             IsPaneOpen="True" OpenPaneLength="320" Background="Transparent"
-             PaneBackground="{StaticResource ModReadingBackgroundBrush}">
-    <SplitView.Pane>
+  <Grid x:Name="modManagerLayout" ColumnDefinitions="*,Auto,320">
+    <GridSplitter x:Name="modPreviewSplitter" Grid.Column="1" Classes="previewSplitter" Width="10"
+                  HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Focusable="True"
+                  ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" />
+    <Border x:Name="localPreviewPane" Grid.Column="2" Background="{StaticResource ModReadingBackgroundBrush}" ClipToBounds="True">
       <local:ModLocalPreview x:Name="localPreview" />
-    </SplitView.Pane>
+    </Border>
   <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" Margin="10">
     <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="6" Margin="0,0,0,8">
       <WrapPanel>
@@ -109,7 +124,7 @@
     </Grid>
     <TextBlock Grid.Row="3" Text="{Binding M_SelectedMod, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="24"
                FontWeight="Bold" Background="#4CA8B2BB" Margin="0,6" />
-    <WrapPanel Grid.Row="4">
+    <WrapPanel x:Name="selectedModActions" Grid.Row="4">
       <Button x:Name="viewModSubscription" Click="viewModSubscription_Click" IsVisible="False"
               Content="{Binding M_ViewSubscription, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" Margin="0,0,8,4" />
       <Button x:Name="openModRemotePage" Click="openModRemotePage_Click" IsVisible="False"
@@ -124,5 +139,5 @@
               Content="{Binding MA_EditAlias, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" Margin="0,0,8,4" />
     </WrapPanel>
   </Grid>
-  </SplitView>
+  </Grid>
 </UserControl>

@@ -17,6 +17,9 @@ public partial class MainWindow
     internal void SetModListCollapsed(bool collapsed) =>
         UpdateInterfacePreferences(preferences => preferences with { ModListCollapsed = collapsed });
 
+    internal void SetModPreviewWidth(double width) =>
+        UpdateInterfacePreferences(preferences => preferences with { ModPreviewWidth = width });
+
     internal void SetDonationBannerHidden(bool hidden)
     {
         UpdateInterfacePreferences(preferences => preferences with { HideDonationBanner = hidden });

@@ -9,6 +9,7 @@ internal sealed record UiPreferences
     public bool NavigationCollapsed { get; init; }
     public bool ModListCollapsed { get; init; }
     public bool HideDonationBanner { get; init; }
+    public double? ModPreviewWidth { get; init; }
     public bool DisableWindowPlacement { get; init; }
     public MainWindowPlacement? WindowPlacement { get; init; }
 }

@@ -55,6 +55,7 @@ namespace GOHShaderModdingSupportLauncher
 
             InitializeComponent();
             InitializeLocalPreview();
+            InitializeSelectedModMenu();
             loadedView = new DataGridCollectionView(loadedItems);
             unloadedView = new DataGridCollectionView(unloadedItems);
             unloadedMods.Columns[0].CustomSortComparer = new ModSortComparer(
@@ -80,6 +81,41 @@ namespace GOHShaderModdingSupportLauncher
             main.ModOriginsChanged += RefreshModViews;
 
             hasInit = true;
+        }
+
+        private void InitializeSelectedModMenu()
+        {
+            var menu = new ContextMenu();
+            foreach (var button in selectedModActions.Children.OfType<Button>())
+            {
+                var item = new MenuItem();
+                item.Bind(MenuItem.HeaderProperty, button.GetObservable(ContentControl.ContentProperty));
+                item.Bind(IsVisibleProperty, button.GetObservable(IsVisibleProperty));
+                item.Bind(IsEnabledProperty, button.GetObservable(IsEnabledProperty));
+                item.Click += (_, _) => button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                menu.Items.Add(item);
+            }
+
+            foreach (var grid in new[] { loadedMods, unloadedMods })
+            {
+                grid.ContextRequested += ModGrid_ContextRequested;
+                grid.ContextMenu = menu;
+            }
+        }
+
+        private void ModGrid_ContextRequested(object? sender, ContextRequestedEventArgs e)
+        {
+            if (sender is not DataGrid grid) return;
+            if (e.TryGetPosition(null, out _))
+            {
+                if (RowItem(e.Source) is not { } mod)
+                {
+                    e.Handled = true;
+                    return;
+                }
+                if (!grid.SelectedItems.Contains(mod)) grid.SelectedItem = mod;
+            }
+            e.Handled = grid.SelectedItems.Count == 0;
         }
 
         private void UpdateUI()
@@ -567,7 +603,7 @@ namespace GOHShaderModdingSupportLauncher
 
             }
             UpdateLocalPreviewLayout();
-            localPreview.SetActive(modPreviewSplit.IsPaneOpen);
+            localPreview.SetActive(localPreviewPane.IsVisible);
         }
 
         public void RefreshView()
