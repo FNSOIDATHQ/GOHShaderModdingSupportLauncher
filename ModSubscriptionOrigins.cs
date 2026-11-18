@@ -4,7 +4,7 @@ namespace GOHShaderModdingSupportLauncher;
 
 // A display/navigation link to committed installer output. It never grants file ownership.
 internal sealed record ModSubscriptionLink(string GameDirectory, string DirectoryPath, Guid SubscriptionId,
-    Guid InstallationId, Guid DownloadId, ModSourceId Source);
+    Guid InstallationId, Guid DownloadId, ModSourceId Source, Uri? RemotePage);
 
 // Built once for a game/library revision; resolving a row never clones the store or touches the filesystem.
 internal sealed class ModSubscriptionOrigins
@@ -20,6 +20,7 @@ internal sealed class ModSubscriptionOrigins
         try { GameDirectory = SubscriptionPaths.Normalize(gameDirectory); }
         catch (ArgumentException) { return; }
 
+        var projectPages = library.Mods.ToDictionary(mod => mod.Id, mod => mod.PageUrl);
         foreach (var subscription in library.Subscriptions)
         {
             if (subscription.Source.Provider is not ("moddb" or "github" or "mowportal")) continue;
@@ -27,6 +28,7 @@ internal sealed class ModSubscriptionOrigins
             try { game = SubscriptionPaths.Normalize(subscription.GameDirectory); }
             catch (ArgumentException) { continue; }
             if (!game.Equals(GameDirectory, SubscriptionPaths.Comparison)) continue;
+            var remotePage = projectPages.GetValueOrDefault(subscription.Source);
             var downloads = subscription.Downloads.Select(download => download.Id).ToHashSet();
             foreach (var installation in subscription.Installations)
             {
@@ -36,7 +38,7 @@ internal sealed class ModSubscriptionOrigins
                 try { directory = SubscriptionPaths.InstallationDirectory(game, installation.DirectoryPath); }
                 catch (ArgumentException) { continue; }
                 var link = new ModSubscriptionLink(game, directory, subscription.Id, installation.Id,
-                    installation.DownloadId, subscription.Source);
+                    installation.DownloadId, subscription.Source, remotePage);
                 if (installations.TryAdd(directory, link)) continue;
                 // Valid libraries have unique installation directories. Never choose an arbitrary owner if that invariant fails.
                 installations[directory] = null;

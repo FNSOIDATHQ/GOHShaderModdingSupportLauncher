@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Globalization;
 using GOHShaderModdingSupportLauncher.ModSubscriptions;
 
 namespace GOHShaderModdingSupportLauncher;
@@ -36,6 +37,16 @@ public sealed class Mod : INotifyPropertyChanged
         }
     }
     internal ModSubscriptionLink? SubscriptionLink { get; private set; }
+    internal string? WorkshopItemId
+    {
+        get
+        {
+            if (IsMissingReference || Inspection is not { Source: ModSourceKind.Workshop } result) return null;
+            string folder = Path.GetFileName(Path.TrimEndingDirectorySeparator(result.DirectoryPath));
+            return ulong.TryParse(folder, NumberStyles.None, CultureInfo.InvariantCulture, out ulong id) && id != 0
+                ? id.ToString(CultureInfo.InvariantCulture) : null;
+        }
+    }
     public string SourceLabel => Inspection?.Source == ModSourceKind.Workshop
         ? LocalizedStrings.Instance.Get("Main_ModWorkshop")
         : SubscriptionLink?.Source.Provider switch

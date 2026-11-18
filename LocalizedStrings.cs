@@ -30,6 +30,7 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
         nameof(MI_FeatureHint),
         nameof(MI_Source),
         nameof(M_ViewSubscription),
+        nameof(M_OpenRemotePage),
         nameof(MP_Title),
         nameof(MP_Expand),
         nameof(MP_Collapse),
@@ -167,6 +168,7 @@ public sealed class LocalizedStrings : INotifyPropertyChanged
         this["MI_" + key] + this["MI_FeatureHint" + key]));
     public string MI_Source => this[nameof(MI_Source)];
     public string M_ViewSubscription => this[nameof(M_ViewSubscription)];
+    public string M_OpenRemotePage => this[nameof(M_OpenRemotePage)];
     public string MP_Title => this[nameof(MP_Title)];
     public string MP_Expand => this[nameof(MP_Expand)];
     public string MP_Collapse => this[nameof(MP_Collapse)];

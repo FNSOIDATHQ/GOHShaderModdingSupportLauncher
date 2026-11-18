@@ -1143,6 +1143,8 @@ Manual changes outside mods cannot be undone here.</value></data>
   <data name="MS_Back" xml:space="preserve"><value>Back</value></data>
   <data name="MS_OriginalFilePlacement" xml:space="preserve"><value>Original file (not unpacked)</value></data>
   <data name="M_ViewSubscription" xml:space="preserve"><value>View subscription</value></data>
+  <data name="M_OpenRemotePage" xml:space="preserve"><value>Open remote mod page</value></data>
+  <data name="M_OpenRemotePageFailed" xml:space="preserve"><value>Could not open the remote mod page.</value></data>
   <data name="MP_Title" xml:space="preserve"><value>Mod info</value></data>
   <data name="MP_Expand" xml:space="preserve"><value>Expand Mod info</value></data>
   <data name="MP_Collapse" xml:space="preserve"><value>Collapse Mod info</value></data>

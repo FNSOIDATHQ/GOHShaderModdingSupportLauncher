@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.LogicalTree;
@@ -19,7 +20,7 @@ internal static class ModOriginSmokeTest
         {
             foreach (string language in new[] { "en-US", "zh-CN" })
                 CheckLanguage(Path.Combine(fixture, "mod-origins", language), language);
-            AppDiagnostics.Log("Mod origin self-test passed: both languages, three providers, exact paths, Workshop isolation, removal states, restart, offline subscription navigation and manager source columns.");
+            AppDiagnostics.Log("Mod origin self-test passed: both languages, three providers, exact paths, Workshop isolation, removal states, restart, offline subscription navigation, manager source columns and remote page actions.");
         }
         finally { LocalizedStrings.Instance.SetCulture(previous); }
     }
@@ -132,6 +133,7 @@ internal static class ModOriginSmokeTest
                 "Origin presentation changed game load order.");
             Require(manager.FindControl<DataGrid>("loadedMods")!.Columns[1] is DataGridTextColumn &&
                 manager.FindControl<DataGrid>("unloadedMods")!.Columns[1] is DataGridTextColumn, "A manager source column is missing.");
+            CheckRemotePageActions(manager, library, workshop, Local("manual"), language);
 
             page = new(main, runtime);
             foreach (var subscription in library.Subscriptions)
@@ -152,6 +154,38 @@ internal static class ModOriginSmokeTest
             Require(Find<TabStrip>(page, "subscriptionSource").SelectedIndex == before, "A stale cross-game navigation changed the page.");
         }
         finally { page?.Dispose(); Pump(runtime.ShutdownAsync()); main.Close(); }
+    }
+
+    private static void CheckRemotePageActions(ModManager manager, SubscriptionLibrary library, Mod workshop, Mod local, string language)
+    {
+        var loaded = manager.FindControl<DataGrid>("loadedMods")!;
+        var unloaded = manager.FindControl<DataGrid>("unloadedMods")!;
+        foreach (var grid in new[] { loaded, unloaded })
+        {
+            grid.ApplyTemplate();
+            grid.Measure(new Size(760, 250));
+            grid.Arrange(new Rect(0, 0, 760, 250));
+        }
+        Dispatcher.UIThread.RunJobs();
+        var button = manager.FindControl<Button>("openModRemotePage")!;
+        Require(button.Content as string == (language == "zh-CN" ? "打开mod远程页面" : "Open remote mod page"),
+            "The remote page action did not use its localized label.");
+        foreach (var project in library.Mods)
+        {
+            var grid = project.Id.Provider == "mowportal" ? unloaded : loaded;
+            grid.SelectedItem = grid.ItemsSource!.Cast<Mod>().Single(mod => mod.SubscriptionLink?.Source == project.Id);
+            Require(button.IsVisible && manager.SelectedModRemotePage?.AbsoluteUri == project.PageUrl.AbsoluteUri,
+                "A subscribed Mod did not open its saved project page.");
+        }
+        unloaded.SelectedItem = workshop;
+        Require(button.IsVisible && manager.SelectedModRemotePage?.AbsoluteUri == "steam://url/CommunityFilePage/123",
+            "The Workshop action did not target the Steam client's item page.");
+        unloaded.SelectedItems.Add(local);
+        Require(!button.IsVisible && manager.SelectedModRemotePage is null, "The action remained available for multiple Mods.");
+        unloaded.SelectedItems.Clear();
+        Require(!button.IsVisible && manager.SelectedModRemotePage is null, "The action remained available without a selection.");
+        unloaded.SelectedItem = local;
+        Require(!button.IsVisible && manager.SelectedModRemotePage is null, "A manual local Mod showed the remote page action.");
     }
 
     private static IEnumerable<Control> Controls(Control root)

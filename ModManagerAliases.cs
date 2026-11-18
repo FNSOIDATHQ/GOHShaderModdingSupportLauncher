@@ -11,7 +11,7 @@ public partial class ModManager
     private void UpdateSelectedModActions()
     {
         editModAlias.IsEnabled = selectedRow.mods?.Count == 1;
-        UpdateSubscriptionAction();
+        UpdateOriginActions();
         UpdateLocalPreview();
     }
 

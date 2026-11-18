@@ -112,6 +112,8 @@
     <WrapPanel Grid.Row="4">
       <Button x:Name="viewModSubscription" Click="viewModSubscription_Click" IsVisible="False"
               Content="{Binding M_ViewSubscription, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" Margin="0,0,8,4" />
+      <Button x:Name="openModRemotePage" Click="openModRemotePage_Click" IsVisible="False"
+              Content="{Binding M_OpenRemotePage, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" Margin="0,0,8,4" />
       <Button x:Name="openModFolder" Click="openModFolder_Click"
               Content="{Binding M_OpenFolder, Source={x:Static local:LocalizedStrings.Instance}}" FontSize="20" Margin="0,0,8,4" />
       <Button x:Name="loadShaderCache" Click="loadShaderCache_Click"

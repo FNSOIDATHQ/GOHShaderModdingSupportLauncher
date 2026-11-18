@@ -16,10 +16,8 @@ internal static class ModAliasItems
     {
         if (mod.IsMissingReference || mod.Inspection is not { } inspection) return null;
         if (inspection.Source == ModSourceKind.Workshop)
-        {
-            string folder = Path.GetFileName(Path.TrimEndingDirectorySeparator(inspection.DirectoryPath));
-            return FromNumber(WorkshopPrefix, folder, mod.name);
-        }
+            return mod.WorkshopItemId is { } id
+                ? new(WorkshopPrefix + id, ModAliasStore.ValidText(mod.name) ? mod.name : null) : null;
         return mod.SubscriptionLink is { } link ? FromSource(link.Source, mod.name) : null;
     }
 
